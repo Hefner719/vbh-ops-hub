@@ -1,0 +1,3500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="VBH Meeting"/>
+<meta name="theme-color" content="#1B3564"/>
+<title>VBH Weekly Production Meeting</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
+<script src="/vbh-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:#1B3564; --navy-dk:#122548; --navy-deep:#0B1A33;
+  --steel:#5A7DA6; --steel-lt:#8AA5C4;
+  --ink:#16233b; --ink-soft:#4a5b76; --ink-faint:#8592a8;
+  --line:#dde5f0; --line-soft:#eef2f8;
+  --surface:#ffffff; --surface-2:#f6f9fd; --surface-3:#eef3fa;
+  --gold:#C9A84C; --gold-dk:#a8892f; --gold-soft:#f4ecd4;
+  --green:#15803d; --green-bg:#eafaf0; --green-line:#a7e8c2;
+  --amber:#b45309; --amber-bg:#fff6e8; --amber-line:#f3d19b;
+  --red:#b91c1c;  --red-bg:#fdeceb;  --red-line:#f4b5b2;
+  --violet:#6d28d9; --violet-bg:#f1ebfd;
+  --radius:12px; --radius-sm:8px;
+  --shadow-sm:0 1px 2px rgba(16,32,60,.06), 0 1px 3px rgba(16,32,60,.05);
+  --shadow-md:0 4px 14px rgba(16,32,60,.10);
+  --shadow-lg:0 24px 60px rgba(11,26,51,.28);
+  --topbar-h:60px; --nav-h:44px;
+}
+
+html, body { height:100%; }
+body {
+  font-family:'Lato', system-ui, -apple-system, sans-serif;
+  background:var(--surface-2); color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh; display:flex; flex-direction:column;
+}
+
+/* ─────────────── GATE ─────────────── */
+#gate {
+  position:fixed; inset:0; z-index:1000;
+  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:26px; padding:24px;
+  background:
+    radial-gradient(1200px 800px at 15% -10%, rgba(90,125,166,.30), transparent 60%),
+    radial-gradient(900px 700px at 110% 110%, rgba(201,168,76,.12), transparent 50%),
+    linear-gradient(160deg, var(--navy-deep) 0%, var(--navy-dk) 60%, var(--navy) 100%);
+}
+.gate-box {
+  background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.18);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border-radius:18px; padding:38px 44px;
+  display:flex; flex-direction:column; align-items:center; gap:13px;
+  min-width:340px; max-width:92vw; box-shadow:var(--shadow-lg);
+}
+.gate-box h2 { font-family:'Cormorant Garamond',serif; font-size:1.8rem; font-weight:700; color:#fff; letter-spacing:.03em; }
+.gate-box .sub { font-size:.82rem; color:#AEC0D6; letter-spacing:.02em; }
+.gate-box .accent-line { width:56px; height:2px; background:var(--gold); border-radius:2px; margin:3px 0 7px; }
+.gate-box input {
+  width:100%; padding:12px 15px; border:1.5px solid rgba(255,255,255,.22); border-radius:10px;
+  background:rgba(255,255,255,.10); color:#fff; font-size:.95rem; font-family:inherit; outline:none;
+}
+.gate-box input::placeholder { color:rgba(255,255,255,.5); }
+.gate-box input:focus { border-color:var(--gold); background:rgba(255,255,255,.16); }
+.gate-box button {
+  width:100%; padding:12px; border:none; border-radius:10px; cursor:pointer;
+  background:linear-gradient(180deg,var(--gold) 0%,#b89438 100%); color:#fff;
+  font-family:inherit; font-size:.9rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+}
+.gate-box button:hover { filter:brightness(1.06); }
+.gate-err { color:#ffb4ae; font-size:.8rem; min-height:1em; }
+
+/* ─────────────── APP ─────────────── */
+#app { display:none; flex-direction:column; flex:1; min-height:100vh; }
+#app.show { display:flex; }
+
+.topbar {
+  position:sticky; top:0; z-index:60; height:var(--topbar-h);
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:0 20px; background:var(--navy); color:#fff; box-shadow:0 2px 10px rgba(11,26,51,.22);
+  /* body and #app are column flex containers, so a fixed-height bar would be
+     shrunk to nothing by the tall page body. Pin it. */
+  flex:0 0 var(--topbar-h);
+}
+.tb-left { display:flex; align-items:center; gap:16px; min-width:0; }
+.back-link { color:#AEC0D6; text-decoration:none; font-size:.8rem; white-space:nowrap; }
+.back-link:hover { color:#fff; }
+.tb-title { font-family:'Cormorant Garamond',serif; font-size:1.22rem; font-weight:700; letter-spacing:.02em; line-height:1.1; }
+.tb-meta { font-size:.72rem; color:#AEC0D6; letter-spacing:.02em; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tb-right { display:flex; align-items:center; gap:7px; flex-shrink:0; }
+
+.timer-display {
+  font-variant-numeric:tabular-nums; font-size:.88rem; font-weight:700; color:var(--gold-soft);
+  min-width:52px; text-align:right; letter-spacing:.04em;
+}
+.btn {
+  border:1px solid rgba(255,255,255,.26); background:rgba(255,255,255,.08); color:#fff;
+  padding:7px 12px; border-radius:8px; font-family:inherit; font-size:.76rem; font-weight:700;
+  letter-spacing:.03em; cursor:pointer; white-space:nowrap; transition:background .12s, border-color .12s;
+}
+.btn:hover { background:rgba(255,255,255,.17); }
+.btn-gold { background:linear-gradient(180deg,var(--gold) 0%,#b89438 100%); border-color:var(--gold); }
+.btn-gold:hover { filter:brightness(1.07); background:linear-gradient(180deg,var(--gold) 0%,#b89438 100%); }
+.btn-green { background:#12764a; border-color:#0d5c39; }
+.btn-green:hover { background:#159159; }
+.btn-icon { padding:7px 9px; }
+
+/* save state pill */
+#saveState {
+  font-size:.7rem; color:#AEC0D6; letter-spacing:.03em; min-width:64px; text-align:right;
+}
+#saveState.dirty { color:var(--gold-soft); }
+#saveState.err { color:#ffb4ae; }
+
+/* ─────────────── SUB NAV ─────────────── */
+.nav-bar {
+  position:sticky; top:var(--topbar-h); z-index:55; height:var(--nav-h);
+  display:flex; align-items:center; gap:6px; padding:0 20px;
+  background:var(--surface); border-bottom:1px solid var(--line);
+  overflow-x:auto; scrollbar-width:none;
+  flex:0 0 var(--nav-h);
+}
+.nav-bar::-webkit-scrollbar { display:none; }
+.nav-chip {
+  display:flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px;
+  flex:0 0 auto;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-soft);
+  font-size:.76rem; font-weight:700; letter-spacing:.02em; cursor:pointer; white-space:nowrap;
+  transition:all .12s;
+}
+.nav-chip:hover { border-color:var(--steel-lt); color:var(--navy); }
+.nav-chip.active { background:var(--navy); border-color:var(--navy); color:#fff; }
+.nav-chip .chip-count {
+  font-size:.66rem; font-weight:900; padding:1px 6px; border-radius:999px;
+  background:var(--surface-3); color:var(--navy);
+}
+.nav-chip.active .chip-count { background:rgba(255,255,255,.22); color:#fff; }
+.nav-chip .chip-time { font-size:.66rem; font-weight:400; opacity:.7; }
+
+/* ─────────────── PAGE ─────────────── */
+.page-body { flex:1; padding:22px 20px 60px; max-width:1180px; width:100%; margin:0 auto; }
+
+/* ─────────────── SECTION CARD ─────────────── */
+.section-card {
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  margin-bottom:16px; box-shadow:var(--shadow-sm); overflow:hidden; scroll-margin-top:118px;
+}
+.section-header {
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  padding:12px 16px; cursor:pointer; background:var(--surface);
+  border-bottom:1px solid var(--line-soft); user-select:none;
+}
+.section-header:hover { background:var(--surface-2); }
+.sh-left { display:flex; align-items:center; gap:11px; min-width:0; }
+.section-num {
+  width:24px; height:24px; border-radius:7px; background:var(--navy); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:.76rem; font-weight:900; flex-shrink:0;
+}
+.section-title { font-family:'Cormorant Garamond',serif; font-size:1.22rem; font-weight:700; color:var(--navy); letter-spacing:.01em; }
+.sh-right { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+.section-time { font-size:.72rem; color:var(--ink-faint); letter-spacing:.02em; white-space:nowrap; }
+.section-toggle { color:var(--steel); font-size:.8rem; transition:transform .18s; }
+.section-card.collapsed .section-toggle { transform:rotate(-90deg); }
+.section-card.collapsed .section-body { display:none; }
+.section-body { padding:16px; }
+.section-note {
+  font-size:.79rem; color:var(--ink-soft); line-height:1.5; margin-bottom:13px;
+  padding:9px 12px; background:var(--surface-2); border-left:3px solid var(--steel-lt); border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+}
+.section-note .hl { color:var(--gold-dk); font-weight:700; }
+
+/* ─────────────── TABLE ─────────────── */
+/* Wide tables (warranty is 6 columns) get their own horizontal scroller so a
+   phone scrolls the TABLE, not the whole page. */
+.table-scroll { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.table-scroll .ag-table { min-width:560px; }
+.ag-table { width:100%; border-collapse:separate; border-spacing:0; font-size:.85rem; }
+.ag-table th {
+  text-align:left; font-size:.68rem; font-weight:900; text-transform:uppercase; letter-spacing:.07em;
+  color:var(--steel); padding:8px 10px; background:var(--surface-2);
+  border-bottom:1px solid var(--line); white-space:nowrap;
+}
+.ag-table th:first-child { border-radius:var(--radius-sm) 0 0 0; }
+.ag-table th:last-child  { border-radius:0 var(--radius-sm) 0 0; }
+.ag-table td { padding:8px 10px; border-bottom:1px solid var(--line-soft); vertical-align:top; color:var(--ink); line-height:1.45; }
+.ag-table tbody tr:hover td { background:var(--surface-2); }
+.ag-table tr.done td { color:var(--ink-faint); text-decoration:line-through; }
+.ag-table tr.done td.check-cell { text-decoration:none; }
+.check-cell { width:34px; text-align:center; }
+.owner-cell { width:130px; }
+.date-cell  { width:120px; }
+.due-cell   { width:110px; }
+.status-cell{ width:130px; }
+.row-del {
+  width:30px; text-align:center; color:var(--ink-faint); cursor:pointer; opacity:0; font-size:.9rem;
+  transition:opacity .12s, color .12s; user-select:none;
+}
+tr:hover .row-del { opacity:1; }
+.row-del:hover { color:var(--red); }
+
+[contenteditable] { outline:none; }
+[contenteditable]:focus {
+  background:#fffdf3; box-shadow:inset 0 0 0 2px var(--gold-soft); border-radius:4px;
+}
+[contenteditable]:empty::before { content:attr(data-ph); color:var(--ink-faint); font-style:italic; pointer-events:none; }
+
+/* checkbox */
+.cb {
+  width:16px; height:16px; border:1.6px solid var(--steel-lt); border-radius:5px; background:#fff;
+  cursor:pointer; display:inline-block; position:relative; flex-shrink:0; transition:all .12s;
+}
+.cb:hover { border-color:var(--navy); }
+.cb.checked { background:var(--green); border-color:var(--green); }
+.cb.checked::after {
+  content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:.7rem; font-weight:900;
+}
+
+/* badges & chips */
+.badge {
+  display:inline-block; padding:2px 8px; border-radius:999px; font-size:.68rem; font-weight:900;
+  letter-spacing:.03em; border:1px solid; white-space:nowrap;
+}
+.badge-active  { color:var(--green); background:var(--green-bg); border-color:var(--green-line); }
+.badge-hold    { color:var(--amber); background:var(--amber-bg); border-color:var(--amber-line); }
+.badge-confirm { color:var(--navy);  background:var(--surface-3); border-color:#c2d3e8; }
+.badge-late    { color:var(--red);   background:var(--red-bg);   border-color:var(--red-line); }
+
+.owner-chip {
+  display:inline-flex; align-items:center; gap:5px; padding:2px 9px 2px 3px; border-radius:999px;
+  background:var(--surface-3); border:1px solid #cfdcec; font-size:.72rem; font-weight:700; color:var(--navy);
+  white-space:nowrap;
+}
+.owner-chip .av {
+  /* width:auto + min-width so a three-letter initial (Jordan vs Josh) doesn't
+     spill out of the circle — it just relaxes into a short pill. */
+  min-width:17px; height:17px; padding:0 4px; border-radius:999px;
+  background:var(--navy); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:.6rem; font-weight:900;
+}
+.owner-chip.unassigned { background:var(--amber-bg); border-color:var(--amber-line); color:var(--amber); }
+.owner-chip.unassigned .av { background:var(--amber); }
+
+.due-chip {
+  display:inline-block; padding:2px 8px; border-radius:999px; font-size:.7rem; font-weight:700;
+  background:var(--surface-3); color:var(--ink-soft); border:1px solid #cfdcec; white-space:nowrap;
+}
+.due-chip.soon { background:var(--amber-bg); color:var(--amber); border-color:var(--amber-line); }
+.due-chip.late { background:var(--red-bg);  color:var(--red);  border-color:var(--red-line); }
+
+.tag-chip {
+  display:inline-block; padding:1px 7px; border-radius:5px; font-size:.68rem; font-weight:700;
+  background:var(--violet-bg); color:var(--violet); white-space:nowrap;
+}
+
+/* buttons in body */
+.add-row-btn {
+  margin-top:10px; padding:6px 13px; border:1px dashed var(--steel-lt); border-radius:var(--radius-sm);
+  background:var(--surface); color:var(--steel); font-family:inherit; font-size:.76rem; font-weight:700;
+  cursor:pointer; transition:all .12s;
+}
+.add-row-btn:hover { border-color:var(--navy); color:var(--navy); background:var(--surface-2); border-style:solid; }
+.btn-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.btn-solid {
+  padding:6px 13px; border:1px solid var(--navy); border-radius:var(--radius-sm); background:var(--navy);
+  color:#fff; font-family:inherit; font-size:.76rem; font-weight:700; cursor:pointer;
+}
+.btn-solid:hover { background:var(--navy-dk); }
+
+/* ─────────────── WINS ─────────────── */
+.wins-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:9px; }
+.win-row {
+  display:flex; align-items:stretch; gap:0; border:1px solid var(--line); border-radius:var(--radius-sm);
+  overflow:hidden; background:var(--surface);
+}
+.win-name {
+  display:flex; align-items:center; gap:6px; padding:9px 11px; background:var(--surface-2);
+  border-right:1px solid var(--line); font-size:.78rem; font-weight:900; color:var(--navy);
+  white-space:nowrap; flex-shrink:0;
+}
+.win-text { flex:1; padding:9px 11px; font-size:.83rem; line-height:1.45; min-height:38px; }
+
+/* ─────────────── JOB CARDS ─────────────── */
+.job-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.job-search {
+  flex:1; min-width:180px; padding:7px 12px; border:1px solid var(--line); border-radius:var(--radius-sm);
+  font-family:inherit; font-size:.82rem; color:var(--ink); background:var(--surface);
+}
+.job-search:focus { outline:none; border-color:var(--steel); }
+
+.job-grid { display:flex; flex-direction:column; gap:11px; }
+.job-card {
+  border:1px solid var(--line); border-left:4px solid var(--steel-lt); border-radius:var(--radius);
+  background:var(--surface); overflow:hidden; box-shadow:var(--shadow-sm);
+}
+.job-card[data-tone="ok"]    { border-left-color:var(--green); }
+.job-card[data-tone="risk"]  { border-left-color:var(--amber); }
+.job-card[data-tone="late"]  { border-left-color:var(--red); }
+.job-card.collapsed .job-body,
+.job-card.collapsed .job-foot { display:none; }
+
+.job-head {
+  display:flex; align-items:center; gap:11px; padding:10px 13px; background:var(--surface-2);
+  border-bottom:1px solid var(--line-soft); cursor:pointer;
+}
+.job-caret { color:var(--steel); font-size:.72rem; transition:transform .18s; flex-shrink:0; }
+.job-card.collapsed .job-caret { transform:rotate(-90deg); }
+.job-head-main { flex:1; min-width:0; }
+.job-name { font-size:.94rem; font-weight:900; color:var(--navy); line-height:1.3; }
+.job-sub { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-top:3px; }
+.job-date { font-size:.74rem; color:var(--ink-soft); }
+.job-head-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.job-metrics { display:flex; align-items:center; gap:7px; }
+.metric-pill {
+  display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:999px;
+  font-size:.7rem; font-weight:900; background:var(--surface-3); color:var(--navy); border:1px solid #cfdcec;
+  white-space:nowrap;
+}
+.metric-pill.pos { background:var(--green-bg); color:var(--green); border-color:var(--green-line); }
+.metric-pill.neg { background:var(--red-bg);  color:var(--red);  border-color:var(--red-line); }
+.goal-progress { font-size:.7rem; color:var(--ink-faint); font-weight:700; white-space:nowrap; }
+.job-kill {
+  color:var(--ink-faint); cursor:pointer; font-size:.9rem; padding:2px 5px; border-radius:5px;
+}
+.job-kill:hover { color:var(--red); background:var(--red-bg); }
+
+.job-body { padding:13px; display:grid; grid-template-columns:1.25fr 1fr; gap:15px; }
+.job-col-label {
+  font-size:.66rem; font-weight:900; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--steel); margin-bottom:7px; display:flex; align-items:center; gap:6px;
+}
+.goal-hint { font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink-faint); font-size:.68rem; }
+.goal-list { display:flex; flex-direction:column; gap:5px; }
+.goal-row { display:flex; align-items:flex-start; gap:8px; }
+.goal-text { flex:1; font-size:.84rem; line-height:1.45; }
+.goal-row.done .goal-text { text-decoration:line-through; color:var(--ink-faint); }
+.goal-kill { color:var(--ink-faint); cursor:pointer; opacity:0; font-size:.8rem; padding:0 3px; }
+.goal-row:hover .goal-kill { opacity:1; }
+.goal-kill:hover { color:var(--red); }
+.add-goal-btn {
+  margin-top:8px; padding:4px 10px; border:1px dashed var(--steel-lt); border-radius:6px;
+  background:transparent; color:var(--steel); font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer;
+}
+.add-goal-btn:hover { border-color:var(--navy); color:var(--navy); border-style:solid; }
+
+.job-blockers {
+  font-size:.84rem; line-height:1.5; color:var(--red); min-height:44px;
+  background:var(--red-bg); border:1px solid var(--red-line); border-radius:var(--radius-sm); padding:8px 10px;
+}
+.job-blockers:empty::before { color:#c98d8a; }
+
+.job-foot { border-top:1px solid var(--line-soft); }
+.job-strip { padding:9px 13px; border-bottom:1px solid var(--line-soft); }
+.job-strip:last-child { border-bottom:none; }
+.job-strip-label {
+  font-size:.66rem; font-weight:900; text-transform:uppercase; letter-spacing:.08em; margin-bottom:5px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+.job-strip.next  { background:#f3f8fd; }
+.job-strip.next  .job-strip-label { color:var(--steel); }
+.job-strip.notes { background:#fffdf4; }
+.job-strip.notes .job-strip-label { color:var(--gold-dk); }
+.job-strip-text { font-size:.84rem; line-height:1.5; min-height:20px; }
+
+/* tracker block */
+.tracker-sync { padding:10px 13px; background:var(--surface-3); border-bottom:1px solid var(--line-soft); }
+.tracker-sync-label {
+  font-size:.66rem; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:var(--steel);
+  margin-bottom:7px; display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+}
+.tracker-hint { font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink-faint); }
+select.tracker-link {
+  width:100%; padding:6px 9px; border:1px solid var(--line); border-radius:6px; background:#fff;
+  font-family:inherit; font-size:.78rem; color:var(--ink); margin-bottom:8px;
+}
+select.tracker-link:focus { outline:none; border-color:var(--steel); }
+.tracker-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
+.tracker-fields label {
+  display:block; font-size:.62rem; font-weight:900; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--ink-faint); margin-bottom:3px;
+}
+.tracker-fields input, .tracker-fields select {
+  width:100%; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:#fff;
+  font-family:inherit; font-size:.78rem; color:var(--ink);
+}
+.tracker-fields input:focus, .tracker-fields select:focus { outline:none; border-color:var(--steel); }
+.tracker-proj-info {
+  display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px;
+  font-size:.72rem; color:var(--ink-soft); padding-top:7px; border-top:1px dashed #cfdcec;
+}
+.tpi-open { color:var(--steel); text-decoration:none; font-weight:700; white-space:nowrap; }
+.tpi-open:hover { color:var(--navy); text-decoration:underline; }
+
+/* tracker picker + new starts */
+.tracker-picker {
+  margin-top:11px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface);
+  max-height:340px; overflow-y:auto; box-shadow:var(--shadow-md);
+}
+.tp-head {
+  position:sticky; top:0; display:flex; align-items:center; justify-content:space-between;
+  padding:9px 13px; background:var(--navy); color:#fff; font-size:.76rem; font-weight:900;
+  text-transform:uppercase; letter-spacing:.06em;
+}
+.tp-close { cursor:pointer; font-size:.9rem; }
+.tp-row { display:flex; align-items:center; justify-content:space-between; gap:11px; padding:8px 13px; border-bottom:1px solid var(--line-soft); }
+.tp-row:hover { background:var(--surface-2); }
+.tp-row.on-agenda { opacity:.5; }
+.tp-info { font-size:.8rem; color:var(--ink); min-width:0; }
+.tp-info span { color:var(--ink-soft); }
+.tp-add {
+  padding:4px 11px; border:1px solid var(--navy); border-radius:6px; background:var(--navy); color:#fff;
+  font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+.tp-add:disabled { background:var(--surface-3); color:var(--ink-faint); border-color:var(--line); cursor:default; }
+.tp-empty { padding:16px; text-align:center; color:var(--ink-faint); font-size:.8rem; font-style:italic; }
+
+.new-starts-banner {
+  margin-bottom:12px; border:1px solid var(--green-line); background:var(--green-bg);
+  border-radius:var(--radius); overflow:hidden;
+}
+.nsb-head { padding:8px 13px; font-size:.76rem; font-weight:900; color:var(--green); letter-spacing:.03em; }
+.new-starts-row { display:flex; align-items:center; justify-content:space-between; gap:11px; padding:7px 13px; border-top:1px solid var(--green-line); }
+.nsr-info { font-size:.8rem; color:var(--ink); }
+.nsr-info span { color:var(--ink-soft); }
+.nsr-add {
+  padding:4px 11px; border:1px solid var(--green); border-radius:6px; background:var(--green); color:#fff;
+  font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+
+/* ─────────────── ACTION ITEMS ─────────────── */
+.quick-add {
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  padding:11px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface-2);
+  margin-bottom:13px;
+}
+.qa-text {
+  flex:1; min-width:200px; padding:9px 12px; border:1px solid var(--line); border-radius:var(--radius-sm);
+  font-family:inherit; font-size:.87rem; color:var(--ink); background:#fff;
+}
+.qa-text:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 3px var(--gold-soft); }
+.qa-sel, .qa-date {
+  padding:9px 10px; border:1px solid var(--line); border-radius:var(--radius-sm);
+  font-family:inherit; font-size:.82rem; color:var(--ink); background:#fff;
+}
+.qa-sel:focus, .qa-date:focus { outline:none; border-color:var(--steel); }
+.qa-go {
+  padding:9px 17px; border:none; border-radius:var(--radius-sm);
+  background:linear-gradient(180deg,var(--gold) 0%,#b89438 100%); color:#fff;
+  font-family:inherit; font-size:.82rem; font-weight:900; letter-spacing:.03em; cursor:pointer; white-space:nowrap;
+}
+.qa-go:hover { filter:brightness(1.07); }
+.qa-hint { flex-basis:100%; font-size:.72rem; color:var(--ink-faint); }
+.qa-hint code { background:var(--surface-3); padding:1px 5px; border-radius:4px; font-size:.94em; color:var(--navy); }
+
+.filter-bar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:11px; }
+.filter-label { font-size:.68rem; font-weight:900; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); margin-right:2px; }
+.filter-chip {
+  padding:4px 11px; border-radius:999px; border:1px solid var(--line); background:var(--surface);
+  color:var(--ink-soft); font-size:.74rem; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .12s;
+}
+.filter-chip:hover { border-color:var(--steel-lt); color:var(--navy); }
+.filter-chip.active { background:var(--navy); border-color:var(--navy); color:#fff; }
+.filter-chip .fc-n { opacity:.7; font-weight:900; margin-left:3px; }
+
+.action-list { display:flex; flex-direction:column; gap:0; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.action-group-head {
+  display:flex; align-items:center; gap:8px; padding:7px 13px; background:var(--surface-3);
+  border-bottom:1px solid var(--line); font-size:.72rem; font-weight:900; color:var(--navy);
+  text-transform:uppercase; letter-spacing:.06em;
+  /* Deliberately NOT sticky. Owner groups are only a few rows each, so sticky
+     headers bought nothing and cost a lot: several of them pinned to the same
+     offset stacked on top of each other and hid the rows underneath.
+     pointer-events:none stays as cheap insurance — the header has no
+     interactive children and must never swallow a click meant for a row. */
+  pointer-events:none;
+}
+.action-group-head .agh-n { color:var(--ink-faint); font-weight:700; }
+.action-row {
+  display:flex; align-items:flex-start; gap:10px; padding:9px 13px; border-bottom:1px solid var(--line-soft);
+  background:var(--surface); transition:background .1s;
+}
+.action-row:last-child { border-bottom:none; }
+.action-row:hover { background:var(--surface-2); }
+.action-row.done .ar-text { text-decoration:line-through; color:var(--ink-faint); }
+.action-row.done { background:var(--surface-2); }
+.ar-main { flex:1 1 auto; min-width:180px; }
+.ar-text { font-size:.87rem; line-height:1.5; color:var(--ink); }
+.ar-meta { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-top:5px; }
+.ar-side { display:flex; align-items:center; gap:7px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end; }
+.ar-owner-sel, .ar-due-in {
+  padding:3px 7px; border:1px solid transparent; border-radius:6px; background:transparent;
+  font-family:inherit; font-size:.74rem; color:var(--ink-soft); cursor:pointer;
+}
+.ar-owner-sel:hover, .ar-due-in:hover { border-color:var(--line); background:#fff; }
+.ar-owner-sel:focus, .ar-due-in:focus { outline:none; border-color:var(--steel); background:#fff; }
+.ar-kill { color:var(--ink-faint); cursor:pointer; opacity:0; font-size:.88rem; padding:0 4px; }
+.action-row:hover .ar-kill { opacity:1; }
+.ar-kill:hover { color:var(--red); }
+.empty-note { padding:22px; text-align:center; color:var(--ink-faint); font-size:.82rem; font-style:italic; }
+
+/* ─────────────── SEND PANEL ─────────────── */
+.drawer-overlay {
+  position:fixed; inset:0; background:rgba(11,26,51,.5); backdrop-filter:blur(2px);
+  z-index:190; opacity:0; pointer-events:none; transition:opacity .18s;
+}
+.drawer-overlay.show { opacity:1; pointer-events:auto; }
+.drawer {
+  position:fixed; top:0; right:0; bottom:0; width:min(560px,100vw); z-index:200;
+  background:var(--surface); box-shadow:var(--shadow-lg); transform:translateX(101%);
+  transition:transform .24s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column;
+}
+.drawer.open { transform:translateX(0); }
+.drawer-head {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:15px 18px; background:var(--navy); color:#fff; flex-shrink:0;
+}
+.drawer-head h3 { font-family:'Cormorant Garamond',serif; font-size:1.24rem; font-weight:700; letter-spacing:.02em; }
+.drawer-head .dh-sub { font-size:.72rem; color:#AEC0D6; margin-top:2px; }
+.drawer-close { background:none; border:none; color:#AEC0D6; font-size:1.2rem; cursor:pointer; padding:4px 8px; }
+.drawer-close:hover { color:#fff; }
+.drawer-tools { display:flex; gap:8px; flex-wrap:wrap; padding:12px 18px; border-bottom:1px solid var(--line); background:var(--surface-2); flex-shrink:0; }
+.drawer-body { flex:1; overflow-y:auto; padding:14px 18px 30px; }
+
+.send-card { border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; overflow:hidden; }
+.send-card-head {
+  display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 13px;
+  background:var(--surface-2); border-bottom:1px solid var(--line-soft);
+}
+.sch-left { display:flex; align-items:center; gap:9px; min-width:0; }
+.sch-av {
+  min-width:28px; height:28px; padding:0 5px; border-radius:999px;
+  background:var(--navy); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:.76rem; font-weight:900; flex-shrink:0;
+}
+.sch-name { font-size:.9rem; font-weight:900; color:var(--navy); line-height:1.2; }
+.sch-mail { font-size:.7rem; color:var(--ink-faint); }
+.sch-mail.missing { color:var(--amber); font-style:italic; }
+.sch-actions { display:flex; gap:6px; flex-shrink:0; }
+.sc-btn {
+  padding:5px 11px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--navy);
+  font-family:inherit; font-size:.73rem; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+.sc-btn:hover { border-color:var(--navy); background:var(--surface-2); }
+.sc-btn.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+.sc-btn.primary:hover { background:var(--navy-dk); }
+.sc-btn.ok { background:var(--green); color:#fff; border-color:var(--green); }
+.send-card-body { padding:10px 13px; }
+.send-line { display:flex; gap:8px; align-items:flex-start; font-size:.82rem; line-height:1.5; padding:4px 0; }
+.send-line .sl-dot { color:var(--steel); flex-shrink:0; }
+.send-line .sl-src { font-size:.68rem; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; flex-shrink:0; padding-top:2px; }
+
+/* ─────────────── ROLLOVER PREVIEW ─────────────── */
+.modal-wrap {
+  position:fixed; inset:0; z-index:300; display:none; align-items:center; justify-content:center; padding:24px;
+  background:rgba(11,26,51,.55); backdrop-filter:blur(3px);
+}
+.modal-wrap.open { display:flex; }
+.modal-box {
+  background:var(--surface); border-radius:16px; box-shadow:var(--shadow-lg);
+  width:min(760px,100%); max-height:86vh; display:flex; flex-direction:column; overflow:hidden;
+}
+.modal-top {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:15px 20px; background:var(--navy); color:#fff; flex-shrink:0;
+}
+.modal-title { font-family:'Cormorant Garamond',serif; font-size:1.3rem; font-weight:700; }
+.modal-close { background:none; border:none; color:#AEC0D6; font-size:1.2rem; cursor:pointer; }
+.modal-close:hover { color:#fff; }
+.modal-body { flex:1; overflow-y:auto; padding:18px 20px; }
+.modal-foot { display:flex; justify-content:flex-end; gap:9px; padding:13px 20px; border-top:1px solid var(--line); background:var(--surface-2); flex-shrink:0; }
+
+.roll-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.roll-col { border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.roll-col-head { padding:8px 12px; font-size:.72rem; font-weight:900; text-transform:uppercase; letter-spacing:.06em; }
+.roll-col.keep .roll-col-head { background:var(--green-bg); color:var(--green); border-bottom:1px solid var(--green-line); }
+.roll-col.drop .roll-col-head { background:var(--surface-3); color:var(--ink-soft); border-bottom:1px solid var(--line); }
+.roll-list { max-height:260px; overflow-y:auto; }
+.roll-item { padding:6px 12px; font-size:.79rem; line-height:1.45; border-bottom:1px solid var(--line-soft); color:var(--ink); }
+.roll-item:last-child { border-bottom:none; }
+.roll-item .ri-tag { font-size:.66rem; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; margin-right:6px; }
+.roll-col.drop .roll-item { color:var(--ink-faint); text-decoration:line-through; }
+.roll-summary { margin-bottom:14px; padding:11px 13px; background:var(--surface-2); border-left:3px solid var(--gold); border-radius:0 var(--radius-sm) var(--radius-sm) 0; font-size:.83rem; line-height:1.6; color:var(--ink-soft); }
+.roll-summary b { color:var(--navy); }
+
+/* ─────────────── ARCHIVE ─────────────── */
+.archive-item {
+  display:flex; align-items:center; justify-content:space-between; gap:11px; padding:11px 13px;
+  border:1px solid var(--line); border-radius:var(--radius-sm); margin-bottom:8px; background:var(--surface);
+}
+.archive-item:hover { border-color:var(--steel-lt); background:var(--surface-2); }
+.archive-item-date { font-size:.85rem; font-weight:900; color:var(--navy); }
+.archive-item-saved { font-size:.7rem; color:var(--ink-faint); margin-top:2px; }
+.archive-item-actions { display:flex; gap:6px; flex-shrink:0; }
+.archive-btn { padding:4px 11px; border-radius:6px; font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--navy); }
+.archive-btn-view:hover { border-color:var(--navy); background:var(--surface-2); }
+.archive-btn-del { color:var(--red); }
+.archive-btn-del:hover { background:var(--red-bg); border-color:var(--red-line); }
+.archive-empty { padding:26px; text-align:center; color:var(--ink-faint); font-size:.82rem; line-height:1.6; }
+
+.archive-section { margin-bottom:20px; }
+.archive-section-title {
+  font-family:'Cormorant Garamond',serif; font-size:1.1rem; font-weight:700; color:var(--navy);
+  padding-bottom:6px; margin-bottom:10px; border-bottom:2px solid var(--line);
+}
+.archive-kv { display:grid; grid-template-columns:auto 1fr; gap:5px 14px; font-size:.83rem; }
+.archive-kv-key { font-weight:900; color:var(--steel); }
+.archive-kv-val { color:var(--ink); }
+.archive-table { width:100%; border-collapse:collapse; font-size:.8rem; margin-bottom:6px; }
+.archive-table th { background:var(--surface-2); color:var(--steel); font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; padding:5px 8px; border:1px solid var(--line); text-align:left; }
+.archive-table td { padding:5px 8px; border:1px solid var(--line-soft); color:var(--ink); vertical-align:top; }
+.archive-table td.checked-cell { color:var(--ink-faint); text-decoration:line-through; }
+.archive-job-card { border:1px solid var(--line); border-radius:var(--radius-sm); padding:10px 12px; margin-bottom:9px; background:var(--surface-2); }
+.archive-job-name { font-size:.88rem; font-weight:900; color:var(--navy); }
+.archive-job-date { font-size:.72rem; color:var(--ink-faint); margin-bottom:7px; }
+.archive-job-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.archive-job-label { font-size:.64rem; font-weight:900; text-transform:uppercase; letter-spacing:.07em; color:var(--steel); margin-bottom:3px; }
+.archive-job-text { font-size:.8rem; line-height:1.5; color:var(--ink); }
+.archive-job-blockers { color:var(--red); }
+.archive-job-notes-label { font-size:.64rem; font-weight:900; text-transform:uppercase; letter-spacing:.07em; color:var(--gold-dk); margin:7px 0 3px; }
+.archive-job-notes-text { font-size:.8rem; line-height:1.5; color:var(--ink); font-style:italic; }
+
+/* ─────────────── TOAST / BANNER ─────────────── */
+#save-toast {
+  position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(80px);
+  background:var(--navy); color:#fff; padding:11px 22px; border-radius:999px;
+  font-size:.83rem; font-weight:700; box-shadow:var(--shadow-lg); z-index:400;
+  opacity:0; transition:opacity .22s, transform .22s; pointer-events:none; white-space:nowrap; max-width:90vw;
+}
+#save-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+#syncBanner {
+  position:fixed; top:calc(var(--topbar-h) + 8px); left:50%; transform:translateX(-50%);
+  background:var(--amber-bg); border:1px solid var(--amber-line); color:var(--amber);
+  padding:9px 15px; border-radius:var(--radius-sm); font-size:.8rem; font-weight:700;
+  box-shadow:var(--shadow-md); z-index:300; display:flex; align-items:center; gap:10px; max-width:92vw;
+}
+#syncBanner .btn-sm {
+  padding:4px 10px; border:1px solid var(--amber); border-radius:6px; background:#fff; color:var(--amber);
+  font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer;
+}
+
+/* ─────────────── READ-ONLY BANNER (v4) ─────────────── */
+#roBanner {
+  position:sticky; top:calc(var(--topbar-h) + var(--nav-h)); z-index:50;
+  display:none; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:9px 20px; background:var(--amber-bg); border-bottom:1px solid var(--amber-line);
+  color:var(--amber); font-size:.79rem; font-weight:700;
+}
+#roBanner.show { display:flex; }
+#roBanner .ro-note { font-weight:400; color:var(--ink-soft); }
+#roBanner button {
+  padding:4px 11px; border:1px solid var(--amber); border-radius:6px; background:#fff;
+  color:var(--amber); font-family:inherit; font-size:.73rem; font-weight:700; cursor:pointer;
+}
+#roBanner button:hover { background:var(--amber); color:#fff; }
+body.read-only [contenteditable] { background:var(--surface-2); }
+
+/* ─────────────── FOOTER ─────────────── */
+.page-foot {
+  padding:16px 20px; text-align:center; font-size:.72rem; color:var(--ink-faint);
+  border-top:1px solid var(--line); background:var(--surface); letter-spacing:.03em;
+}
+.page-foot a { color:var(--steel); text-decoration:none; margin:0 7px; font-weight:700; }
+.page-foot a:hover { color:var(--navy); text-decoration:underline; }
+
+/* ─────────────── PRINT ─────────────── */
+@media print {
+  @page { margin:0.45in; }
+  body { background:#fff !important; color:#16233b !important; }
+  .topbar, .nav-bar, .add-row-btn, .btn, .btn-solid, .page-foot, #gate,
+  .quick-add, .filter-bar, .job-toolbar, .drawer, .drawer-overlay, .modal-wrap,
+  .tracker-picker, .add-goal-btn, .row-del, .ar-kill, .goal-kill, .job-kill,
+  #save-toast, #syncBanner, .job-caret,
+  /* v4: these three used to print — a gold Send button, the green new-starts
+     banner and its Add button all landed on the paper copy. */
+  .qa-go, .new-starts-banner, .nsr-add, #roBanner { display:none !important; }
+  /* v4: an unset date input printed as a literal "mm/dd/yyyy" with a picker glyph. */
+  input.ar-due-in[value=""] { visibility:hidden !important; }
+  #app { display:block !important; }
+  #print-header {
+    display:flex !important; align-items:center; justify-content:space-between;
+    margin-bottom:10px; padding-bottom:8px; border-bottom:3px solid #1B3564;
+  }
+  #print-header .ph-right { text-align:right; }
+  #print-header .ph-title { font-family:'Cormorant Garamond',serif; font-size:16pt; font-weight:700; color:#1B3564; line-height:1; }
+  #print-header .ph-meta { font-size:8pt; color:#5A7DA6; margin-top:3px; letter-spacing:.03em; }
+  #print-footer {
+    display:block !important; margin-top:14px; padding-top:8px; border-top:1px solid #AEC0D6;
+    font-size:7.5pt; color:#5A7DA6; text-align:center; letter-spacing:.04em;
+  }
+  .page-body { padding:0 !important; max-width:none !important; }
+  .section-card { border:1px solid #d0dded !important; margin-bottom:8px !important; box-shadow:none !important; break-inside:avoid; }
+  .section-card.collapsed .section-body { display:block !important; }
+  .section-header { background:#1B3564 !important; padding:7px 12px !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .section-title { color:#fff !important; font-size:12pt !important; }
+  .section-num { background:#5A7DA6 !important; color:#fff !important; }
+  .section-time { color:#EBF0F7 !important; font-size:7.5pt !important; }
+  .section-toggle { display:none !important; }
+  .section-note { color:#555 !important; font-size:8pt !important; background:#f5f8fc !important; }
+  .section-body { padding:9px 12px !important; }
+  .ag-table th { background:#EBF0F7 !important; color:#1B3564 !important; font-size:8pt !important; padding:4px 7px !important; border:1px solid #AEC0D6 !important; }
+  .ag-table td { font-size:8.5pt !important; padding:4px 7px !important; border:1px solid #d0dded !important; }
+  .wins-grid { grid-template-columns:1fr 1fr !important; gap:5px !important; }
+  .win-row { break-inside:avoid; }
+  .win-name, .win-text { padding:5px 8px !important; font-size:8.5pt !important; }
+  .job-card { break-inside:avoid; box-shadow:none !important; border:1px solid #d0dded !important; margin-bottom:6px; }
+  .job-card.collapsed .job-body, .job-card.collapsed .job-foot { display:grid !important; }
+  .job-card.collapsed .job-foot { display:block !important; }
+  .job-head { background:#1B3564 !important; padding:6px 11px !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .job-name { color:#fff !important; font-size:10pt !important; }
+  .job-date, .job-sub { color:#EBF0F7 !important; font-size:8pt !important; }
+  .metric-pill { background:#fff !important; color:#1B3564 !important; border-color:#AEC0D6 !important; font-size:7.5pt !important; }
+  .goal-progress { color:#EBF0F7 !important; }
+  .job-body { padding:7px 11px !important; gap:10px !important; }
+  .job-col-label { color:#5A7DA6 !important; font-size:7.5pt !important; }
+  .goal-text { font-size:8.5pt !important; }
+  .job-blockers { color:#b91c1c !important; background:#fff !important; border-color:#f4b5b2 !important; font-size:8.5pt !important; min-height:0 !important; }
+  .job-strip { padding:5px 11px !important; }
+  .job-strip-label { font-size:7.5pt !important; }
+  .job-strip-text { font-size:8.5pt !important; min-height:12px !important; }
+  .tracker-sync { padding:5px 11px !important; background:#f5f8fc !important; }
+  select.tracker-link, .tracker-proj-info, .tracker-hint { display:none !important; }
+  .tracker-fields { gap:5px !important; }
+  .tracker-fields label { font-size:6.5pt !important; }
+  .tracker-fields input, .tracker-fields select { border:none !important; padding:0 !important; font-size:8.5pt !important; font-weight:700; color:#1B3564 !important; background:transparent !important; -webkit-appearance:none; appearance:none; }
+  .action-list { border:1px solid #d0dded !important; }
+  .action-row { padding:4px 10px !important; break-inside:avoid; }
+  .ar-text { font-size:8.5pt !important; }
+  .action-group-head { background:#EBF0F7 !important; color:#1B3564 !important; font-size:7.5pt !important; padding:4px 10px !important; }
+  .ar-owner-sel, .ar-due-in { border:none !important; background:transparent !important; font-size:8pt !important; -webkit-appearance:none; appearance:none; }
+  .owner-chip, .due-chip, .tag-chip, .badge { font-size:7.5pt !important; }
+  .cb { border:1.5px solid #666 !important; background:#fff !important; }
+  .cb.checked { background:#1B3564 !important; border-color:#1B3564 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  [contenteditable]:focus { box-shadow:none !important; background:transparent !important; }
+  [contenteditable]:empty::before { content:'' !important; }
+}
+
+/* ─────────────── RESPONSIVE ─────────────── */
+@media (max-width:860px) {
+  .job-body { grid-template-columns:1fr; }
+  .send-card-head { flex-wrap:wrap; }
+  .roll-grid { grid-template-columns:1fr; }
+  .archive-job-row { grid-template-columns:1fr; }
+}
+@media (max-width:700px) {
+  :root { --topbar-h:auto; }
+  #roBanner { position:static; padding:9px 14px; }
+  .topbar { flex-wrap:wrap; gap:9px; padding:10px 14px; position:static; flex:0 0 auto; height:auto; }
+  .tb-right { width:100%; justify-content:flex-start; flex-wrap:wrap; }
+  .nav-bar { position:static; padding:0 14px; flex:0 0 auto; }
+  .page-body { padding:15px 14px 50px; }
+  .section-card { scroll-margin-top:12px; }
+  /* Below this width the owner select + date input can't share a line with the
+     text — ar-side would eat every pixel and wrap the text one character per
+     line. Stack them instead. */
+  .action-row { flex-wrap:wrap; }
+  /* checkbox (16px) + gap (10px) = 26px, so the text still shares line one with
+     it and only the owner/date controls wrap underneath. */
+  .ar-main { flex:1 1 0; min-width:calc(100% - 26px); }
+  .ar-side { flex:1 1 100%; justify-content:flex-start; margin-left:26px; }
+  .ar-owner-sel, .ar-due-in { border-color:var(--line); background:#fff; }
+  .quick-add { flex-direction:column; align-items:stretch; }
+  .qa-text, .qa-sel, .qa-date, .qa-go { width:100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ GATE ══════════ -->
+<div id="gate">
+  <div class="gate-box">
+    <h2>Weekly Meeting</h2>
+    <div class="accent-line"></div>
+    <div class="sub">Authorized personnel only</div>
+    <input id="editorName" type="text" placeholder="Your name" autocomplete="name"/>
+    <input id="pw" type="password" placeholder="Password" autocomplete="current-password"/>
+    <button id="pwBtn">Unlock</button>
+    <div id="pwErr" class="gate-err"></div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+
+  <!-- ── TOP BAR ── -->
+  <div class="topbar">
+    <div class="tb-left">
+      <a href="/hub.html" class="back-link">← Hub</a>
+      <div>
+        <div class="tb-title">Production Meeting</div>
+        <div class="tb-meta" id="meetingDateDisplay">—</div>
+      </div>
+    </div>
+    <div class="tb-right">
+      <span id="saveState">—</span>
+      <div class="timer-display" id="timerDisplay">—</div>
+      <button class="btn btn-icon" onclick="toggleTimer()" id="timerBtn" title="Start / pause meeting timer">▶</button>
+      <button class="btn btn-icon" onclick="resetTimer()" title="Reset timer">↺</button>
+      <button class="btn" onclick="openSendPanel()" title="Review and send each person their action items">📤 Send</button>
+      <button class="btn" onclick="openArchivePanel()" title="Browse saved meetings">📁 Archives</button>
+      <button class="btn" onclick="window.print()" title="Print / save as PDF">🖨 Print</button>
+      <button class="btn btn-gold" onclick="saveMeeting()" id="save-btn">💾 Save</button>
+      <button class="btn btn-green" onclick="openRollPreview()" id="rollover-btn" title="Preview and stage next week's agenda">⟳ Next Week</button>
+    </div>
+  </div>
+
+  <!-- ── SUB NAV ── -->
+  <div class="nav-bar" id="navBar"></div>
+
+  <!-- ── READ-ONLY BANNER (v4) ── -->
+  <div id="roBanner">
+    <span id="roBannerMsg"></span>
+    <span class="ro-note">Nothing you type here will be saved until you unlock it.</span>
+    <button onclick="enableEditing()">Edit anyway</button>
+    <button onclick="openRollPreview()">⟳ Roll it forward instead</button>
+  </div>
+
+  <!-- ── PAGE BODY ── -->
+  <div class="page-body">
+
+    <!-- PRINT HEADER -->
+    <div id="print-header" style="display:none;">
+      <div class="ph-right">
+        <div class="ph-title" id="print-title">Weekly Production Meeting</div>
+        <div class="ph-meta" id="print-meta">—</div>
+      </div>
+    </div>
+
+    <!-- ══ 1 · OPEN & WINS ══ -->
+    <div class="section-card" id="sec1">
+      <div class="section-header" onclick="toggleSection(this)">
+        <div class="sh-left">
+          <div class="section-num">1</div>
+          <div class="section-title">Open &amp; Wins</div>
+        </div>
+        <div class="sh-right">
+          <div class="section-time" id="sec1t">9:00 – 9:05 &nbsp;(5 min)</div>
+          <div class="section-toggle">▾</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="section-note">Quick round-robin — one recent win, milestone, or piece of positive client feedback each.</div>
+        <div class="wins-grid" id="winsGrid"></div>
+      </div>
+    </div>
+
+    <!-- ══ 2 · ACTIVE JOBS ══ -->
+    <div class="section-card" id="sec2">
+      <div class="section-header" onclick="toggleSection(this)">
+        <div class="sh-left">
+          <div class="section-num">2</div>
+          <div class="section-title">Active Jobs</div>
+        </div>
+        <div class="sh-right">
+          <div class="section-time" id="sec2t">9:05 – 9:25 &nbsp;(20 min)</div>
+          <div class="section-toggle">▾</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="section-note">≤ 2 min per job. Next 2-week goals + active blockers only. Past progress lives in Buildertrend.</div>
+
+        <div class="job-toolbar">
+          <input class="job-search" id="jobSearch" type="search" placeholder="Filter jobs — address, job #, client…" oninput="renderJobs()"/>
+          <button class="add-row-btn" onclick="collapseAllJobs(true)">Collapse all</button>
+          <button class="add-row-btn" onclick="collapseAllJobs(false)">Expand all</button>
+        </div>
+
+        <div id="newStartsBanner" class="new-starts-banner" style="display:none"></div>
+        <div class="job-grid" id="jobGrid"></div>
+
+        <div class="btn-row" style="margin-top:12px">
+          <button class="add-row-btn" onclick="addJobCard()">+ Add Job</button>
+          <button class="add-row-btn" onclick="openTrackerPicker()">+ Add from Tracker</button>
+          <button class="btn-solid" onclick="syncCardsFromTracker()" title="Rename linked cards to the standard Job # – Address – Client and drop any linked to a closed project">🔗 Sync from Tracker</button>
+        </div>
+        <div id="trackerPicker" class="tracker-picker" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ══ 3 · START LIST & PIPELINE ══ -->
+    <div class="section-card" id="sec3">
+      <div class="section-header" onclick="toggleSection(this)">
+        <div class="sh-left">
+          <div class="section-num">3</div>
+          <div class="section-title">Start List &amp; Pipeline</div>
+        </div>
+        <div class="sh-right">
+          <div class="section-time" id="sec3t">9:25 – 9:35 &nbsp;(10 min)</div>
+          <div class="section-toggle">▾</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="section-note">Confirm starts within 6 weeks. Flag HOLDs needing resolution. <span class="hl">Start List refreshes from the Projects tracker on load; Pipeline auto-fills from Leads. Manual rows stay put.</span></div>
+
+        <div class="job-col-label" style="margin-bottom:6px">🚀 Start List <span class="goal-hint">— upcoming projects starting within 6 weeks</span></div>
+        <div class="table-scroll">
+        <table class="ag-table" id="startTable">
+          <thead><tr><th>Project</th><th class="date-cell">Target Start</th><th class="status-cell">Status</th><th class="owner-cell">Owner</th><th class="row-del"></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        </div>
+        <button class="add-row-btn" onclick="addRow('startManual')">+ Add Start (manual)</button>
+
+        <div class="job-col-label" style="margin:20px 0 6px">📈 Pipeline <span class="goal-hint">— leads ≥ 75% probability with a tentative start</span></div>
+        <div class="table-scroll">
+        <table class="ag-table" id="pipelineTable">
+          <thead><tr><th>Prospect</th><th class="date-cell">Tentative Start</th><th class="status-cell">Probability</th><th class="owner-cell">Rep</th><th class="row-del"></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        </div>
+        <button class="add-row-btn" onclick="addRow('pipelineManual')">+ Add Pipeline (manual)</button>
+      </div>
+    </div>
+
+    <!-- ══ 4 · ACTION ITEMS ══ -->
+    <div class="section-card" id="sec4">
+      <div class="section-header" onclick="toggleSection(this)">
+        <div class="sh-left">
+          <div class="section-num">4</div>
+          <div class="section-title">Action Items</div>
+        </div>
+        <div class="sh-right">
+          <div class="section-time" id="sec4t">9:35 – 9:45 &nbsp;(10 min)</div>
+          <div class="section-toggle">▾</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="section-note">Everything assigned this week lives here. Check it off when it's done — completed items drop off at rollover and stay in the archive.</div>
+
+        <div class="quick-add">
+          <input class="qa-text" id="qaText" type="text" placeholder="Add an action item…  e.g.  @justin Obtain updated CO for 171 Village fri"/>
+          <select class="qa-sel" id="qaOwner"></select>
+          <input class="qa-date" id="qaDue" type="date" title="Due date (optional)"/>
+          <button class="qa-go" onclick="quickAddAction()">+ Add</button>
+          <div class="qa-hint">Type <code>@name</code> to assign and <code>today</code> / <code>tue</code> / <code>fri</code> / <code>8/14</code> to set a due date — both get pulled out of the text automatically. <kbd>Enter</kbd> adds.</div>
+        </div>
+
+        <div class="filter-bar" id="actionFilters"></div>
+        <div class="action-list" id="actionList"></div>
+        <button class="add-row-btn" onclick="addRow('action')">+ Add blank row</button>
+      </div>
+    </div>
+
+    <!-- ══ 5 · WARRANTY ══ -->
+    <div class="section-card" id="sec5">
+      <div class="section-header" onclick="toggleSection(this)">
+        <div class="sh-left">
+          <div class="section-num">5</div>
+          <div class="section-title">Warranty</div>
+        </div>
+        <div class="sh-right">
+          <div class="section-time" id="sec5t">9:45 – 9:50 &nbsp;(5 min)</div>
+          <div class="section-toggle">▾</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="section-note">Active items only. Each needs a next action + scheduled date. Submit requests at vanbuskirkco.com/SERVICE-WORK-REQUEST</div>
+        <div class="table-scroll">
+        <table class="ag-table" id="warrantyTable">
+          <thead><tr><th class="check-cell">✓</th><th>Address</th><th>Open Items / Next Action</th><th class="owner-cell">Owner</th><th class="due-cell">Due</th><th class="row-del"></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        </div>
+        <button class="add-row-btn" onclick="addRow('warranty')">+ Add Warranty Item</button>
+      </div>
+    </div>
+
+    <!-- ══ 6 · OPS ROUNDTABLE ══ -->
+    <div class="section-card" id="sec6">
+      <div class="section-header" onclick="toggleSection(this)">
+        <div class="sh-left">
+          <div class="section-num">6</div>
+          <div class="section-title">Ops Roundtable</div>
+        </div>
+        <div class="sh-right">
+          <div class="section-time" id="sec6t">9:50 – 9:57 &nbsp;(7 min)</div>
+          <div class="section-toggle">▾</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="section-note">Events, equipment, signage, misc. Keep it brief — decisions only.</div>
+
+        <div class="job-col-label" style="margin-bottom:6px">Upcoming Events</div>
+        <div class="table-scroll">
+        <table class="ag-table" id="eventsTable">
+          <thead><tr><th class="check-cell">✓</th><th>Event</th><th class="date-cell">Date / Time</th><th class="owner-cell">Action Needed</th><th class="row-del"></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        </div>
+        <button class="add-row-btn" onclick="addRow('events')" style="margin-bottom:18px">+ Add Event</button>
+
+        <div class="job-col-label" style="margin-bottom:6px">Misc Notes</div>
+        <div class="table-scroll">
+        <table class="ag-table" id="miscTable">
+          <thead><tr><th class="check-cell">✓</th><th>Item</th><th class="owner-cell">Owner</th><th class="row-del"></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        </div>
+        <button class="add-row-btn" onclick="addRow('misc')">+ Add Misc Item</button>
+      </div>
+    </div>
+
+    <!-- ══ 7 · WRAP-UP ══ -->
+    <div class="section-card" id="sec7">
+      <div class="section-header" onclick="toggleSection(this)">
+        <div class="sh-left">
+          <div class="section-num">7</div>
+          <div class="section-title">Wrap-Up &amp; Send</div>
+        </div>
+        <div class="sh-right">
+          <div class="section-time" id="sec7t">9:57 – 10:00 &nbsp;(3 min)</div>
+          <div class="section-toggle">▾</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="section-note">Read back every open item by owner, each person confirms, then send. Meeting adjourns at 10:00 sharp.</div>
+
+        <div id="wrapSummary"></div>
+
+        <div class="btn-row" style="margin-top:14px">
+          <button class="qa-go" onclick="openSendPanel()">📤 Review &amp; Send Action Items</button>
+          <button class="add-row-btn" onclick="saveMeeting()">💾 Save Meeting</button>
+        </div>
+
+        <div style="margin-top:20px;padding:13px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--line);text-align:center;">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--navy);letter-spacing:.03em;">
+            Next Meeting: <span id="nextMeetingDate" contenteditable="true" data-ph="—">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRINT FOOTER -->
+    <div id="print-footer" style="display:none;">
+      Integrity &nbsp;·&nbsp; Teamwork &nbsp;·&nbsp; Innovation &nbsp;·&nbsp; Excellence &nbsp;·&nbsp; Community
+      &emsp;|&emsp; Van Buskirk Homes · 2571 S Westlake Dr, Sioux Falls, SD 57106 · (605) 951-5220
+    </div>
+
+  </div><!-- /page-body -->
+
+  <div class="page-foot">
+    Integrity &nbsp;·&nbsp; Teamwork &nbsp;·&nbsp; Innovation &nbsp;·&nbsp; Excellence &nbsp;·&nbsp; Community
+    &emsp;|&emsp;
+    <a href="/hub.html">← Back to Hub</a>
+    <a href="/dashboard.html">Work Orders</a>
+    <a href="/projects.html">Projects</a>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ══════════ TOAST ══════════ -->
+<div id="save-toast">✓ Meeting saved</div>
+
+<!-- ══════════ SYNC CONFLICT ══════════ -->
+<div id="syncBanner" style="display:none;">
+  <span id="syncBannerMsg"></span>
+  <button class="btn-sm" onclick="resolveConflict(true)">Load theirs</button>
+  <button class="btn-sm" onclick="resolveConflict(false)">Keep mine</button>
+</div>
+
+<!-- ══════════ DRAWER OVERLAY ══════════ -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawers()"></div>
+
+<!-- ══════════ SEND PANEL ══════════ -->
+<div class="drawer" id="sendPanel">
+  <div class="drawer-head">
+    <div>
+      <h3>📤 Send Action Items</h3>
+      <div class="dh-sub" id="sendSub">—</div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawers()">✕</button>
+  </div>
+  <div class="drawer-tools">
+    <button class="sc-btn primary" onclick="copyAllAssignments()">📋 Copy full list</button>
+    <button class="sc-btn" onclick="emailEveryone()">✉️ Email everyone</button>
+    <button class="sc-btn" onclick="toggleSendScope()" id="sendScopeBtn">Showing: open items</button>
+  </div>
+  <div class="drawer-body" id="sendBody"></div>
+</div>
+
+<!-- ══════════ ARCHIVE PANEL ══════════ -->
+<div class="drawer" id="archivePanel">
+  <div class="drawer-head">
+    <div>
+      <h3>📁 Saved Meetings</h3>
+      <div class="dh-sub">Server-backed history</div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawers()">✕</button>
+  </div>
+  <div class="drawer-body" id="archive-list">
+    <div class="archive-empty">No saved meetings yet.<br>Click <strong>💾 Save</strong> after your meeting to archive it here.</div>
+  </div>
+</div>
+
+<!-- ══════════ ARCHIVE VIEWER ══════════ -->
+<div class="modal-wrap" id="archive-modal">
+  <div class="modal-box">
+    <div class="modal-top">
+      <div class="modal-title" id="archive-modal-title">Meeting Archive</div>
+      <button class="modal-close" onclick="closeArchiveModal()">✕</button>
+    </div>
+    <div class="modal-body" id="archive-modal-body"></div>
+  </div>
+</div>
+
+<!-- ══════════ ROLLOVER PREVIEW ══════════ -->
+<div class="modal-wrap" id="rollModal">
+  <div class="modal-box">
+    <div class="modal-top">
+      <div class="modal-title">⟳ Start Next Week</div>
+      <button class="modal-close" onclick="closeRollPreview()">✕</button>
+    </div>
+    <div class="modal-body" id="rollBody"></div>
+    <div class="modal-foot">
+      <button class="sc-btn" onclick="closeRollPreview()">Cancel</button>
+      <button class="sc-btn primary" onclick="confirmRollForward()">Archive this week &amp; stage next →</button>
+    </div>
+  </div>
+</div>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   VBH WEEKLY PRODUCTION MEETING · build meeting-v3
+   ───────────────────────────────────────────────────────────────────────
+   ARCHITECTURE NOTE (this is the change that fixes the old bugs):
+
+   The old page treated the DOM as the source of truth and scraped it on
+   every save (captureState). Any markup change could corrupt an archive,
+   and "Start Next Week" mutated the live DOM in place — which is why open
+   items went missing between weeks.
+
+   Here, `S` (the state object) is the ONLY source of truth. The DOM is a
+   projection of S. Typing writes straight into S via one delegated handler
+   keyed by data-mid/data-field. Structural changes mutate S and re-render
+   just the affected list. Rollover is a PURE function: rollForward(S) → S'.
+   Nothing about next week's agenda depends on what the DOM happens to hold.
+
+   Saving = JSON.stringify(S). Nothing is scraped, ever.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────────
+   ① CONFIG — edit these three lists; nothing else in the file needs to
+      change when the team, the phases, or the status words change.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Construction phases, in build order. Add / rename / reorder freely.
+   Any phase already saved on a project that isn't in this list is still
+   shown and kept — it just appears at the bottom of the dropdown. */
+const PHASES = (window.VBH_CONFIG && window.VBH_CONFIG.phases) || [
+  'Pre-Construction',
+  'Permitting',
+  'Staking / Excavation',
+  'Foundation',
+  'Backfill',
+  'Framing',
+  'Roofing',
+  'Windows & Doors',
+  'Exterior / Siding',
+  'Rough-Ins (Mech/Elec/Plumb)',
+  'Insulation',
+  'Drywall',
+  'Trim & Millwork',
+  'Paint',
+  'Cabinets & Tops',
+  'Flooring',
+  'Finish Mech/Elec/Plumb',
+  'Flatwork',
+  'Grading & Landscape',
+  'Punch List',
+  'CO & Closing',
+  'Warranty'
+];
+
+/* Job status words used on the tracker link block. */
+const JOB_STATUSES = (window.VBH_CONFIG && window.VBH_CONFIG.jobStatuses) || [
+  'On Track', 'Ahead', 'At Risk', 'Behind', 'On Hold', 'Blocked', 'Complete'
+];
+
+/* ── TEAM ──────────────────────────────────────────────────────────────
+   name    what shows on the agenda and in the Send panel
+   email   used for the mailto: draft. LEAVE BLANK and that person gets a
+           Copy button only (no email button) — nothing breaks.
+   aliases what "@..." typing and legacy owner text should map to this
+           person. Matching is case-insensitive.
+   wins    true = appears in the Section 1 Wins round-robin
+   ────────────────────────────────────────────────────────────────────── */
+const TEAM = (window.VBH_CONFIG && window.VBH_CONFIG.team) || [
+  { name:'Dallas',  email:'Dallas.westover@vanbuskirkco.com',   aliases:['dallas', 'westover', 'dw', 'dallas westover', 'dallas.westover'], wins:true  },
+  { name:'Jordan',  email:'Jordan.hefner@vanbuskirkco.com',     aliases:['jordan', 'hefner', 'jh', 'jordan hefner', 'jordan.hefner'], wins:true  },
+  { name:'Justin',  email:'Justin.vostad@vanbuskirkco.com',     aliases:['justin', 'vostad', 'jv', 'justin vostad', 'justin.vostad'], wins:true  },
+  { name:'Kara',    email:'Kara.lilly@vanbuskirkco.com',        aliases:['kara', 'lilly', 'kl', 'kara lilly', 'kara.lilly'], wins:true  },
+  { name:'Quentin', email:'Quentin.robertson@vanbuskirkco.com', aliases:['quentin', 'robertson', 'qr', 'quentin robertson', 'quentin.robertson'], wins:true  },
+  { name:'Sydney',  email:'Sydney.vanwell@vanbuskirkco.com',    aliases:['sydney', 'vanwell', 'sv', 'sydney vanwell', 'sydney.vanwell'], wins:true  },
+  { name:'Josh',    email:'Josh.isaacson@vanbuskirkco.com',     aliases:['josh', 'isaacson', 'ji', 'josh isaacson', 'josh.isaacson'], wins:false },
+  { name:'Bill',    email:'Bill.hoffman@vanbuskirkco.com',      aliases:['bill', 'hoffman', 'bh', 'bill hoffman', 'bill.hoffman'], wins:false }
+];
+
+/* Meeting cadence: which weekday and what time range the header shows. */
+const MEETING_TIME = (window.VBH_CONFIG && window.VBH_CONFIG.meetingTime) || '9:00 – 10:00 AM';
+
+/* v4: the agenda clock. Section times used to be hard-coded twice (once as
+   literal text in the markup, once in renderNav), so moving the meeting left
+   every section still reading 9:00. Now both are computed from the start time
+   in MEETING_TIME plus these durations. Change the time, everything follows. */
+const SECTIONS = (window.VBH_CONFIG && window.VBH_CONFIG.sections) || [
+  { id:'sec1', label:'Open & Wins',  min:5  },
+  { id:'sec2', label:'Active Jobs',  min:20 },
+  { id:'sec3', label:'Start List',   min:10 },
+  { id:'sec4', label:'Action Items', min:10 },
+  { id:'sec5', label:'Warranty',     min:5  },
+  { id:'sec6', label:'Ops',          min:7  },
+  { id:'sec7', label:'Wrap-Up',      min:3  }
+];
+
+/* "9:00 - 10:00 AM" -> minutes past midnight for the start. Falls back to 9am. */
+function meetingStartMinutes() {
+  const m = String(MEETING_TIME||'').match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+  if (!m) return 9 * 60;
+  let h = parseInt(m[1], 10);
+  const mins = parseInt(m[2], 10);
+  const ap = (m[3]||'').toLowerCase();
+  const tail = String(MEETING_TIME).toLowerCase();
+  const suffix = ap || (tail.includes('pm') ? 'pm' : tail.includes('am') ? 'am' : '');
+  if (suffix === 'pm' && h < 12) h += 12;
+  if (suffix === 'am' && h === 12) h = 0;
+  return h * 60 + mins;
+}
+function clockLabel(mins) {
+  const h24 = Math.floor(mins / 60) % 24, mm = mins % 60;
+  const h12 = (h24 % 12) === 0 ? 12 : (h24 % 12);
+  return h12 + ':' + pad2(mm);
+}
+/* [{id,label,min,startMin,endMin,start,end}] */
+function sectionSchedule() {
+  let t = meetingStartMinutes();
+  return SECTIONS.map(s => {
+    const startMin = t, endMin = t + s.min;
+    t = endMin;
+    return Object.assign({}, s, { startMin, endMin, start: clockLabel(startMin), end: clockLabel(endMin) });
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ② SUPABASE / AUTH — unchanged contract with the rest of the hub
+   ───────────────────────────────────────────────────────────────────── */
+/* The hub has two config shapes in circulation: vbh-config.js exports a `VBH`
+   object, config.js exports loose consts. Read VBH_CONFIG first, then fall back
+   to either, then to a baked-in default — so the page works with whichever file
+   happens to be deployed and never silently loses its password. */
+const SHARED_PW   = (window.VBH_CONFIG && window.VBH_CONFIG.password)
+                 || (typeof VBH !== 'undefined' && VBH && VBH.PASSWORD)
+                 || 'VBHomes2026!';
+const AUTH_KEY    = 'vbh_auth_ok';
+/* v4 · renamed from SUPABASE_URL / SUPABASE_ANON.
+   The hub's config.js already declares `const SUPABASE_URL` at global scope.
+   Two classic scripts declaring the same const is a SyntaxError, and it kills
+   this ENTIRE script block — the gate would render and nothing would work, with
+   one line in the console as the only clue. Different names here, and we reuse
+   the hub's values when config.js has supplied them. */
+const SB_URL  = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseUrl)
+             || (typeof VBH !== 'undefined' && VBH && VBH.SUPABASE_URL)
+             || (typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '')
+             || 'https://bppirsahciuxrqzitfxa.supabase.co';
+const SB_ANON = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseAnon)
+             || (typeof VBH !== 'undefined' && VBH && VBH.SUPABASE_KEY)
+             || (typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : '')
+             || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwcGlyc2FoY2l1eHJxeml0ZnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTExMjcsImV4cCI6MjA5NTk4NzEyN30.Yy3en8gNoTPSVkztlGr6XbUq6ZU3-NHJ4TUIVnZQ4eE';
+const trackerSB = (window.supabase) ? window.supabase.createClient(SB_URL, SB_ANON) : null;
+
+const ARCHIVE_KEY = 'vbh_meeting_archive';
+const DRAFT_KEY   = 'vbh_meeting_draft';
+const EDITOR_KEY  = 'vbh_editor_name';
+const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
+const STATE_VERSION = 3;
+const BUILD = 'meeting-v4';
+
+/* ─────────────────────────────────────────────────────────────────────
+   ③ SMALL UTILITIES
+   ───────────────────────────────────────────────────────────────────── */
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function uid(p) { return (p||'k') + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2,8); }
+function $(sel, root) { return (root||document).querySelector(sel); }
+function $$(sel, root) { return Array.from((root||document).querySelectorAll(sel)); }
+
+/* contenteditable HTML ⇄ plain text. Storage is always plain text so
+   archives never depend on whatever markup a browser produced. */
+function htmlToText(html) {
+  const t = document.createElement('div');
+  t.innerHTML = html == null ? '' : String(html);
+  t.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+  t.querySelectorAll('div,p,li').forEach(el => el.insertAdjacentText('beforebegin','\n'));
+  return t.textContent.replace(/ /g,' ').replace(/\n{3,}/g,'\n\n').replace(/^\n+/,'').replace(/\s+$/,'');
+}
+function textToHtml(text) { return escHtml(text).replace(/\n/g,'<br>'); }
+function ceGet(el) { return el ? htmlToText(el.innerHTML) : ''; }
+
+function toast(msg, ms) {
+  const t = $('#save-toast'); if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), ms || 2600);
+}
+
+/* ── People helpers ── */
+function personByName(name) {
+  const n = String(name||'').trim().toLowerCase();
+  if (!n) return null;
+  return TEAM.find(p => p.name.toLowerCase() === n)
+      || TEAM.find(p => (p.aliases||[]).some(a => a.toLowerCase() === n))
+      || null;
+}
+/* Owner strings can hold several people ("Josh/Bill", "JH/SV/JV", "All PMs").
+   Split on / , & + and "and", then resolve each piece to a TEAM member. */
+function splitOwners(owner) {
+  return String(owner||'')
+    .split(/[\/,&+]|\band\b/i)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+/* Avatar initials. Two letters normally — but the team has several names that
+   collide on their first two ("Jordan" and "Josh" are both JO), so a
+   single-word name that clashes with another team member extends to three. */
+const _initCache = new Map();
+function initials(name) {
+  const n = String(name||'').trim();
+  if (!n) return '?';
+  if (_initCache.has(n)) return _initCache.get(n);
+  const parts = n.split(/\s+/);
+  let out;
+  if (parts.length > 1) {
+    out = (parts[0][0] + parts[1][0]).toUpperCase();
+  } else {
+    out = n.slice(0,2).toUpperCase();
+    const clash = TEAM.some(p =>
+      p.name.toLowerCase() !== n.toLowerCase() &&
+      p.name.trim().split(/\s+/).length === 1 &&
+      p.name.slice(0,2).toUpperCase() === out);
+    if (clash) out = n.slice(0,3).toUpperCase();
+  }
+  _initCache.set(n, out);
+  return out;
+}
+
+/* ── Date helpers ── */
+function pad2(n) { return String(n).padStart(2,'0'); }
+function toISODate(d) { return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+function todayISO() { return toISODate(new Date()); }
+function startOfDay(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
+
+/* "Monday, June 22, 2026 | 9:00 – 10:00 AM" → "2026-06-22" */
+function isoDayKey(text) {
+  if (!text) return null;
+  const raw = String(text).replace(/ /g,' ').split('|')[0].trim();
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? null : toISODate(d);
+}
+function fmtLongDate(d) {
+  return d.toLocaleDateString('en-US',{ weekday:'long', month:'long', day:'numeric', year:'numeric' });
+}
+function fmtMeetingDateISO(iso) {
+  if (!iso) return 'Meeting';
+  const d = new Date(iso + 'T12:00:00');
+  return isNaN(d.getTime()) ? iso : fmtLongDate(d);
+}
+function headerFor(dateObj) { return fmtLongDate(dateObj) + '  |  ' + MEETING_TIME; }
+function fmtShort(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T12:00:00');
+  if (isNaN(d.getTime())) return iso;
+  return (d.getMonth()+1) + '/' + d.getDate();
+}
+function fmtStartDate(d) {
+  if (!d) return 'TBD';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return String(d);
+  return (dt.getMonth()+1) + '/' + dt.getDate() + '/' + String(dt.getFullYear()).slice(-2);
+}
+/* Due-date urgency relative to today. */
+function dueTone(iso) {
+  if (!iso) return '';
+  const d = startOfDay(new Date(iso + 'T12:00:00'));
+  if (isNaN(d.getTime())) return '';
+  const days = Math.round((d - startOfDay(new Date())) / 86400000);
+  if (days < 0)  return 'late';
+  if (days <= 2) return 'soon';
+  return '';
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ④ STATE — the single source of truth
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Every list in the state, with the fields each row carries. Render,
+   migration and the archive viewer all read this — one place to change. */
+const LISTS = {
+  wins:           { fields:['name','text'] },
+  jobs:           { fields:[] },
+  action:         { fields:['text','owner','due','job'], check:true },
+  warranty:       { fields:['address','items','owner','due'], check:true },
+  events:         { fields:['text','date','owner'], check:true },
+  misc:           { fields:['text','owner'], check:true },
+  startManual:    { fields:['name','date','status','owner'] },
+  pipelineManual: { fields:['name','date','prob','owner'] }
+};
+
+function blankState() {
+  const now = new Date();
+  const next = new Date(now); next.setDate(next.getDate() + 7);
+  return {
+    v: STATE_VERSION,
+    savedAt: new Date().toISOString(),
+    meetingDate: headerFor(now),
+    nextMeeting: headerFor(next),
+    dateKey: toISODate(now),
+    wins: TEAM.filter(p => p.wins).map(p => ({ id:uid('w'), name:p.name, text:'' })),
+    jobs: [],
+    action: [], warranty: [], events: [], misc: [],
+    startManual: [], pipelineManual: []
+  };
+}
+
+/* THE state. Everything reads and writes this object. */
+let S = blankState();
+
+/* Find a row anywhere in the state by its id. Returns {list, row, idx}. */
+function findRow(id) {
+  for (const key of Object.keys(LISTS)) {
+    if (key === 'jobs') continue;
+    const arr = S[key] || [];
+    const idx = arr.findIndex(r => r.id === id);
+    if (idx >= 0) return { list:key, row:arr[idx], idx };
+  }
+  for (let i = 0; i < (S.jobs||[]).length; i++) {
+    const j = S.jobs[i];
+    if (j.id === id) return { list:'jobs', row:j, idx:i };
+    const gi = (j.goals||[]).findIndex(g => g.id === id);
+    if (gi >= 0) return { list:'goals', row:j.goals[gi], idx:gi, job:j };
+  }
+  return null;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ⑤ MIGRATION — v1 (DOM dumps) and v2 (keyed) both load as v3
+   ───────────────────────────────────────────────────────────────────── */
+
+/* v2 table keys → v3 list keys (same names, kept explicit for clarity). */
+const V2_TABLE_FIELDS = {
+  wins:           ['name','text'],
+  action:         ['text','owner'],
+  warranty:       ['address','items','owner'],
+  events:         ['text','date','owner'],
+  misc:           ['text','owner'],
+  confirm:        ['text','owner','due'],
+  startManual:    ['name','date','status','owner'],
+  pipelineManual: ['name','date','prob','owner']
+};
+/* v1 stored raw innerHTML per table id. */
+const V1_TABLE_IDS = {
+  winsTable:'wins', actionTable:'action', warrantyTable:'warranty', eventsTable:'events',
+  miscTable:'misc', confirmTable:'confirm', startTable:'startManual', pipelineTable:'pipelineManual'
+};
+
+function migrateState(raw) {
+  if (!raw) return null;
+  let snap = raw;
+
+  /* ── v1 → v2 : parse the stored HTML fragments ── */
+  if (!(snap.v >= 2)) {
+    const parseIn = (tag, html) => { const t = document.createElement(tag); t.innerHTML = html == null ? '' : String(html); return t; };
+    const sections = snap.sections || {};
+    const out = {
+      v: 2,
+      savedAt: snap.savedAt || new Date().toISOString(),
+      meetingDate: snap.meetingDate || '',
+      nextMeeting: sections['nextMeetingDate'] != null ? htmlToText(sections['nextMeetingDate']) : '',
+      jobs: Array.from(parseIn('div', snap.jobCardsHTML).querySelectorAll('.job-card')).map(card => {
+        const sel = card.querySelector('select.tracker-link');
+        const chosen = sel && sel.querySelector('option[selected]');
+        const pid = card.getAttribute('data-project-id')
+                 || (sel && sel.getAttribute('data-project-id'))
+                 || (chosen && chosen.getAttribute('value')) || '';
+        const attr = cls => { const el = card.querySelector('input.' + cls); return el ? (el.getAttribute('value') || '') : ''; };
+        return {
+          id: uid('j'), projectId: pid || null,
+          name: ceGet(card.querySelector('.job-name')),
+          date: ceGet(card.querySelector('.job-date')),
+          goals: Array.from(card.querySelectorAll('.goal-list .goal-row')).map(r => ({
+            id: uid('g'), text: ceGet(r.querySelector('.goal-text')), done: !!r.querySelector('.cb-goal.checked')
+          })),
+          blockers: ceGet(card.querySelector('.job-blockers')),
+          next: ceGet(card.querySelector('.job-next-content')),
+          notes: ceGet(card.querySelector('.job-notes-content')),
+          phase: attr('tracker-phase'), pct: attr('tracker-pct'),
+          status: attr('tracker-status'), sched: attr('tracker-sched')
+        };
+      })
+    };
+    Object.keys(V1_TABLE_IDS).forEach(tid => {
+      const key = V1_TABLE_IDS[tid];
+      const fields = V2_TABLE_FIELDS[key];
+      const rows = [];
+      parseIn('tbody', sections['table_' + tid]).querySelectorAll('tr').forEach(tr => {
+        if (tr.classList.contains('auto-row')) return;
+        const row = { id: uid('r'), done: !!tr.querySelector('.cb.checked') };
+        const tds = Array.from(tr.querySelectorAll('td')).filter(td => !td.classList.contains('check-cell'));
+        fields.forEach((f,i) => { row[f] = tds[i] ? ceGet(tds[i]) : ''; });
+        rows.push(row);
+      });
+      out[key] = rows;
+    });
+    snap = out;
+  }
+
+  /* ── v2 → v3 ──
+     · `confirm` (the old Wrap-Up table) folds into `action`. That table was
+       the main place items went missing: they were typed there, and only the
+       manual "Start Next Week" button ever moved them into Action Items. Now
+       there is one list, so nothing can be stranded.
+     · new optional fields default in. */
+  if (snap.v < 3) {
+    const out = Object.assign({}, snap, { v: 3 });
+    out.action = (snap.action || []).map(r => Object.assign({ due:'', job:'' }, r));
+    (snap.confirm || []).forEach(r => {
+      if ((r.text||'').trim()) {
+        out.action.push({ id: r.id || uid('r'), done: !!r.done, text: r.text, owner: r.owner || '', due: r.due || '', job:'' });
+      }
+    });
+    delete out.confirm;
+    out.warranty = (snap.warranty || []).map(r => Object.assign({ due:'' }, r));
+    snap = out;
+  }
+
+  /* ── normalise: guarantee every list exists and every row has an id ── */
+  const st = Object.assign(blankState(), snap, { v: STATE_VERSION });
+  Object.keys(LISTS).forEach(key => {
+    if (key === 'jobs') return;
+    st[key] = (Array.isArray(snap[key]) ? snap[key] : []).map(r => Object.assign({}, r, { id: r.id || uid('r') }));
+  });
+  st.jobs = (Array.isArray(snap.jobs) ? snap.jobs : []).map(j => Object.assign({
+    projectId:null, name:'', date:'', blockers:'', next:'', notes:'', phase:'', pct:'', status:'', sched:'', collapsed:false
+  }, j, {
+    id: j.id || uid('j'),
+    goals: (Array.isArray(j.goals) ? j.goals : []).map(g => ({ id: g.id || uid('g'), text: g.text || '', done: !!g.done }))
+  }));
+  /* Wins roster: keep saved entries, add any TEAM member missing from them. */
+  const haveWins = new Set(st.wins.map(w => (w.name||'').toLowerCase()));
+  TEAM.filter(p => p.wins && !haveWins.has(p.name.toLowerCase()))
+      .forEach(p => st.wins.push({ id:uid('w'), name:p.name, text:'' }));
+  st.dateKey = isoDayKey(st.meetingDate) || todayISO();
+  return st;
+}
+/* ─────────────────────────────────────────────────────────────────────
+   ⑥ RENDER — state → DOM. One direction only.
+   ───────────────────────────────────────────────────────────────────── */
+
+let actionFilter = 'open';        // 'open' | 'all' | 'done' | 'unassigned' | person name
+let sendScope    = 'open';        // 'open' | 'all'
+
+function renderAll() {
+  renderHeader();
+  renderWins();
+  renderJobs();
+  renderTable('warranty');
+  renderTable('events');
+  renderTable('misc');
+  renderTable('startManual');
+  renderTable('pipelineManual');
+  renderActions();
+  renderWrapSummary();
+  renderNav();
+}
+
+/* ── header / print header ── */
+function renderHeader() {
+  const d = $('#meetingDateDisplay');
+  if (d) d.textContent = S.meetingDate || '—';
+  const pm = $('#print-meta');
+  if (pm) pm.textContent = S.meetingDate || '';
+  const nm = $('#nextMeetingDate');
+  if (nm && document.activeElement !== nm) nm.textContent = S.nextMeeting || '—';
+}
+
+/* ── nav chips with live counts ── */
+function renderNav() {
+  const openActions = (S.action||[]).filter(r => !r.done && (r.text||'').trim()).length;
+  const openWarr    = (S.warranty||[]).filter(r => !r.done && (r.address||r.items||'').trim()).length;
+  const blockers    = (S.jobs||[]).filter(j => (j.blockers||'').trim()).length;
+  /* v4: times come from the shared schedule, not hard-coded strings. */
+  const counts = { sec2:(S.jobs||[]).length, sec4:openActions, sec5:openWarr };
+  const items = sectionSchedule().map(s =>
+    ({ id:s.id, label:s.label, time:s.start, n:counts[s.id], warn:(s.id === 'sec2' ? blockers : 0) }));
+  const bar = $('#navBar');
+  if (!bar) return;
+  bar.innerHTML = items.map(it =>
+    `<div class="nav-chip" data-target="${it.id}" onclick="scrollToSection('${it.id}')">` +
+      escHtml(it.label) +
+      (it.n ? `<span class="chip-count">${it.n}</span>` : '') +
+      `<span class="chip-time">${it.time}</span>` +
+    `</div>`
+  ).join('');
+}
+
+/* ── 1 · WINS ── */
+function renderWins() {
+  const grid = $('#winsGrid');
+  if (!grid) return;
+  grid.innerHTML = (S.wins||[]).map(w => `
+    <div class="win-row">
+      <div class="win-name"><span class="owner-chip"><span class="av">${escHtml(initials(w.name))}</span></span>${escHtml(w.name)}</div>
+      <div class="win-text" contenteditable="true" data-mid="${w.id}" data-field="text" data-ph="…">${textToHtml(w.text)}</div>
+    </div>`).join('');
+}
+
+/* ── 2 · JOB CARDS ── */
+function jobTone(j) {
+  const st = (j.status||'').toLowerCase();
+  const sched = parseInt(j.sched, 10);
+  if (st.includes('behind') || st.includes('blocked') || (!isNaN(sched) && sched <= -5)) return 'late';
+  if (st.includes('risk') || st.includes('hold') || (j.blockers||'').trim()) return 'risk';
+  if (st.includes('track') || st.includes('ahead') || st.includes('complete')) return 'ok';
+  return '';
+}
+
+function phaseOptions(current) {
+  const list = PHASES.slice();
+  if (current && !list.some(p => p.toLowerCase() === String(current).toLowerCase())) list.push(current);
+  return '<option value="">— phase —</option>' + list.map(p =>
+    `<option value="${escHtml(p)}"${String(current||'').toLowerCase() === p.toLowerCase() ? ' selected' : ''}>${escHtml(p)}</option>`
+  ).join('');
+}
+function statusOptions(current) {
+  const list = JOB_STATUSES.slice();
+  if (current && !list.some(s => s.toLowerCase() === String(current).toLowerCase())) list.push(current);
+  return '<option value="">— status —</option>' + list.map(s =>
+    `<option value="${escHtml(s)}"${String(current||'').toLowerCase() === s.toLowerCase() ? ' selected' : ''}>${escHtml(s)}</option>`
+  ).join('');
+}
+function trackerLinkOptions(current) {
+  const inList = current && trackerProjects.some(p => p.id === current);
+  const orphan = (current && !inList) ? `<option value="${escHtml(current)}" selected>↳ linked (project loading…)</option>` : '';
+  return '<option value="">— Not linked to tracker —</option>' + orphan +
+    trackerProjects.map(p => `<option value="${escHtml(p.id)}"${p.id === current ? ' selected' : ''}>${escHtml(p.label)}</option>`).join('');
+}
+
+function jobCardHTML(j) {
+  const done  = (j.goals||[]).filter(g => g.done && (g.text||'').trim()).length;
+  const total = (j.goals||[]).filter(g => (g.text||'').trim()).length;
+  const sched = parseInt(j.sched, 10);
+  const pct   = (j.pct === '' || j.pct == null) ? null : parseInt(j.pct, 10);
+  const p     = j.projectId && trackerProjects.find(tp => tp.id === j.projectId);
+
+  const goalsHTML = (j.goals||[]).map(g => `
+    <div class="goal-row${g.done ? ' done' : ''}">
+      <div class="cb cb-goal${g.done ? ' checked' : ''}" role="checkbox" tabindex="0" aria-checked="${g.done ? 'true' : 'false'}" aria-label="Mark goal done" onclick="toggleGoal('${g.id}')"></div>
+      <div class="goal-text" contenteditable="true" data-mid="${g.id}" data-field="text" data-ph="Goal…">${textToHtml(g.text)}</div>
+      <span class="goal-kill" onclick="deleteGoal('${j.id}','${g.id}')" title="Remove goal">✕</span>
+    </div>`).join('');
+
+  return `
+  <div class="job-card${j.collapsed ? ' collapsed' : ''}" data-job="${j.id}" data-tone="${jobTone(j)}">
+    <div class="job-head" onclick="toggleJob(event,'${j.id}')">
+      <span class="job-caret">▾</span>
+      <div class="job-head-main">
+        <div class="job-name" contenteditable="true" data-mid="${j.id}" data-field="name" data-ph="Job name…" onclick="event.stopPropagation()">${textToHtml(j.name)}</div>
+        <div class="job-sub">
+          <span class="job-date" contenteditable="true" data-mid="${j.id}" data-field="date" data-ph="Target date…" onclick="event.stopPropagation()">${textToHtml(j.date)}</span>
+          ${j.phase ? `<span class="tag-chip">${escHtml(j.phase)}</span>` : ''}
+        </div>
+      </div>
+      <div class="job-head-right">
+        <div class="job-metrics">
+          ${total ? `<span class="goal-progress">${done}/${total} goals</span>` : ''}
+          ${pct != null && !isNaN(pct) ? `<span class="metric-pill">${pct}%</span>` : ''}
+          ${!isNaN(sched) && j.sched !== '' ? `<span class="metric-pill ${sched >= 0 ? 'pos' : 'neg'}">${sched > 0 ? '+' : ''}${sched}d</span>` : ''}
+          ${j.status ? `<span class="badge ${/behind|blocked/i.test(j.status) ? 'badge-late' : /risk|hold/i.test(j.status) ? 'badge-hold' : 'badge-active'}">${escHtml(j.status)}</span>` : ''}
+        </div>
+        <span class="job-kill" onclick="deleteJob(event,'${j.id}')" title="Remove this job card">✕</span>
+      </div>
+    </div>
+
+    <div class="tracker-sync">
+      <div class="tracker-sync-label">📊 Tracker Link <span class="tracker-hint">(writes to the projects tracker on Save)</span></div>
+      <select class="tracker-link" data-mid="${j.id}" data-field="projectId" onchange="onTrackerLinkChange(this)">${trackerLinkOptions(j.projectId)}</select>
+      <div class="tracker-fields">
+        <div><label>Phase</label><select class="tracker-phase" data-mid="${j.id}" data-field="phase">${phaseOptions(j.phase)}</select></div>
+        <div><label>% Complete</label><input class="tracker-pct" type="number" min="0" max="100" placeholder="0–100" data-mid="${j.id}" data-field="pct" value="${escHtml(j.pct)}"/></div>
+        <div><label>Status</label><select class="tracker-status" data-mid="${j.id}" data-field="status">${statusOptions(j.status)}</select></div>
+        <div><label>Sched ±days</label><input class="tracker-sched" type="number" step="1" placeholder="+3 / −5" title="Days ahead (+) or behind (−), from Buildertrend. Blank = not reported — clears the tracker value." data-mid="${j.id}" data-field="sched" value="${escHtml(j.sched)}"/></div>
+      </div>
+      ${p ? `<div class="tracker-proj-info">
+        <span title="Address & client come from the Projects tracker — edit them there.">${escHtml([p.address,p.buyer_realtor].filter(Boolean).join(' · ') || p.job_number || '')}</span>
+        <a class="tpi-open" target="_blank" rel="noopener" href="/projects.html?q=${encodeURIComponent(p.job_number || p.address || '')}">Open in Projects ↗</a>
+      </div>` : ''}
+    </div>
+
+    <div class="job-body">
+      <div>
+        <div class="job-col-label">2-Week Goals <span class="goal-hint">(check = done)</span></div>
+        <div class="goal-list">${goalsHTML}</div>
+        <button class="add-goal-btn" onclick="addGoal('${j.id}')">+ goal</button>
+      </div>
+      <div>
+        <div class="job-col-label">Active Blockers</div>
+        <div class="job-blockers" contenteditable="true" data-mid="${j.id}" data-field="blockers" data-ph="Nothing blocking">${textToHtml(j.blockers)}</div>
+        <button class="add-goal-btn" onclick="addActionForJob('${j.id}')" title="Create an action item already tagged to this job">+ action item</button>
+      </div>
+    </div>
+
+    <div class="job-foot">
+      <div class="job-strip next">
+        <div class="job-strip-label"><span>Next 2-Week Goals</span><span class="goal-hint">carried into next week at rollover</span></div>
+        <div class="job-strip-text" contenteditable="true" data-mid="${j.id}" data-field="next" data-ph="One per line — these become next week's goals">${textToHtml(j.next)}</div>
+      </div>
+      <div class="job-strip notes">
+        <div class="job-strip-label"><span>Meeting Notes / Updates</span><span class="goal-hint">cleared at rollover · saved to tracker history</span></div>
+        <div class="job-strip-text" contenteditable="true" data-mid="${j.id}" data-field="notes" data-ph="This week's discussion…">${textToHtml(j.notes)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderJobs() {
+  const grid = $('#jobGrid');
+  if (!grid) return;
+  const q = ($('#jobSearch') && $('#jobSearch').value || '').trim().toLowerCase();
+  let jobs = S.jobs || [];
+  if (q) {
+    jobs = jobs.filter(j => {
+      const p = j.projectId && trackerProjects.find(tp => tp.id === j.projectId);
+      const hay = [j.name, j.date, j.phase, j.status, j.blockers, p && p.label].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  grid.innerHTML = jobs.length
+    ? jobs.map(jobCardHTML).join('')
+    : `<div class="empty-note">${q ? 'No jobs match that filter.' : 'No job cards yet — use <b>+ Add from Tracker</b> to pull in active projects.'}</div>`;
+}
+
+/* ── generic table renderer (warranty / events / misc / start / pipeline) ── */
+const TABLE_RENDER = {
+  warranty: { table:'#warrantyTable', cells:[
+      { f:'address', ph:'Address' }, { f:'items', ph:'Open items / next action' },
+      { f:'owner', cls:'owner-cell', kind:'owner' }, { f:'due', cls:'due-cell', kind:'date' } ] },
+  events: { table:'#eventsTable', cells:[
+      { f:'text', ph:'Event' }, { f:'date', cls:'date-cell', ph:'Date / time' },
+      { f:'owner', cls:'owner-cell', ph:'Action needed' } ] },
+  misc: { table:'#miscTable', cells:[
+      { f:'text', ph:'Item' }, { f:'owner', cls:'owner-cell', kind:'owner' } ] },
+  startManual: { table:'#startTable', cells:[
+      { f:'name', ph:'Project' }, { f:'date', cls:'date-cell', ph:'Target start' },
+      { f:'status', cls:'status-cell', ph:'Status' }, { f:'owner', cls:'owner-cell', kind:'owner' } ] },
+  pipelineManual: { table:'#pipelineTable', cells:[
+      { f:'name', ph:'Prospect' }, { f:'date', cls:'date-cell', ph:'Tentative start' },
+      { f:'prob', cls:'status-cell', ph:'Probability' }, { f:'owner', cls:'owner-cell', ph:'Rep' } ] }
+};
+
+function ownerSelectHTML(id, field, value, cls) {
+  const known = personByName(value);
+  const extra = (value && !known) ? `<option value="${escHtml(value)}" selected>${escHtml(value)}</option>` : '';
+  return `<select class="${cls||'ar-owner-sel'}" data-mid="${id}" data-field="${field}">
+    <option value="">— owner —</option>${extra}` +
+    TEAM.map(p => `<option value="${escHtml(p.name)}"${known && known.name === p.name ? ' selected' : ''}>${escHtml(p.name)}</option>`).join('') +
+    `</select>`;
+}
+
+function renderTable(key) {
+  const def = TABLE_RENDER[key];
+  if (!def) return;
+  const tbody = $(def.table + ' tbody');
+  if (!tbody) return;
+  const hasCheck = !!LISTS[key].check;
+  const auto = $$(def.table + ' tbody tr.auto-row').map(tr => tr.outerHTML).join('');
+  const rows = (S[key]||[]).map(r => {
+    const cells = def.cells.map(c => {
+      if (c.kind === 'owner') return `<td class="${c.cls||''}">${ownerSelectHTML(r.id, c.f, r[c.f])}</td>`;
+      if (c.kind === 'date')  return `<td class="${c.cls||''}"><input class="ar-due-in" type="date" data-mid="${r.id}" data-field="${c.f}" value="${escHtml(r[c.f]||'')}"/></td>`;
+      return `<td class="${c.cls||''}" contenteditable="true" data-mid="${r.id}" data-field="${c.f}" data-ph="${escHtml(c.ph||'')}">${textToHtml(r[c.f])}</td>`;
+    }).join('');
+    return `<tr class="${r.done ? 'done' : ''}" data-row="${r.id}">` +
+      (hasCheck ? `<td class="check-cell"><span class="cb${r.done ? ' checked' : ''}" role="checkbox" tabindex="0" aria-checked="${r.done ? 'true' : 'false'}" aria-label="Mark done" onclick="toggleRow('${r.id}')"></span></td>` : '') +
+      cells +
+      `<td class="row-del" onclick="deleteRow('${key}','${r.id}')" title="Delete row">✕</td></tr>`;
+  }).join('');
+  tbody.innerHTML = auto + rows;
+}
+
+/* ── 4 · ACTION ITEMS ── */
+function actionMatchesFilter(r) {
+  if (actionFilter === 'all')  return true;
+  if (actionFilter === 'open') return !r.done;
+  if (actionFilter === 'done') return !!r.done;
+  if (actionFilter === 'unassigned') return !r.done && !String(r.owner||'').trim();
+  return !r.done && splitOwners(r.owner).some(o => {
+    const p = personByName(o);
+    return (p ? p.name : o).toLowerCase() === actionFilter.toLowerCase();
+  });
+}
+
+function renderActionFilters() {
+  const bar = $('#actionFilters');
+  if (!bar) return;
+  const all  = S.action || [];
+  const open = all.filter(r => !r.done);
+  const counts = {};
+  open.forEach(r => splitOwners(r.owner).forEach(o => {
+    const p = personByName(o); const n = p ? p.name : o;
+    counts[n] = (counts[n]||0) + 1;
+  }));
+  const unassigned = open.filter(r => !String(r.owner||'').trim()).length;
+
+  const chip = (key, label, n) =>
+    `<div class="filter-chip${actionFilter === key ? ' active' : ''}" onclick="setActionFilter('${String(key).replace(/'/g,"\\'")}')">${escHtml(label)}${n != null ? `<span class="fc-n">${n}</span>` : ''}</div>`;
+
+  bar.innerHTML = '<span class="filter-label">Show</span>' +
+    chip('open','Open', open.length) +
+    chip('all','All', all.length) +
+    chip('done','Done', all.length - open.length) +
+    (unassigned ? chip('unassigned','⚠ Unassigned', unassigned) : '') +
+    '<span class="filter-label" style="margin-left:8px">By owner</span>' +
+    TEAM.filter(p => counts[p.name]).map(p => chip(p.name, p.name, counts[p.name])).join('') +
+    Object.keys(counts).filter(n => !TEAM.some(p => p.name === n)).map(n => chip(n, n, counts[n])).join('');
+}
+
+function actionRowHTML(r) {
+  const tone = dueTone(r.due);
+  const owners = splitOwners(r.owner);
+  return `
+  <div class="action-row${r.done ? ' done' : ''}" data-row="${r.id}">
+    <span class="cb${r.done ? ' checked' : ''}" role="checkbox" tabindex="0" aria-checked="${r.done ? 'true' : 'false'}" aria-label="Mark done" onclick="toggleRow('${r.id}')" style="margin-top:2px"></span>
+    <div class="ar-main">
+      <div class="ar-text" contenteditable="true" data-mid="${r.id}" data-field="text" data-ph="Action item…">${textToHtml(r.text)}</div>
+      ${(r.job || owners.length > 1) ? `<div class="ar-meta">
+        ${r.job ? `<span class="tag-chip">${escHtml(r.job)}</span>` : ''}
+        ${owners.length > 1 ? owners.map(o => `<span class="owner-chip"><span class="av">${escHtml(initials(o))}</span>${escHtml(o)}</span>`).join('') : ''}
+      </div>` : ''}
+    </div>
+    <div class="ar-side">
+      ${ownerSelectHTML(r.id,'owner', r.owner)}
+      <input class="ar-due-in ${tone}" type="date" data-mid="${r.id}" data-field="due" value="${escHtml(r.due||'')}" title="Due date"/>
+      ${r.due && tone ? `<span class="due-chip ${tone}">${tone === 'late' ? 'overdue' : fmtShort(r.due)}</span>` : ''}
+      <span class="ar-kill" onclick="deleteRow('action','${r.id}')" title="Delete">✕</span>
+    </div>
+  </div>`;
+}
+
+function renderActions() {
+  renderActionFilters();
+  const list = $('#actionList');
+  if (!list) return;
+  const rows = (S.action||[]).filter(actionMatchesFilter);
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty-note">${actionFilter === 'open' ? 'No open action items. 🎉' : 'Nothing matches this filter.'}</div>`;
+    return;
+  }
+  /* Group by owner when looking at everything; flat list when filtered to one person. */
+  const flat = ['done'].includes(actionFilter) || TEAM.some(p => p.name.toLowerCase() === String(actionFilter).toLowerCase());
+  if (flat) { list.innerHTML = rows.map(actionRowHTML).join(''); return; }
+
+  const groups = new Map();
+  rows.forEach(r => {
+    const key = String(r.owner||'').trim() || '⚠ Unassigned';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  });
+  /* Unassigned first — it's the thing that needs fixing before the meeting ends. */
+  const keys = Array.from(groups.keys()).sort((a,b) =>
+    a === '⚠ Unassigned' ? -1 : b === '⚠ Unassigned' ? 1 : a.localeCompare(b));
+  list.innerHTML = keys.map(k =>
+    `<div class="action-group-head">${escHtml(k)}<span class="agh-n">${groups.get(k).length}</span></div>` +
+    groups.get(k).map(actionRowHTML).join('')
+  ).join('');
+}
+
+/* ── 7 · WRAP-UP SUMMARY ── */
+function renderWrapSummary() {
+  const box = $('#wrapSummary');
+  if (!box) return;
+  const buckets = collectAssignments('open');
+  if (!buckets.length) {
+    box.innerHTML = '<div class="empty-note">No open items assigned. Add action items in Section 4.</div>';
+    return;
+  }
+  box.innerHTML = '<div class="action-list">' + buckets.map(b =>
+    `<div class="action-group-head">${escHtml(b.name)}<span class="agh-n">${b.items.length}</span></div>` +
+    b.items.map(it => `<div class="action-row">
+        <span class="sl-dot" style="margin-top:3px">•</span>
+        <div class="ar-main"><div class="ar-text">${escHtml(it.text)}</div>
+          <div class="ar-meta"><span class="sl-src">${escHtml(it.source)}</span>${it.due ? `<span class="due-chip ${dueTone(it.due)}">${fmtShort(it.due)}</span>` : ''}</div>
+        </div>
+      </div>`).join('')
+  ).join('') + '</div>';
+}
+
+/* ── section / job collapse ── */
+function toggleSection(header) { header.closest('.section-card').classList.toggle('collapsed'); }
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('collapsed');
+  el.scrollIntoView({ behavior:'smooth', block:'start' });
+  $$('.nav-chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-target') === id));
+}
+function toggleJob(e, id) {
+  if (e && e.target.closest('[contenteditable], .job-kill, select, input')) return;
+  const j = (S.jobs||[]).find(x => x.id === id);
+  if (!j) return;
+  j.collapsed = !j.collapsed;
+  const el = $(`.job-card[data-job="${id}"]`);
+  if (el) el.classList.toggle('collapsed', !!j.collapsed);
+  markDirty();
+}
+function collapseAllJobs(v) {
+  (S.jobs||[]).forEach(j => { j.collapsed = !!v; });
+  renderJobs(); markDirty();
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ⑦ EDITING — every keystroke lands in S. Nothing is ever scraped.
+   ───────────────────────────────────────────────────────────────────── */
+
+function writeField(mid, field, value) {
+  const hit = findRow(mid);
+  if (!hit) return false;
+  hit.row[field] = value;
+  return true;
+}
+
+/* contenteditable typing */
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (!el || !el.getAttribute) return;
+  const mid = el.getAttribute('data-mid');
+  const field = el.getAttribute('data-field');
+  if (mid && field && el.isContentEditable) {
+    writeField(mid, field, ceGet(el));
+    markDirty();
+    return;
+  }
+  if (el.id === 'nextMeetingDate') { S.nextMeeting = ceGet(el); markDirty(); }
+});
+
+/* selects + date/number inputs */
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (!el || !el.getAttribute) return;
+  const mid = el.getAttribute('data-mid');
+  const field = el.getAttribute('data-field');
+  if (!mid || !field || el.isContentEditable) return;
+  if (field === 'projectId') return;             // handled by onTrackerLinkChange
+  writeField(mid, field, el.value);
+  markDirty();
+  /* Header chips (phase / status / sched / %) and due-date tone need a repaint. */
+  if (['phase','status','sched','pct'].includes(field)) renderJobs();
+  if (field === 'owner' || field === 'due') { renderActions(); renderWrapSummary(); }
+});
+
+/* v4: the checkboxes are styled spans, so Space/Enter has to be wired by hand
+   or they are unreachable without a mouse. */
+document.addEventListener('keydown', e => {
+  const cb = e.target && e.target.classList && e.target.classList.contains('cb') ? e.target : null;
+  if (!cb) return;
+  if (e.key !== ' ' && e.key !== 'Enter') return;
+  e.preventDefault();
+  cb.click();
+});
+
+/* Enter in the quick-add box */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target && e.target.id === 'qaText') { e.preventDefault(); quickAddAction(); }
+  /* Enter on the last goal line adds another goal instead of a line break. */
+  if (e.key === 'Enter' && !e.shiftKey && e.target && e.target.classList && e.target.classList.contains('goal-text')) {
+    const card = e.target.closest('.job-card');
+    const rows = card ? $$('.goal-row', card) : [];
+    if (card && rows.length && rows[rows.length-1].contains(e.target)) {
+      e.preventDefault(); addGoal(card.getAttribute('data-job'));
+    }
+  }
+});
+
+/* ── structural mutations ── */
+function toggleRow(id) {
+  const hit = findRow(id);
+  if (!hit) return;
+  hit.row.done = !hit.row.done;
+  if (hit.list === 'action') { renderActions(); renderWrapSummary(); }
+  else renderTable(hit.list);
+  renderNav(); markDirty();
+}
+function deleteRow(key, id) {
+  S[key] = (S[key]||[]).filter(r => r.id !== id);
+  if (key === 'action') { renderActions(); renderWrapSummary(); } else renderTable(key);
+  renderNav(); markDirty();
+}
+function addRow(key) {
+  const row = { id: uid('r') };
+  if (LISTS[key].check) row.done = false;
+  LISTS[key].fields.forEach(f => { row[f] = ''; });
+  (S[key] = S[key] || []).push(row);
+  if (key === 'action') { actionFilter = 'open'; renderActions(); renderWrapSummary(); } else renderTable(key);
+  renderNav(); markDirty();
+  setTimeout(() => {
+    const el = $(`[data-mid="${row.id}"][contenteditable]`);
+    if (el) { el.focus(); el.scrollIntoView({ block:'center', behavior:'smooth' }); }
+  }, 30);
+}
+
+function toggleGoal(gid) {
+  const hit = findRow(gid);
+  if (!hit || hit.list !== 'goals') return;
+  hit.row.done = !hit.row.done;
+  renderJobs(); markDirty();
+}
+function addGoal(jid) {
+  const j = (S.jobs||[]).find(x => x.id === jid);
+  if (!j) return;
+  const g = { id: uid('g'), text:'', done:false };
+  (j.goals = j.goals || []).push(g);
+  renderJobs(); markDirty();
+  setTimeout(() => { const el = $(`[data-mid="${g.id}"]`); if (el) el.focus(); }, 30);
+}
+function deleteGoal(jid, gid) {
+  const j = (S.jobs||[]).find(x => x.id === jid);
+  if (!j) return;
+  j.goals = (j.goals||[]).filter(g => g.id !== gid);
+  renderJobs(); markDirty();
+}
+function addJobCard(seed) {
+  const j = Object.assign({
+    id: uid('j'), projectId:null, name:'', date:'', goals:[{ id:uid('g'), text:'', done:false }],
+    blockers:'', next:'', notes:'', phase:'', pct:'', status:'', sched:'', collapsed:false
+  }, seed || {});
+  (S.jobs = S.jobs || []).push(j);
+  renderJobs(); renderNav(); markDirty();
+  setTimeout(() => {
+    const el = $(`.job-card[data-job="${j.id}"]`);
+    if (el) { el.scrollIntoView({ block:'center', behavior:'smooth' }); const n = $('.job-name', el); if (n && !j.name) n.focus(); }
+  }, 40);
+  return j;
+}
+function deleteJob(e, id) {
+  if (e) e.stopPropagation();
+  const j = (S.jobs||[]).find(x => x.id === id);
+  if (!confirm('Remove "' + ((j && j.name) || 'this job') + '" from the agenda?\n\nIt stays in the Projects tracker and in past archives.')) return;
+  S.jobs = (S.jobs||[]).filter(x => x.id !== id);
+  renderJobs(); renderNav(); markDirty();
+}
+
+/* ── quick add: "@justin Get the CO for 171 Village fri" ── */
+function parseQuickAdd(raw) {
+  let text = String(raw||'').trim();
+  let owner = '', due = '';
+
+  /* @name (or @first-name of a TEAM alias) */
+  text = text.replace(/(^|\s)@([a-z][\w.-]*)/gi, (m, sp, nm) => {
+    const p = personByName(nm);
+    if (p) { owner = owner ? owner + '/' + p.name : p.name; return sp; }
+    return m;
+  }).trim();
+
+  /* trailing date words */
+  const DOW = { sun:0, sunday:0, mon:1, monday:1, tue:2, tues:2, tuesday:2, wed:3, weds:3, wednesday:3,
+                thu:4, thur:4, thurs:4, thursday:4, fri:5, friday:5, sat:6, saturday:6 };
+  const setDue = d => { due = toISODate(d); };
+  const today = startOfDay(new Date());
+
+  const mExplicit = text.match(/(^|\s)(\d{1,2})\/(\d{1,2})(\/(\d{2,4}))?\s*$/);
+  const mWord     = text.match(/(^|\s)(today|tomorrow|tmrw|eow|next week|sun|sunday|mon|monday|tue|tues|tuesday|wed|weds|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday)\s*$/i);
+  if (mExplicit) {
+    const mo = +mExplicit[2], da = +mExplicit[3];
+    let yr = mExplicit[5] ? +mExplicit[5] : today.getFullYear();
+    if (yr < 100) yr += 2000;
+    const d = new Date(yr, mo-1, da);
+    if (!isNaN(d.getTime())) { setDue(d); text = text.slice(0, mExplicit.index).trim(); }
+  } else if (mWord) {
+    const w = mWord[2].toLowerCase();
+    const d = new Date(today);
+    if (w === 'today') { /* today */ }
+    else if (w === 'tomorrow' || w === 'tmrw') d.setDate(d.getDate()+1);
+    else if (w === 'next week') d.setDate(d.getDate()+7);
+    else if (w === 'eow') d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7));
+    else if (DOW[w] != null) d.setDate(d.getDate() + ((DOW[w] - d.getDay() + 7) % 7 || 7));
+    setDue(d);
+    text = text.slice(0, mWord.index).trim();
+  }
+  return { text: text.replace(/\s{2,}/g,' ').trim(), owner, due };
+}
+
+function quickAddAction() {
+  const ti = $('#qaText'), oi = $('#qaOwner'), di = $('#qaDue');
+  const parsed = parseQuickAdd(ti ? ti.value : '');
+  if (!parsed.text) { if (ti) ti.focus(); return; }
+  const row = {
+    id: uid('r'), done:false, text: parsed.text,
+    owner: parsed.owner || (oi ? oi.value : '') || '',
+    due:   parsed.due   || (di ? di.value : '') || '',
+    job:   ''
+  };
+  (S.action = S.action || []).push(row);
+  if (ti) { ti.value = ''; ti.focus(); }
+  if (di) di.value = '';
+  actionFilter = 'open';
+  renderActions(); renderWrapSummary(); renderNav(); markDirty();
+  toast('✓ Added' + (row.owner ? ' for ' + row.owner : '') + (row.due ? ' · due ' + fmtShort(row.due) : ''), 1800);
+}
+
+/* "+ action item" on a job card — pre-tagged with the job name */
+function addActionForJob(jid) {
+  const j = (S.jobs||[]).find(x => x.id === jid);
+  const row = { id: uid('r'), done:false, text:'', owner:'', due:'', job: j ? (j.name||'').split(' - ').slice(0,2).join(' - ').slice(0,42) : '' };
+  (S.action = S.action || []).push(row);
+  actionFilter = 'open';
+  renderActions(); renderWrapSummary(); renderNav(); markDirty();
+  scrollToSection('sec4');
+  setTimeout(() => { const el = $(`[data-mid="${row.id}"][data-field="text"]`); if (el) el.focus(); }, 300);
+}
+
+function setActionFilter(f) { actionFilter = f; renderActions(); }
+/* ─────────────────────────────────────────────────────────────────────
+   ⑧ TRACKER SYNC (Supabase)
+   On Save, linked job cards write two places:
+     projects        — current truth (phase/status/%/schedule; empty = null)
+     project_updates — weekly history, one row per (project, meeting date)
+   projects.notes is standing context only and is never written from here.
+   ───────────────────────────────────────────────────────────────────── */
+
+let trackerProjects = [];
+let newStarts = [];
+let trackerPickerRows = [];
+const PIPELINE_MIN_PROB = 75;
+
+/* Canonical project label: "R26022 - 908 Bluffside Drive - Martin, David and Patty" */
+function vbhProjectLabel(p) {
+  if (!p) return '';
+  return [p.job_number, p.address, p.buyer_realtor]
+    .map(x => (x == null ? '' : String(x).trim())).filter(Boolean).join(' - ');
+}
+
+async function loadTrackerProjects() {
+  if (!trackerSB) return;
+  try {
+    const { data, error } = await trackerSB.from('projects')
+      .select('id, job_number, address, buyer_realtor, stage, status, phase_note, pct_complete, schedule_days, schedule_updated_at')
+      .order('job_number', { ascending: true });
+    if (error) { console.warn('Tracker load failed:', error.message); return; }
+    trackerProjects = (data||[]).map(p => ({
+      id:p.id, job_number:p.job_number||'', stage:p.stage||'', address:p.address||'',
+      buyer_realtor:p.buyer_realtor||'', status:p.status||'', phase_note:p.phase_note||'',
+      pct_complete:p.pct_complete, schedule_days:p.schedule_days,
+      schedule_updated_at:p.schedule_updated_at, label:vbhProjectLabel(p)
+    }));
+  } catch (e) { console.warn('Tracker load error:', e); }
+}
+
+function onTrackerLinkChange(sel) {
+  const jid = sel.getAttribute('data-mid');
+  const j = (S.jobs||[]).find(x => x.id === jid);
+  if (!j) return;
+  j.projectId = sel.value || null;
+  pullTrackerValues(j, true);
+  renderJobs(); markDirty();
+}
+
+/* Copy the tracker's live values onto a job.
+   overwrite=true  → live values replace what's stored (fresh link, or first
+                     open of the meeting today)
+   overwrite=false → only fills EMPTY fields (mid-meeting reload — never
+                     stomp something being typed) */
+function pullTrackerValues(j, overwrite) {
+  const p = j.projectId && trackerProjects.find(tp => tp.id === j.projectId);
+  if (!p) return false;
+  let changed = false;
+  const set = (field, val) => {
+    if (val === undefined) return;
+    const v = val == null ? '' : String(val);
+    if (!overwrite && String(j[field]||'') !== '') return;
+    if (String(j[field]||'') !== v) { j[field] = v; changed = true; }
+  };
+  set('phase',  p.phase_note || '');
+  set('status', p.status || '');
+  set('pct',    p.pct_complete != null ? Math.round(p.pct_complete * 100) : '');
+  set('sched',  p.schedule_days != null ? p.schedule_days : '');
+  return changed;
+}
+
+function refreshJobsFromTracker() {
+  if (!trackerProjects.length) return;
+  const overwrite = !mtg.editedToday;
+  let changed = 0;
+  (S.jobs||[]).forEach(j => { if (pullTrackerValues(j, overwrite)) changed++; });
+  if (changed) {
+    console.log('[readback] refreshed ' + changed + ' job(s) from tracker (' + (overwrite ? 'live values' : 'filled blanks') + ')');
+    renderJobs(); scheduleAutosave();
+  }
+}
+
+/* ── Push linked jobs up to the tracker ── */
+async function pushCardsToTracker() {
+  if (!trackerSB) return null;
+  const jobs = (S.jobs||[]).filter(j => j.projectId);
+  if (!jobs.length) return { pushed:0, failed:0 };
+  const iso = isoDayKey(S.meetingDate) || S.dateKey || todayISO();
+  /* v4: never push a stale week's numbers over the tracker's current truth.
+     Saving a meeting from three days ago used to rewrite projects.phase_note /
+     status / pct_complete with that meeting's values and file a project_updates
+     row under the old meeting_date. */
+  if (iso < todayISO()) {
+    console.log('[tracker] skipped push — ' + iso + ' is older than today');
+    return { pushed:0, failed:0, skipped:true };
+  }
+  let pushed = 0, failed = 0;
+
+  for (const j of jobs) {
+    const phase  = String(j.phase||'').trim();
+    const status = String(j.status||'').trim();
+    const pctRaw = String(j.pct||'').trim();
+    const schRaw = String(j.sched||'').trim();
+
+    let pct = null;
+    if (pctRaw !== '') { const n = parseFloat(pctRaw); if (!isNaN(n)) pct = Math.max(0, Math.min(100, n)) / 100; }
+    let sched = null;
+    if (schRaw !== '') { const n = parseInt(schRaw, 10); if (!isNaN(n)) sched = n; }
+
+    /* v4: only write fields the card actually carries. The old version mapped
+       "" -> null unconditionally, so saving a meeting where a linked card had a
+       blank Status wiped that project's live Status in the tracker. */
+    const patch = { updated_by: 'Weekly Meeting · ' + iso };
+    if (phase  !== '') patch.phase_note   = phase;
+    if (status !== '') patch.status       = status;
+    if (pct    !== null) patch.pct_complete = pct;
+    const cached = trackerProjects.find(tp => tp.id === j.projectId);
+    const currentSched = (cached && cached.schedule_days != null) ? Number(cached.schedule_days) : null;
+    if (sched !== currentSched) {
+      patch.schedule_days = sched;
+      patch.schedule_updated_at = sched == null ? null : new Date().toISOString();
+      patch.schedule_updated_by = sched == null ? null : editorLabel();
+    }
+
+    const updateRow = {
+      project_id: j.projectId, meeting_date: iso,
+      phase_note: phase || null,
+      note: String(j.notes||'').trim() || null,
+      blocker: String(j.blockers||'').trim() || null,
+      next_step: String(j.next||'').trim() || null,
+      pct_complete: pct, schedule_days: sched,
+      created_by: editorLabel()
+    };
+
+    try {
+      const { error: pErr } = await trackerSB.from('projects').update(patch).eq('id', j.projectId);
+      if (pErr) throw pErr;
+      const { error: uErr } = await trackerSB.from('project_updates').upsert(updateRow, { onConflict:'project_id,meeting_date' });
+      if (uErr) throw uErr;
+      if (cached) {
+        cached.phase_note = patch.phase_note; cached.status = patch.status; cached.pct_complete = patch.pct_complete;
+        if ('schedule_days' in patch) { cached.schedule_days = patch.schedule_days; cached.schedule_updated_at = patch.schedule_updated_at; }
+      }
+      pushed++;
+    } catch (e) { failed++; console.warn('Push failed for', j.projectId, e.message || e); }
+  }
+  return { pushed, failed };
+}
+
+/* ── New starts: converted leads not yet on the agenda ── */
+function jobNumbersOnAgenda() {
+  const nums = new Set();
+  (S.jobs||[]).forEach(j => {
+    const p = j.projectId && trackerProjects.find(tp => tp.id === j.projectId);
+    if (p && p.job_number) nums.add(p.job_number.toUpperCase());
+    const m = String(j.name||'').match(/\b([RM]\d{4,6})\b/i);
+    if (m) nums.add(m[1].toUpperCase());
+  });
+  return nums;
+}
+
+async function detectNewStarts() {
+  const banner = $('#newStartsBanner');
+  if (!banner || !trackerSB) return;
+  let rows = [];
+  try {
+    const { data, error } = await trackerSB.from('projects')
+      .select('id, job_number, address, buyer_realtor, stage, status, start_date, phase_note, pct_complete, schedule_days, from_lead, converted_at')
+      .eq('from_lead', true).order('converted_at', { ascending:false });
+    if (error) { console.warn('New-starts check failed:', error.message); return; }
+    rows = data || [];
+  } catch (e) { console.warn('New-starts error:', e); return; }
+
+  const onAgenda = jobNumbersOnAgenda();
+  newStarts = rows.filter(p => p.job_number && !onAgenda.has(p.job_number.toUpperCase())
+                                && (p.stage||'').toLowerCase() !== 'closed');
+
+  if (!newStarts.length) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+  banner.innerHTML =
+    `<div class="nsb-head">🆕 New starts ready to add (${newStarts.length})</div>` +
+    newStarts.map(p => `<div class="new-starts-row">
+      <div class="nsr-info"><b>${escHtml(p.job_number)}</b>${p.address ? ` <span>${escHtml(p.address)}</span>` : ''}${p.buyer_realtor ? ` · ${escHtml(p.buyer_realtor)}` : ''}</div>
+      <button class="nsr-add" onclick="addStartToAgenda('${p.id}')">+ Add to agenda</button>
+    </div>`).join('');
+  banner.style.display = 'block';
+}
+
+function cacheProject(p) {
+  if (!trackerProjects.find(tp => tp.id === p.id)) {
+    trackerProjects.push({
+      id:p.id, job_number:p.job_number||'', address:p.address||'', buyer_realtor:p.buyer_realtor||'',
+      stage:p.stage||'', status:p.status||'', phase_note:p.phase_note||'',
+      pct_complete:p.pct_complete, schedule_days:p.schedule_days, label:vbhProjectLabel(p)
+    });
+  }
+}
+
+function addStartToAgenda(projectId) {
+  const p = newStarts.find(x => x.id === projectId);
+  if (!p) return;
+  cacheProject(p);
+  addJobCard({
+    projectId: p.id,
+    name: vbhProjectLabel(p),
+    date: p.start_date ? 'Start ' + fmtStartDate(p.start_date) : '',
+    phase: 'Pre-Construction',
+    status: 'On Track'
+  });
+  newStarts = newStarts.filter(x => x.id !== projectId);
+  detectNewStarts();
+  toast(`✓ ${p.job_number} added`);
+}
+
+/* ── Add from tracker picker ── */
+async function openTrackerPicker() {
+  const box = $('#trackerPicker');
+  if (!box) return;
+  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div class="tp-empty">Loading projects…</div>';
+  if (!trackerSB) { box.innerHTML = '<div class="tp-empty">Tracker not connected.</div>'; return; }
+
+  const today = startOfDay(new Date());
+  let rows = [];
+  try {
+    const { data, error } = await trackerSB.from('projects')
+      .select('id, job_number, address, buyer_realtor, stage, status, start_date, phase_note, pct_complete, schedule_days')
+      .order('start_date', { ascending:false });
+    if (error) throw error;
+    rows = (data||[]).filter(p => {
+      if ((p.stage||'') === 'closed') return false;
+      if (!p.start_date) return false;
+      const d = startOfDay(new Date(p.start_date));
+      return !isNaN(d.getTime()) && d <= today;
+    });
+  } catch (e) {
+    box.innerHTML = `<div class="tp-empty">Couldn't load projects: ${escHtml(e.message || String(e))}</div>`;
+    return;
+  }
+  trackerPickerRows = rows;
+  const linked = new Set((S.jobs||[]).map(j => j.projectId).filter(Boolean));
+
+  box.innerHTML =
+    '<div class="tp-head">In-progress projects <span class="tp-close" onclick="closeTrackerPicker()">✕</span></div>' +
+    (rows.length ? rows.map(p => {
+      const on = linked.has(p.id);
+      return `<div class="tp-row${on ? ' on-agenda' : ''}">
+        <div class="tp-info"><b>${escHtml(p.job_number || '—')}</b>${p.address ? ` <span>${escHtml(p.address)}</span>` : ''}${p.buyer_realtor ? ` · ${escHtml(p.buyer_realtor)}` : ''}</div>
+        <button class="tp-add" onclick="addTrackerCardToAgenda('${p.id}')" ${on ? 'disabled' : ''}>${on ? 'On agenda' : '+ Add card'}</button>
+      </div>`;
+    }).join('') : '<div class="tp-empty">No started projects found in the tracker.</div>');
+}
+function closeTrackerPicker() { const b = $('#trackerPicker'); if (b) b.style.display = 'none'; }
+
+function addTrackerCardToAgenda(projectId) {
+  const p = trackerPickerRows.find(x => x.id === projectId);
+  if (!p) return;
+  cacheProject(p);
+  addJobCard({
+    projectId: p.id,
+    name: vbhProjectLabel(p),
+    date: p.start_date ? 'Started ' + fmtStartDate(p.start_date) : 'In progress',
+    phase: p.phase_note || '',
+    status: p.status || '',
+    pct: p.pct_complete != null ? String(Math.round(p.pct_complete * 100)) : '',
+    sched: p.schedule_days != null ? String(p.schedule_days) : ''
+  });
+  const box = $('#trackerPicker');
+  if (box && box.style.display === 'block') { box.style.display = 'none'; openTrackerPicker(); }
+  toast(`✓ ${p.job_number || 'Project'} card added`);
+}
+
+/* ── Live Start List + Pipeline (auto rows, never persisted) ── */
+function startBadge(stage, status) {
+  const s = (status||'').toLowerCase();
+  if (s.includes('hold')) return '<span class="badge badge-hold">HOLD – confirm</span>';
+  if (s.includes('confirm')) return '<span class="badge badge-confirm">Confirm</span>';
+  return '<span class="badge badge-active">Active</span>';
+}
+
+async function refreshStartList() {
+  if (!trackerSB) return;
+  const tbody = $('#startTable tbody');
+  if (!tbody) return;
+  const today = startOfDay(new Date());
+  const horizon = new Date(today); horizon.setDate(horizon.getDate() + 42);
+  let rows = [];
+  try {
+    const { data, error } = await trackerSB.from('projects')
+      .select('id, job_number, address, buyer_realtor, stage, status, start_date')
+      .not('start_date','is',null).neq('stage','closed').order('start_date',{ ascending:true });
+    if (error) { console.warn('Start list load failed:', error.message); return; }
+    rows = (data||[]).filter(p => {
+      if ((p.stage||'') === 'closed') return false;
+      const d = startOfDay(new Date(p.start_date));
+      return !isNaN(d.getTime()) && d >= today && d <= horizon;
+    });
+  } catch (e) { console.warn('Start list error:', e); return; }
+
+  $$('#startTable tbody tr.auto-row').forEach(tr => tr.remove());
+  rows.reverse().forEach(p => {
+    const tr = document.createElement('tr');
+    tr.className = 'auto-row';
+    tr.innerHTML =
+      `<td>${escHtml(vbhProjectLabel(p))}</td>` +
+      `<td class="date-cell">${fmtStartDate(p.start_date)}</td>` +
+      `<td class="status-cell">${startBadge(p.stage, p.status)}</td>` +
+      `<td class="owner-cell" style="color:var(--ink-faint)">from tracker</td>` +
+      `<td class="row-del"></td>`;
+    tbody.insertBefore(tr, tbody.firstChild);
+  });
+}
+
+async function refreshPipeline() {
+  if (!trackerSB) return;
+  const tbody = $('#pipelineTable tbody');
+  if (!tbody) return;
+  let rows = [];
+  try {
+    const { data, error } = await trackerSB.from('leads')
+      .select('id, owner1_first, owner1_last, neighborhood, tentative_address, probability, start_date, sales_rep, archived')
+      .gte('probability', PIPELINE_MIN_PROB).not('start_date','is',null).order('start_date',{ ascending:true });
+    if (error) { console.warn('Pipeline load failed:', error.message); return; }
+    const today = startOfDay(new Date());
+    rows = (data||[]).filter(l => {
+      if (l.archived) return false;
+      if (Number(l.probability) < PIPELINE_MIN_PROB) return false;
+      if (!l.start_date) return false;
+      const d = startOfDay(new Date(l.start_date));
+      return !isNaN(d.getTime()) && d >= today;
+    });
+  } catch (e) { console.warn('Pipeline error:', e); return; }
+
+  $$('#pipelineTable tbody tr.auto-row').forEach(tr => tr.remove());
+  rows.reverse().forEach(l => {
+    const who = [l.owner1_first, l.owner1_last].filter(Boolean).join(' ') || '(unnamed lead)';
+    const where = l.neighborhood || l.tentative_address || '';
+    const tr = document.createElement('tr');
+    tr.className = 'auto-row';
+    tr.innerHTML =
+      `<td>${escHtml(where ? `${who} — ${where}` : who)}</td>` +
+      `<td class="date-cell">${fmtStartDate(l.start_date)}</td>` +
+      `<td class="status-cell"><span class="badge badge-active">${Math.round(l.probability)}%</span></td>` +
+      `<td class="owner-cell">${escHtml(l.sales_rep || '—')}</td>` +
+      `<td class="row-del"></td>`;
+    tbody.insertBefore(tr, tbody.firstChild);
+  });
+}
+
+/* ── Auto-link jobs to tracker projects by job number / street number ──
+   Strict on purpose: job number, else a shared 3–5 digit street number.
+   Never matches on street NAME — "1100 Scots Pine" and "1104 Scots Pine"
+   are different houses. One project can only claim one card. */
+function autoLinkJobsByJobNumber() {
+  if (!trackerProjects.length) return;
+  const norm = s => String(s||'').toLowerCase().replace(/&amp;/g,'&').replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+  const claimed = new Set((S.jobs||[]).map(j => j.projectId).filter(Boolean));
+  let linked = 0;
+
+  (S.jobs||[]).forEach(j => {
+    if (j.projectId) return;
+    const raw = String(j.name||'');
+    if (!raw) return;
+    const upper = raw.toUpperCase();
+    let match = trackerProjects.find(p => {
+      const jn = (p.job_number||'').toUpperCase();
+      return jn && upper.includes(jn) && !claimed.has(p.id);
+    });
+    /* v4: the street-number fallback used to live here. It linked "Lot 1104 -
+       spec home" to a project at "1104 Willow Creek Lane", and the next Save
+       then wrote that card's phase/status into the wrong project. Job number
+       only — anything else is a guess, and a wrong guess corrupts the tracker. */
+    if (!match) return;
+    claimed.add(match.id);
+    j.projectId = match.id;
+    linked++;
+  });
+  if (linked) console.log(`[link] auto-linked ${linked} job(s).`);
+  return linked;
+}
+
+/* ── Drop jobs whose project has closed ── */
+function removeClosedProjectJobs() {
+  if (!trackerProjects.length) return 0;
+  const closedIds = new Set(trackerProjects
+    .filter(p => (p.stage||'').toLowerCase() === 'closed').map(p => p.id));
+  if (!closedIds.size) return 0;
+
+  /* v4: linked cards only. The old version also deleted any UNLINKED card whose
+     name shared a 3-5 digit number with a closed project's address — which
+     silently removed "1104 Scots Pine" because a closed job sat at "1104 Willow
+     Creek Lane". Deleting someone's agenda card on a coincidence is never worth
+     the tidiness. An unlinked card is now always the user's to remove. */
+  const before = (S.jobs||[]).length;
+  S.jobs = (S.jobs||[]).filter(j => !(j.projectId && closedIds.has(j.projectId)));
+  const removed = before - S.jobs.length;
+  if (removed) console.log(`[closeout] removed ${removed} job(s) linked to closed project(s).`);
+  return removed;
+}
+
+/* ── Sync linked jobs from the tracker (rename + drop closed) ── */
+function syncCardsFromTracker(opts) {
+  const verbose = !(opts && opts.silent);
+  if (!trackerProjects.length) { if (verbose) alert('Tracker projects not loaded yet — try again in a moment.'); return; }
+  const byId = new Map(trackerProjects.map(p => [p.id, p]));
+  let renamed = 0, unlinked = 0;
+
+  (S.jobs||[]).forEach(j => {
+    if (!j.projectId) { unlinked++; return; }
+    const p = byId.get(j.projectId);
+    if (!p) return;
+    const title = vbhProjectLabel(p);
+    if (title && String(j.name||'').trim() !== title) { j.name = title; renamed++; }
+  });
+  const dropped = removeClosedProjectJobs();
+  renderJobs(); renderNav(); markDirty();
+
+  if (verbose) {
+    let msg = `Renamed ${renamed} card(s), dropped ${dropped} closed.`;
+    if (unlinked) msg += `\n\n${unlinked} card(s) aren't linked to the tracker yet — pick their project in the "📊 Tracker Link" dropdown, then Sync again.`;
+    alert(msg);
+  }
+}
+/* ─────────────────────────────────────────────────────────────────────
+   ⑨ PERSISTENCE — Supabase `meetings`, one row per meeting day.
+   `state` is the v3 snapshot. Saving is JSON.stringify(S): the DOM is
+   never read, so markup changes can never corrupt a saved meeting.
+   ───────────────────────────────────────────────────────────────────── */
+
+const mtg = { id:null, rev:0, dateISO:null, offline:false, editedToday:false };
+let pushChain = Promise.resolve();
+let conflictRow = null;
+let dirty = false;
+
+/* v4: when the newest row on the server is an OLDER meeting than today, the page
+   opens it for reference. It must not write to it. Previously boot ran three
+   mutations (auto-link, close-out, rename-from-tracker), each calling
+   markDirty(), and 2.5s later the autosave overwrote that archived meeting with
+   the mutated version — no user action required. This flag is the stop. */
+let readOnly = false;
+
+function editorLabel() {
+  try { return localStorage.getItem(EDITOR_KEY) || 'Meeting Page'; } catch (e) { return 'Meeting Page'; }
+}
+function setSaveState(txt, cls) {
+  const el = $('#saveState');
+  if (!el) return;
+  el.textContent = txt;
+  el.className = cls || '';
+}
+function markDirty() {
+  if (readOnly) { renderHeader(); return; }   // v4: never dirty an archived meeting
+  dirty = true;
+  setSaveState('Unsaved…', 'dirty');
+  scheduleAutosave();
+  renderHeader();
+}
+
+function snapshot() {
+  S.v = STATE_VERSION;
+  S.savedAt = new Date().toISOString();
+  /* v4: keep a previously-good dateKey rather than silently re-stamping an
+     unparseable header as today — that used to move a meeting to the wrong day. */
+  S.dateKey = isoDayKey(S.meetingDate) || S.dateKey || todayISO();
+  return JSON.parse(JSON.stringify(S));
+}
+
+/* v4: local archive so a meeting saved while the server is unreachable still
+   lands somewhere durable. The old build only wrote the single-slot draft
+   buffer, which next week's meeting then overwrote. */
+function archiveLocally(state) {
+  try {
+    const key = state.dateKey || isoDayKey(state.meetingDate);
+    if (!key) return;
+    const arr = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+    const list = Array.isArray(arr) ? arr.filter(s => (s && (s.dateKey || isoDayKey(s.meetingDate))) !== key) : [];
+    list.push(state);
+    list.sort((a,b) => String(b.dateKey||'').localeCompare(String(a.dateKey||'')));
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(list.slice(0, 60)));
+  } catch (e) { console.warn('[meetings] local archive failed:', e); }
+}
+
+function writeBuffer(state) {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(state || snapshot())); } catch (e) {}
+}
+
+function pushMeetingToServer(state, explicit) {
+  pushChain = pushChain.then(() => doPush(state, explicit))
+    .catch(e => { console.warn('[meetings] push error:', e); return { ok:false, error:e }; });
+  return pushChain;
+}
+
+async function doPush(state, explicit) {
+  if (readOnly) return { ok:false, readOnly:true };                     // v4
+  if (!trackerSB) { mtg.offline = true; setSaveState('Local only', 'err'); return { ok:false, offline:true }; }
+  /* v4: fall back to the stored ISO key, and say so out loud instead of
+     returning a silent no-op that looks identical to a successful save. */
+  const iso = isoDayKey(state.meetingDate) || state.dateKey || null;
+  if (!iso) {
+    console.warn('[meetings] cannot derive a meeting date from:', state.meetingDate);
+    setSaveState('Bad date', 'err');
+    toast('⚠ Could not read the meeting date — fix the header before saving', 5000);
+    return { ok:false, badDate:true };
+  }
+  const stamp = new Date().toISOString();
+  const base = { state, updated_at:stamp, updated_by:editorLabel() };
+  if (explicit) base.saved_at = stamp;
+  try {
+    if (mtg.id && mtg.dateISO === iso) {
+      const { data, error } = await trackerSB.from('meetings')
+        .update(Object.assign({}, base, { rev: mtg.rev + 1 }))
+        .eq('id', mtg.id).eq('rev', mtg.rev).select('id, rev');
+      if (error) throw error;
+      if (!data || !data.length) { await raiseConflict(iso); return { ok:false, conflict:true }; }
+      mtg.rev = data[0].rev; mtg.offline = false;
+      dirty = false; setSaveState('Saved');
+      return { ok:true };
+    }
+    /* v4: send rev:0 explicitly. If the column has no DEFAULT the row inserts as
+       NULL, and `rev = <n>` is never true against NULL in Postgres — so every
+       save after the first came back as a phantom "conflict" with no way out.
+       Setting it here makes the page correct on either schema. */
+    const { data, error } = await trackerSB.from('meetings')
+      .insert(Object.assign({ meeting_date: iso, rev: 0 }, base)).select('id, rev').single();
+    if (error) {
+      if (error.code === '23505') { await raiseConflict(iso); return { ok:false, conflict:true }; }
+      throw error;
+    }
+    mtg.id = data.id; mtg.rev = data.rev; mtg.dateISO = iso; mtg.offline = false;
+    dirty = false; setSaveState('Saved');
+    return { ok:true };
+  } catch (e) {
+    console.warn('[meetings] server push failed (work kept locally):', e.message || e);
+    mtg.offline = true; setSaveState('Offline', 'err');
+    return { ok:false, error:e };
+  }
+}
+
+async function raiseConflict(iso) {
+  conflictRow = null;
+  try {
+    const { data } = await trackerSB.from('meetings').select('*').eq('meeting_date', iso).single();
+    conflictRow = data || null;
+  } catch (e) {}
+  const b = $('#syncBanner');
+  if (!b) return;
+  const who = (conflictRow && conflictRow.updated_by) || 'someone else';
+  const when = conflictRow && conflictRow.updated_at ? new Date(conflictRow.updated_at).toLocaleTimeString('en-US',{ hour:'numeric', minute:'2-digit' }) : '';
+  $('#syncBannerMsg').textContent = `⚠ ${who} saved this meeting${when ? ' at ' + when : ''}. Your changes aren't on the server yet.`;
+  b.style.display = 'flex';
+  setSaveState('Conflict', 'err');
+}
+
+async function resolveConflict(loadTheirs) {
+  const b = $('#syncBanner');
+  if (loadTheirs && conflictRow) {
+    const st = migrateState(conflictRow.state);
+    if (st) {
+      S = st;
+      mtg.id = conflictRow.id; mtg.rev = conflictRow.rev; mtg.dateISO = conflictRow.meeting_date;
+      renderAll(); toast('↩ Loaded their version');
+    }
+  } else if (conflictRow) {
+    /* Keep mine: adopt their rev so the next write lands on top of it. */
+    mtg.id = conflictRow.id; mtg.rev = conflictRow.rev; mtg.dateISO = conflictRow.meeting_date;
+    const st = snapshot();
+    writeBuffer(st);
+    await pushMeetingToServer(st, true);
+    toast('✓ Your version saved over theirs');
+  }
+  if (b) b.style.display = 'none';
+  conflictRow = null;
+}
+
+/* ── debounced autosave ── */
+let autosaveTimer = null, autosaveMaxTimer = null, bufferTimer = null;
+function scheduleAutosave() {
+  if (readOnly) return;                                                 // v4
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(flushAutosave, 2500);
+  if (!autosaveMaxTimer) autosaveMaxTimer = setTimeout(flushAutosave, 12000);
+  clearTimeout(bufferTimer);
+  bufferTimer = setTimeout(() => writeBuffer(), 600);
+}
+function flushAutosave() {
+  if (readOnly) return;                                                 // v4
+  clearTimeout(autosaveTimer);    autosaveTimer = null;
+  clearTimeout(autosaveMaxTimer); autosaveMaxTimer = null;
+  const st = snapshot();
+  writeBuffer(st);
+  pushMeetingToServer(st, false);
+}
+window.addEventListener('beforeunload', e => {
+  try { writeBuffer(); } catch (err) {}
+  if (dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+/* ── Explicit save ── */
+function saveMeeting() {
+  if (readOnly) {
+    toast('This is an archived meeting — click "Edit anyway" or roll it forward', 4000);
+    return;
+  }
+  const st = snapshot();
+  writeBuffer(st);
+  setSaveState('Saving…', 'dirty');
+  pushMeetingToServer(st, true).then(res => {
+    if (res && res.ok)            toast('✓ Meeting saved');
+    else if (res && res.conflict) toast('⚠ Save conflict — see banner');
+    else if (res && res.badDate)  { /* already toasted */ }
+    else { archiveLocally(st); toast('⚠ Server unreachable — saved to this browser'); }
+    if ($('#archivePanel').classList.contains('open')) renderArchiveList();
+  });
+  pushCardsToTracker().then(res => {
+    if (!res || (res.pushed === 0 && res.failed === 0)) return;
+    setTimeout(() => toast(res.failed > 0
+      ? `⚠ Tracker: ${res.pushed} updated, ${res.failed} failed`
+      : `✓ Tracker updated (${res.pushed} project${res.pushed === 1 ? '' : 's'})`, 3000), 900);
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ⑩ ROLLOVER — pure function. Given a state, produce next week's state.
+   Nothing here touches the DOM, so nothing can be lost in translation.
+   ───────────────────────────────────────────────────────────────────── */
+
+function nextMeetingDates(state) {
+  /* The header for next week = whatever "Next Meeting" says, if it parses;
+     otherwise this meeting's date + 7. Never silently fails. */
+  const timeOf = txt => {
+    const parts = String(txt||'').replace(/ /g,' ').split('|');
+    return parts.length > 1 ? parts.slice(1).join('|').trim() : MEETING_TIME;
+  };
+  const parse = txt => {
+    const raw = String(txt||'').replace(/ /g,' ').split('|')[0].trim();
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const time = timeOf(state.meetingDate) || MEETING_TIME;
+  let nextD = parse(state.nextMeeting);
+  if (!nextD) {
+    const cur = parse(state.meetingDate) || new Date();
+    nextD = new Date(cur); nextD.setDate(nextD.getDate() + 7);
+  }
+  const afterD = new Date(nextD); afterD.setDate(afterD.getDate() + 7);
+  return {
+    meetingDate: fmtLongDate(nextD) + '  |  ' + time,
+    nextMeeting: fmtLongDate(afterD) + '  |  ' + time,
+    dateKey: toISODate(nextD)
+  };
+}
+
+/* What rolls forward, and what falls off:
+     · Wins            → cleared (roster kept)
+     · Action items    → open ones carry; completed drop (archive keeps them)
+     · Warranty        → open ones carry; completed drop
+     · Events          → completed drop; past-dated events drop
+     · Misc            → completed drop
+     · Job goals       → unchecked goals + each job's "Next 2-Week Goals" lines
+     · Job notes       → cleared (they're already in project_updates history)
+     · Job blockers    → carried (a blocker doesn't disappear because a week did)
+     · Start/Pipeline manual rows → carried as typed
+*/
+function rollForward(state) {
+  const out = JSON.parse(JSON.stringify(state));
+  const dates = nextMeetingDates(state);
+  out.meetingDate = dates.meetingDate;
+  out.nextMeeting = dates.nextMeeting;
+  out.dateKey     = dates.dateKey;
+  out.v = STATE_VERSION;
+  out.savedAt = new Date().toISOString();
+
+  out.wins = (out.wins||[]).map(w => Object.assign({}, w, { id:uid('w'), text:'' }));
+  out.action   = (out.action||[]).filter(r => !r.done && String(r.text||'').trim());
+  out.warranty = (out.warranty||[]).filter(r => !r.done && (String(r.address||'').trim() || String(r.items||'').trim()));
+  out.misc     = (out.misc||[]).filter(r => !r.done && String(r.text||'').trim());
+  out.events   = (out.events||[]).filter(r => !r.done && String(r.text||'').trim());
+
+  out.jobs = (out.jobs||[]).map(j => {
+    const goals = (j.goals||[]).filter(g => !g.done && String(g.text||'').trim())
+                               .map(g => ({ id:uid('g'), text:g.text, done:false }));
+    String(j.next||'').split(/[\n·]/).forEach(t => {
+      t = t.trim();
+      if (t) goals.push({ id:uid('g'), text:t, done:false });
+    });
+    if (!goals.length) goals.push({ id:uid('g'), text:'', done:false });
+    return Object.assign({}, j, { goals, next:'', notes:'' });
+  });
+  return out;
+}
+
+/* ── Preview modal: show exactly what carries and what drops ── */
+let rollPreviewState = null;
+
+function openRollPreview() {
+  rollPreviewState = rollForward(S);
+  const keep = [], drop = [];
+
+  (S.action||[]).forEach(r => {
+    if (!String(r.text||'').trim()) return;
+    (r.done ? drop : keep).push({ tag:'Action', text:r.text + (r.owner ? ' — ' + r.owner : '') });
+  });
+  (S.warranty||[]).forEach(r => {
+    const label = [r.address, r.items].filter(Boolean).join(' — ');
+    if (!label.trim()) return;
+    (r.done ? drop : keep).push({ tag:'Warranty', text:label });
+  });
+  (S.events||[]).forEach(r => {
+    if (!String(r.text||'').trim()) return;
+    (r.done ? drop : keep).push({ tag:'Event', text:r.text });
+  });
+  (S.misc||[]).forEach(r => {
+    if (!String(r.text||'').trim()) return;
+    (r.done ? drop : keep).push({ tag:'Misc', text:r.text });
+  });
+  (S.jobs||[]).forEach(j => {
+    (j.goals||[]).forEach(g => {
+      if (!String(g.text||'').trim()) return;
+      (g.done ? drop : keep).push({ tag:(j.name||'Job').split(' - ')[0], text:g.text });
+    });
+    String(j.next||'').split(/[\n·]/).map(t => t.trim()).filter(Boolean)
+      .forEach(t => keep.push({ tag:(j.name||'Job').split(' - ')[0] + ' · next', text:t }));
+  });
+
+  const dates = nextMeetingDates(S);
+  const winsN = (S.wins||[]).filter(w => String(w.text||'').trim()).length;
+  const notesN = (S.jobs||[]).filter(j => String(j.notes||'').trim()).length;
+
+  $('#rollBody').innerHTML = `
+    <div class="roll-summary">
+      This archives <b>${escHtml(String(S.meetingDate||'').split('|')[0].trim())}</b> and stages
+      <b>${escHtml(String(dates.meetingDate).split('|')[0].trim())}</b>.<br>
+      ${keep.length} item${keep.length === 1 ? '' : 's'} carry forward · ${drop.length} completed item${drop.length === 1 ? '' : 's'} drop off ·
+      ${winsN} win${winsN === 1 ? '' : 's'} and ${notesN} job note${notesN === 1 ? '' : 's'} clear.<br>
+      <span style="color:var(--ink-faint)">Nothing is deleted — this week stays in Archives exactly as it is now.</span>
+    </div>
+    <div class="roll-grid">
+      <div class="roll-col keep">
+        <div class="roll-col-head">✓ Carries to next week (${keep.length})</div>
+        <div class="roll-list">${keep.length ? keep.map(i => `<div class="roll-item"><span class="ri-tag">${escHtml(i.tag)}</span>${escHtml(i.text)}</div>`).join('') : '<div class="roll-item" style="color:var(--ink-faint);font-style:italic">Nothing open.</div>'}</div>
+      </div>
+      <div class="roll-col drop">
+        <div class="roll-col-head">Drops off — completed (${drop.length})</div>
+        <div class="roll-list">${drop.length ? drop.map(i => `<div class="roll-item"><span class="ri-tag">${escHtml(i.tag)}</span>${escHtml(i.text)}</div>`).join('') : '<div class="roll-item" style="color:var(--ink-faint);font-style:italic;text-decoration:none">Nothing checked off this week.</div>'}</div>
+      </div>
+    </div>`;
+  $('#rollModal').classList.add('open');
+}
+function closeRollPreview() { $('#rollModal').classList.remove('open'); rollPreviewState = null; }
+
+async function confirmRollForward() {
+  const next = rollPreviewState || rollForward(S);
+  closeRollPreview();
+
+  /* 1 · archive this week exactly as it stands (explicit save + tracker push) */
+  const thisWeek = snapshot();
+  writeBuffer(thisWeek);
+  setSaveState('Saving…', 'dirty');
+  const wasReadOnly = readOnly;
+  readOnly = false;                       // v4: allow the archiving write itself
+  const res = await pushMeetingToServer(thisWeek, true);
+  if (!res || (!res.ok && !res.conflict)) archiveLocally(thisWeek);
+  readOnly = wasReadOnly;
+  if (res && res.conflict) { toast('⚠ Someone else saved this week — resolve the banner first, then roll over'); return; }
+  await pushCardsToTracker();
+
+  /* 2 · swap in next week and start a new server row for it */
+  S = next;
+  mtg.id = null; mtg.rev = 0; mtg.dateISO = null; mtg.editedToday = false;
+  readOnly = false;                       // v4: rolling forward always unlocks
+  document.body.classList.remove('read-only');
+  const rb = $('#roBanner'); if (rb) rb.classList.remove('show');
+  renderAll();
+  /* v4: explicit, so next week lands with saved_at set and shows in Archives as
+     a real save rather than an "Auto-draft". */
+  const staged = snapshot();
+  writeBuffer(staged);
+  await pushMeetingToServer(staged, true);
+
+  toast('⟳ Next week staged — review & edit', 3200);
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+/* ─────────────────────────────────────────────────────────────────────
+   ⑪ SEND — group everything assigned to a person, then copy or email it.
+   No backend: the Email button opens a pre-filled draft in whatever mail
+   client the machine uses. Copy puts the same text on the clipboard for
+   pasting into a text, Teams message, or anywhere else.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Pull every owned item out of the state and bucket it by person.
+   An item owned by "Josh/Bill" lands in BOTH buckets — each person gets a
+   list they can act on without decoding a slash. */
+function collectAssignments(scope) {
+  const openOnly = scope !== 'all';
+  const buckets = new Map();     // name → { name, email, items[] }
+  const push = (ownerRaw, item) => {
+    const names = splitOwners(ownerRaw);
+    const list = names.length ? names : ['⚠ Unassigned'];
+    list.forEach(n => {
+      const p = personByName(n);
+      const key = p ? p.name : n;
+      if (!buckets.has(key)) buckets.set(key, { name:key, email:(p && p.email) || '', items:[] });
+      buckets.get(key).items.push(item);
+    });
+  };
+
+  (S.action||[]).forEach(r => {
+    if (openOnly && r.done) return;
+    const text = String(r.text||'').trim();
+    if (!text) return;
+    push(r.owner, { text, due:r.due||'', done:!!r.done, source:'Action item', tag:r.job||'' });
+  });
+  (S.warranty||[]).forEach(r => {
+    if (openOnly && r.done) return;
+    const text = [String(r.address||'').trim(), String(r.items||'').trim()].filter(Boolean).join(' — ');
+    if (!text) return;
+    push(r.owner, { text, due:r.due||'', done:!!r.done, source:'Warranty', tag:'' });
+  });
+  (S.misc||[]).forEach(r => {
+    if (openOnly && r.done) return;
+    const text = String(r.text||'').trim();
+    if (!text) return;
+    push(r.owner, { text, due:'', done:!!r.done, source:'Ops', tag:'' });
+  });
+  /* v4: the events table's fourth column is free text labelled "Action Needed",
+     not an owner picker. The old build fed it straight to splitOwners(), so
+     "Kara and Josh to confirm signage" invented two people — "Kara" and "Josh to
+     confirm signage". Only route an event to someone when every name in that
+     cell resolves to a real TEAM member; otherwise it is a note, not an
+     assignment, and it stays out of the send list. */
+  (S.events||[]).forEach(r => {
+    if (openOnly && r.done) return;
+    const text = String(r.text||'').trim();
+    const need = String(r.owner||'').trim();
+    if (!text || !need || need === '—') return;
+    const parts = splitOwners(need);
+    if (!parts.length || !parts.every(personByName)) return;
+    push(need, { text: text + (r.date ? ' (' + r.date + ')' : ''), due:'', done:!!r.done, source:'Event', tag:'' });
+  });
+
+  /* Unassigned last; everyone else alphabetical. */
+  return Array.from(buckets.values()).sort((a,b) =>
+    a.name.startsWith('⚠') ? 1 : b.name.startsWith('⚠') ? -1 : a.name.localeCompare(b.name));
+}
+
+function meetingLabel() { return String(S.meetingDate||'').split('|')[0].trim(); }
+
+function bucketPlainText(b) {
+  const lines = [];
+  lines.push(`${b.name} — action items from the ${meetingLabel()} production meeting`);
+  lines.push('');
+  b.items.forEach(it => {
+    const bits = [];
+    if (it.due) bits.push('due ' + fmtShort(it.due));
+    if (it.source !== 'Action item') bits.push(it.source);
+    if (it.tag) bits.push(it.tag);
+    lines.push('• ' + it.text + (bits.length ? '  (' + bits.join(' · ') + ')' : ''));
+  });
+  lines.push('');
+  lines.push(`Next meeting: ${String(S.nextMeeting||'').split('|')[0].trim()}`);
+  return lines.join('\n');
+}
+
+function allPlainText(buckets) {
+  const out = [`Action items — ${meetingLabel()} production meeting`, ''];
+  buckets.forEach(b => {
+    out.push(b.name.toUpperCase());
+    b.items.forEach(it => {
+      const bits = [];
+      if (it.due) bits.push('due ' + fmtShort(it.due));
+      if (it.source !== 'Action item') bits.push(it.source);
+      out.push('  • ' + it.text + (bits.length ? '  (' + bits.join(' · ') + ')' : ''));
+    });
+    out.push('');
+  });
+  out.push(`Next meeting: ${String(S.nextMeeting||'').split('|')[0].trim()}`);
+  return out.join('\n');
+}
+
+function copyText(text, okMsg) {
+  const done = () => toast(okMsg || '📋 Copied');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-1000px;left:-1000px;';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) { toast('⚠ Copy failed — select the text manually'); }
+  document.body.removeChild(ta);
+}
+
+/* mailto: is capped by the OS/mail client (~2000 chars is the safe ceiling).
+   Long lists get trimmed in the draft with a pointer to the Copy button, so
+   a big week never produces a silently truncated email. */
+function mailtoLink(to, subject, body) {
+  const MAX = 1900;
+  let b = body;
+  if (encodeURIComponent(b).length > MAX) {
+    while (encodeURIComponent(b).length > MAX - 120 && b.length > 200) b = b.slice(0, Math.floor(b.length * 0.9));
+    b = b.replace(/\n[^\n]*$/, '') + '\n\n… list trimmed to fit the email draft — use "Copy" on the meeting page for the full list.';
+  }
+  return 'mailto:' + encodeURIComponent(to||'') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(b);
+}
+
+function renderSendPanel() {
+  const buckets = collectAssignments(sendScope);
+  const body = $('#sendBody');
+  const sub  = $('#sendSub');
+  const btn  = $('#sendScopeBtn');
+  if (btn) btn.textContent = 'Showing: ' + (sendScope === 'all' ? 'all items' : 'open items');
+  const total = buckets.reduce((n,b) => n + b.items.length, 0);
+  if (sub) sub.textContent = `${meetingLabel()} · ${total} item${total === 1 ? '' : 's'} across ${buckets.length} ${buckets.length === 1 ? 'person' : 'people'}`;
+
+  if (!buckets.length) {
+    body.innerHTML = '<div class="empty-note">Nothing assigned yet. Add action items in Section 4 and give each one an owner.</div>';
+    return;
+  }
+
+  body.innerHTML = buckets.map((b, i) => {
+    const unassigned = b.name.startsWith('⚠');
+    const subject = `Your action items — ${meetingLabel()}`;
+    return `
+    <div class="send-card">
+      <div class="send-card-head">
+        <div class="sch-left">
+          <div class="sch-av"${unassigned ? ' style="background:var(--amber)"' : ''}>${escHtml(unassigned ? '!' : initials(b.name))}</div>
+          <div>
+            <div class="sch-name">${escHtml(b.name)}</div>
+            <div class="sch-mail${b.email ? '' : ' missing'}">${escHtml(b.email || (unassigned ? 'assign these before sending' : 'no email on file — use Copy'))}</div>
+          </div>
+        </div>
+        <div class="sch-actions">
+          <button class="sc-btn" onclick="copyBucket(${i})">📋 Copy</button>
+          ${b.email ? `<button class="sc-btn primary" onclick="emailBucket(${i})">✉️ Email</button>` : ''}
+        </div>
+      </div>
+      <div class="send-card-body">
+        ${b.items.map(it => `<div class="send-line">
+          <span class="sl-dot">•</span>
+          <span style="flex:1">${escHtml(it.text)}</span>
+          ${it.due ? `<span class="due-chip ${dueTone(it.due)}">${fmtShort(it.due)}</span>` : ''}
+          ${it.source !== 'Action item' ? `<span class="sl-src">${escHtml(it.source)}</span>` : ''}
+          ${it.done ? '<span class="sl-src" style="color:var(--green)">done</span>' : ''}
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('') +
+  `<div style="font-size:.76rem;color:var(--ink-faint);line-height:1.6;margin-top:8px">
+     Email opens a pre-filled draft in your mail app — review it, then hit send.
+     To add or fix an address, edit the <code>TEAM</code> list at the top of this file
+     (or set <code>VBH_CONFIG.team</code> in vbh-config.js).
+   </div>`;
+}
+
+let sendBuckets = [];
+function copyBucket(i) {
+  const b = sendBuckets[i]; if (!b) return;
+  copyText(bucketPlainText(b), `📋 ${b.name}'s list copied`);
+}
+function emailBucket(i) {
+  const b = sendBuckets[i]; if (!b || !b.email) return;
+  window.location.href = mailtoLink(b.email, `Your action items — ${meetingLabel()}`, bucketPlainText(b));
+}
+function copyAllAssignments() {
+  copyText(allPlainText(sendBuckets), '📋 Full list copied');
+}
+function emailEveryone() {
+  const to = sendBuckets.map(b => b.email).filter(Boolean).join(',');
+  if (!to) { alert('No email addresses on file yet.\n\nAdd them to the TEAM list at the top of meeting.html (or to VBH_CONFIG.team in vbh-config.js) and they\'ll show up here.'); return; }
+  window.location.href = mailtoLink(to, `Action items — ${meetingLabel()}`, allPlainText(sendBuckets));
+}
+function toggleSendScope() { sendScope = (sendScope === 'all') ? 'open' : 'all'; openSendPanel(); }
+
+function openSendPanel() {
+  sendBuckets = collectAssignments(sendScope);
+  renderSendPanel();
+  $('#sendPanel').classList.add('open');
+  $('#drawerOverlay').classList.add('show');
+}
+function closeDrawers() {
+  $('#sendPanel').classList.remove('open');
+  $('#archivePanel').classList.remove('open');
+  $('#drawerOverlay').classList.remove('show');
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ⑫ ARCHIVE
+   ───────────────────────────────────────────────────────────────────── */
+let archiveIndex = [];
+
+function openArchivePanel() {
+  renderArchiveList();
+  $('#archivePanel').classList.add('open');
+  $('#drawerOverlay').classList.add('show');
+}
+
+async function renderArchiveList() {
+  const list = $('#archive-list');
+  archiveIndex = [];
+  let legacy = false;
+
+  if (trackerSB) {
+    try {
+      const { data, error } = await trackerSB.from('meetings')
+        .select('id, meeting_date, saved_at, updated_at')
+        .order('meeting_date', { ascending:false }).limit(150);
+      if (error) throw error;
+      archiveIndex = (data||[]).map(r => ({ id:r.id, dateISO:r.meeting_date, savedAt:r.saved_at, updatedAt:r.updated_at }));
+    } catch (e) { console.warn('[meetings] archive list failed, showing local copy:', e.message || e); }
+  }
+  if (!archiveIndex.length) {
+    try {
+      const arr = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+      archiveIndex = (Array.isArray(arr) ? arr : []).map((sn,i) => ({
+        localIdx:i, label:(sn && sn.meetingDate) || 'Untitled Meeting', savedAt: sn && sn.savedAt
+      }));
+      legacy = archiveIndex.length > 0;
+    } catch (e) {}
+  }
+  if (!archiveIndex.length) {
+    list.innerHTML = '<div class="archive-empty">No saved meetings yet.<br>Click <strong>💾 Save</strong> after your meeting to archive it here.</div>';
+    return;
+  }
+  const fmtTs = ts => ts ? new Date(ts).toLocaleString('en-US',{ month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true }) : '';
+  list.innerHTML = archiveIndex.map((r, idx) => {
+    const title = r.label || fmtMeetingDateISO(r.dateISO);
+    const sub = r.savedAt ? ('Saved ' + fmtTs(r.savedAt)) : (r.updatedAt ? ('Auto-draft · ' + fmtTs(r.updatedAt)) : 'Saved locally');
+    return `<div class="archive-item">
+      <div>
+        <div class="archive-item-date">${escHtml(title)}</div>
+        <div class="archive-item-saved">${escHtml(sub)}</div>
+      </div>
+      <div class="archive-item-actions">
+        <button class="archive-btn archive-btn-view" onclick="viewArchive(${idx})">View</button>
+        <button class="archive-btn archive-btn-del" onclick="deleteArchive(${idx}, event)">✕</button>
+      </div>
+    </div>`;
+  }).join('') + (legacy ? '<div class="archive-empty">Offline — showing this browser\'s local copies.</div>' : '');
+}
+
+async function deleteArchive(idx, e) {
+  e.stopPropagation();
+  const entry = archiveIndex[idx];
+  if (!entry) return;
+  if (!confirm('Delete this saved meeting?')) return;
+  if (entry.id != null) {
+    try {
+      const { error } = await trackerSB.from('meetings').delete().eq('id', entry.id);
+      if (error) throw error;
+      if (mtg.id === entry.id) { mtg.id = null; mtg.rev = 0; mtg.dateISO = null; }
+    } catch (err) { alert('Delete failed: ' + (err.message || err)); return; }
+  } else {
+    try {
+      const archive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+      archive.splice(entry.localIdx, 1);
+      localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive));
+    } catch (err) {}
+  }
+  renderArchiveList();
+}
+
+async function viewArchive(idx) {
+  const entry = archiveIndex[idx];
+  if (!entry) return;
+  let snap = null;
+  const title = entry.label || fmtMeetingDateISO(entry.dateISO);
+  if (entry.id != null) {
+    try {
+      const { data, error } = await trackerSB.from('meetings').select('state').eq('id', entry.id).single();
+      if (error) throw error;
+      snap = data && data.state;
+    } catch (err) { alert('Could not load this meeting: ' + (err.message || err)); return; }
+  } else {
+    try { snap = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]')[entry.localIdx]; } catch (err) {}
+  }
+  if (!snap) return;
+  $('#archive-modal-title').textContent = snap.meetingDate || title;
+  $('#archive-modal-body').innerHTML = buildArchiveView(snap);
+  $('#archive-modal').classList.add('open');
+  closeDrawers();
+}
+function closeArchiveModal() { $('#archive-modal').classList.remove('open'); openArchivePanel(); }
+
+function archiveTable(rows, cols) {
+  if (!rows || !rows.length) return '<div style="color:var(--ink-faint);font-size:.78rem;font-style:italic">No entries.</div>';
+  return `<table class="archive-table"><thead><tr>${cols.map(c => `<th>${escHtml(c.h)}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(r => '<tr>' + cols.map(c => {
+      if (c.f === '_check') return `<td style="text-align:center">${r.done ? '☑' : '☐'}</td>`;
+      const v = c.f === 'due' ? (r.due ? fmtShort(r.due) : '') : r[c.f];
+      return `<td class="${r.done ? 'checked-cell' : ''}">${textToHtml(v || '') || '—'}</td>`;
+    }).join('') + '</tr>').join('') +
+    '</tbody></table>';
+}
+function archiveSection(title, inner) {
+  return `<div class="archive-section"><div class="archive-section-title">${title}</div>${inner}</div>`;
+}
+
+function buildArchiveView(raw) {
+  const snap = migrateState(raw);
+  if (!snap) return '<p style="color:var(--ink-faint);padding:20px">No content recorded.</p>';
+  let html = '';
+
+  if ((snap.wins||[]).some(w => String(w.text||'').trim())) {
+    html += archiveSection('🏆 Open &amp; Wins',
+      '<div class="archive-kv">' + snap.wins.map(w =>
+        `<div class="archive-kv-key">${escHtml(w.name)}</div><div class="archive-kv-val">${textToHtml(w.text) || '—'}</div>`).join('') + '</div>');
+  }
+
+  if ((snap.jobs||[]).length) {
+    html += archiveSection('🏗️ Active Jobs', snap.jobs.map(j => {
+      const goals = (j.goals||[]).filter(g => String(g.text||'').trim()).map(g =>
+        `<div${g.done ? ' style="text-decoration:line-through;color:var(--ink-faint)"' : ''}>${g.done ? '☑' : '☐'} ${escHtml(g.text)}</div>`).join('');
+      return `<div class="archive-job-card">
+        <div class="archive-job-name">${escHtml(j.name)}</div>
+        <div class="archive-job-date">${escHtml([j.date, j.phase, j.status].filter(Boolean).join(' · '))}</div>
+        <div class="archive-job-row">
+          <div><div class="archive-job-label">2-Week Goals</div><div class="archive-job-text">${goals || '—'}</div></div>
+          <div><div class="archive-job-label">Active Blockers</div><div class="archive-job-text archive-job-blockers">${textToHtml(j.blockers) || '—'}</div></div>
+        </div>
+        ${j.next  ? `<div class="archive-job-notes-label" style="color:var(--steel)">Next 2-Week Goals</div><div class="archive-job-notes-text" style="font-style:normal">${textToHtml(j.next)}</div>` : ''}
+        ${j.notes ? `<div class="archive-job-notes-label">Meeting Notes</div><div class="archive-job-notes-text">${textToHtml(j.notes)}</div>` : ''}
+      </div>`;
+    }).join(''));
+  }
+
+  if ((snap.startManual||[]).length || (snap.pipelineManual||[]).length) {
+    html += archiveSection('🚀 Start List &amp; Pipeline',
+      ((snap.startManual||[]).length ? archiveTable(snap.startManual, [
+        {h:'Project',f:'name'},{h:'Target Start',f:'date'},{h:'Status',f:'status'},{h:'Owner',f:'owner'}]) : '') +
+      ((snap.pipelineManual||[]).length ? archiveTable(snap.pipelineManual, [
+        {h:'Prospect',f:'name'},{h:'Tentative Start',f:'date'},{h:'Probability',f:'prob'},{h:'Rep',f:'owner'}]) : ''));
+  }
+
+  if ((snap.action||[]).length) {
+    html += archiveSection('✅ Action Items', archiveTable(snap.action, [
+      {h:'✓',f:'_check'},{h:'Action Item',f:'text'},{h:'Owner',f:'owner'},{h:'Due',f:'due'}]));
+  }
+  if ((snap.warranty||[]).length) {
+    html += archiveSection('🔧 Warranty', archiveTable(snap.warranty, [
+      {h:'✓',f:'_check'},{h:'Address',f:'address'},{h:'Open Items',f:'items'},{h:'Owner',f:'owner'},{h:'Due',f:'due'}]));
+  }
+  if ((snap.events||[]).length || (snap.misc||[]).length) {
+    html += archiveSection('📋 Ops Roundtable',
+      ((snap.events||[]).length ? '<div class="archive-job-label">Upcoming Events</div>' + archiveTable(snap.events, [
+        {h:'✓',f:'_check'},{h:'Event',f:'text'},{h:'Date / Time',f:'date'},{h:'Action Needed',f:'owner'}]) : '') +
+      ((snap.misc||[]).length ? '<div class="archive-job-label" style="margin-top:12px">Misc Notes</div>' + archiveTable(snap.misc, [
+        {h:'✓',f:'_check'},{h:'Item',f:'text'},{h:'Owner',f:'owner'}]) : ''));
+  }
+  return html || '<p style="color:var(--ink-faint);padding:20px">No content recorded.</p>';
+}
+/* ─────────────────────────────────────────────────────────────────────
+   ⑬ TIMER
+   ───────────────────────────────────────────────────────────────────── */
+let timerInterval = null, timerSeconds = 0, timerRunning = false;
+function formatTimer(s) { return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); }
+function paintTimer() {
+  const el = $('#timerDisplay');
+  if (el) el.textContent = timerSeconds ? formatTimer(timerSeconds) : '—';
+  const b = $('#timerBtn');
+  if (b) b.textContent = timerRunning ? '⏸' : '▶';
+}
+function toggleTimer() {
+  if (timerRunning) { clearInterval(timerInterval); timerRunning = false; }
+  else { timerRunning = true; timerInterval = setInterval(() => { timerSeconds++; paintTimer(); }, 1000); }
+  paintTimer();
+}
+function resetTimer() { clearInterval(timerInterval); timerRunning = false; timerSeconds = 0; paintTimer(); }
+
+/* ─────────────────────────────────────────────────────────────────────
+   ⑭ GATE
+   ───────────────────────────────────────────────────────────────────── */
+function unlock() {
+  if ($('#pw').value === SHARED_PW) {
+    /* v4: remember who is editing. EDITOR_KEY was read by editorLabel() but
+       never written, so every updated_by / created_by said "Meeting Page" and
+       the conflict banner could only say "Meeting Page saved this meeting". */
+    const nm = ($('#editorName') && $('#editorName').value || '').trim();
+    if (nm) { try { localStorage.setItem(EDITOR_KEY, nm); } catch (e) {} }
+    sessionStorage.setItem(AUTH_KEY, '1');
+    $('#gate').style.display = 'none';
+    $('#app').classList.add('show');
+  } else {
+    $('#pwErr').textContent = 'Incorrect password.';
+  }
+}
+/* prefill the name box from last time */
+try {
+  const prev = localStorage.getItem(EDITOR_KEY);
+  if (prev && $('#editorName')) $('#editorName').value = prev;
+} catch (e) {}
+
+/* v4: paint the agenda clock from SECTIONS so section headers follow MEETING_TIME */
+function paintSectionTimes() {
+  sectionSchedule().forEach(s => {
+    const el = document.getElementById(s.id + 't');
+    if (el) el.innerHTML = s.start + ' – ' + s.end + ' &nbsp;(' + s.min + ' min)';
+  });
+}
+
+/* v4: read-only mode for an archived meeting */
+function setReadOnly(on, label) {
+  readOnly = !!on;
+  document.body.classList.toggle('read-only', !!on);
+  const b = $('#roBanner');
+  if (b) {
+    b.classList.toggle('show', !!on);
+    const m = $('#roBannerMsg');
+    if (m) m.textContent = '📅 Viewing ' + (label || 'a past meeting') + ' — read-only.';
+  }
+  if (on) setSaveState('Read-only');
+}
+function enableEditing() {
+  setReadOnly(false);
+  setSaveState(mtg.offline ? 'Offline' : 'Saved', mtg.offline ? 'err' : '');
+  toast('✏️ Editing unlocked — changes to this meeting will be saved', 3200);
+}
+$('#pwBtn').addEventListener('click', unlock);
+$('#pw').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+if (sessionStorage.getItem(AUTH_KEY) === '1') {
+  $('#gate').style.display = 'none';
+  $('#app').classList.add('show');
+}
+
+/* Esc closes whatever is open */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('#rollModal').classList.contains('open')) return closeRollPreview();
+  if ($('#archive-modal').classList.contains('open')) return closeArchiveModal();
+  closeDrawers();
+});
+
+/* Nav chip highlight follows the scroll position */
+function watchSections() {
+  if (!('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      $$('.nav-chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-target') === en.target.id));
+    });
+  }, { rootMargin:'-130px 0px -70% 0px', threshold:0 });
+  $$('.section-card').forEach(sec => io.observe(sec));
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ⑮ LOAD — server row vs local crash buffer, newest wins
+   ───────────────────────────────────────────────────────────────────── */
+async function loadCurrentMeeting() {
+  const today = todayISO();
+  let row = null;
+  if (trackerSB) {
+    try {
+      const { data, error } = await trackerSB.from('meetings')
+        .select('*').order('meeting_date',{ ascending:false }).limit(1);
+      if (error) throw error;
+      row = (data && data[0]) || null;
+    } catch (e) { console.warn('[meetings] server load failed, using local copy:', e.message || e); mtg.offline = true; }
+  } else mtg.offline = true;
+
+  let buffer = null;
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (raw) buffer = migrateState(JSON.parse(raw));
+  } catch (e) {}
+
+  const rowISO = row ? row.meeting_date : null;
+  const bufISO = buffer ? isoDayKey(buffer.meetingDate) : null;
+
+  let src = null;
+  if (row && (!bufISO || (rowISO && rowISO > bufISO)))  src = { state:row.state, iso:rowISO, from:'server' };
+  else if (buffer && (!rowISO || bufISO > rowISO))      src = { state:buffer,    iso:bufISO, from:'buffer' };
+  else if (row && buffer) {
+    const rT = Date.parse(row.updated_at || 0), bT = Date.parse(buffer.savedAt || 0);
+    src = bT > rT ? { state:buffer, iso:bufISO, from:'buffer' } : { state:row.state, iso:rowISO, from:'server' };
+  }
+  if (!src || !src.state) return null;
+
+  const st = migrateState(src.state);
+  if (!st) return null;
+
+  const lastEdit = src.from === 'server' ? (row && row.updated_at) : (buffer && buffer.savedAt);
+  mtg.editedToday = !!(lastEdit && isoDayKey(new Date(lastEdit).toDateString()) === today);
+
+  if (row && rowISO === src.iso) { mtg.id = row.id; mtg.rev = row.rev; mtg.dateISO = rowISO; }
+
+  S = st;
+
+  /* A meeting whose date has passed is NOT auto-rolled — that was the old
+     behaviour and it silently dropped completed work before anyone had
+     reviewed it. Instead the page loads last week exactly as saved and the
+     banner points at the Next Week button, which shows a preview first. */
+  const isPast = src.iso && src.iso < today;
+  if (isPast) { mtg.id = row && rowISO === src.iso ? row.id : null; }
+
+  renderAll();
+  if (src.from === 'buffer' && trackerSB && !isPast) pushMeetingToServer(snapshot(), false);
+  return isPast ? 'past' : src.from;
+}
+
+/* One-time: put the old local archive on the server (server copies win) */
+async function uploadLegacyArchiveOnce() {
+  if (!trackerSB) return;
+  try {
+    if (localStorage.getItem(UPLOAD_FLAG)) return;
+    const arr = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+    const rows = [], seen = new Set();
+    (Array.isArray(arr) ? arr : []).forEach(raw => {
+      const snap = migrateState(raw);
+      const iso = snap && isoDayKey(snap.meetingDate);
+      if (!iso || seen.has(iso)) return;
+      seen.add(iso);
+      rows.push({ meeting_date:iso, state:snap, saved_at:snap.savedAt || null,
+                  updated_at:snap.savedAt || new Date().toISOString(), updated_by:'Archive upload' });
+    });
+    if (rows.length) {
+      const { error } = await trackerSB.from('meetings').upsert(rows, { onConflict:'meeting_date', ignoreDuplicates:true });
+      if (error) throw error;
+      console.log('[meetings] uploaded ' + rows.length + ' archived meeting(s) to the server');
+    }
+    localStorage.setItem(UPLOAD_FLAG, '1');
+  } catch (e) { console.warn('[meetings] archive upload failed (will retry next load):', e.message || e); }
+}
+
+/* Populate the quick-add owner dropdown */
+function fillOwnerPicker() {
+  const sel = $('#qaOwner');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— owner —</option>' +
+    TEAM.map(p => `<option value="${escHtml(p.name)}">${escHtml(p.name)}</option>`).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ⑯ BOOT
+   ───────────────────────────────────────────────────────────────────── */
+window.addEventListener('load', async () => {
+  console.log('[meeting build] ' + BUILD + ' · state-v' + STATE_VERSION + ' (state-first, deterministic rollover)');
+
+  fillOwnerPicker();
+  paintTimer();
+  paintSectionTimes();
+  renderAll();
+  watchSections();
+
+  await loadTrackerProjects();
+  await uploadLegacyArchiveOnce();
+
+  let from = null;
+  try { from = await loadCurrentMeeting(); }
+  catch (e) { console.warn('[meetings] load error:', e); }
+
+  /* v4: an archived meeting is opened for reference only. None of the
+     housekeeping below runs against it, because every one of those calls used to
+     markDirty() and the autosave then rewrote the archived row 2.5s later. */
+  if (from === 'past') {
+    setReadOnly(true, meetingLabel());
+  } else {
+    autoLinkJobsByJobNumber();
+    removeClosedProjectJobs();
+    syncCardsFromTracker({ silent:true });
+    refreshJobsFromTracker();
+  }
+  renderAll();
+
+  detectNewStarts();
+  refreshStartList();
+  refreshPipeline();
+
+  if (!readOnly) setSaveState(mtg.offline ? 'Offline' : 'Saved', mtg.offline ? 'err' : '');
+
+  if (from === 'past') {
+    toast('📅 ' + meetingLabel() + ' is read-only — roll it forward to start this week', 6000);
+  } else if (from === 'buffer') {
+    toast('↩ Recovered unsaved work');
+  } else if (from === 'server') {
+    toast('↩ Loaded from server');
+  }
+});
+</script>
+</body>
+</html>

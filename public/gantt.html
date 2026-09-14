@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="VBH Gantt"/>
+<meta name="theme-color" content="#1B3564"/>
+<title>VBH Build Timeline</title>
+<link rel="manifest" href="/manifest.json"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/vbh-config.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:      #1B3564;
+  --navy-dark: #122548;
+  --navy-deep: #0B1A33;
+  --steel:     #6B8EB5;
+  --light:     #EBF0F7;
+  --mid:       #AEC0D6;
+  --border:    #d0dded;
+  --white:     #ffffff;
+  --gold:      #C9A84C;
+  --gold-soft: #E5D08A;
+  --green:     #22c55e;
+  --green-dk:  #15803d;
+  --amber:     #f59e0b;
+  --amber-dk:  #b45309;
+  --red:       #ef4444;
+  --purple:    #8b5cf6;
+  --purple-dk: #6d28d9;
+  --ink:       #1a1a1a;
+  --muted:     #6b7280;
+  --shadow-sm: 0 1px 2px rgba(11,26,51,.06), 0 2px 4px rgba(11,26,51,.04);
+  --shadow:    0 1px 3px rgba(11,26,51,.08), 0 8px 24px rgba(11,26,51,.06);
+  --shadow-lg: 0 4px 12px rgba(11,26,51,.12), 0 20px 48px rgba(11,26,51,.14);
+  --row-h: 38px;
+  --label-w: 240px;
+}
+html, body { height: 100%; }
+body {
+  font-family: 'Lato', system-ui, sans-serif;
+  background: var(--light);
+  color: var(--ink);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- top bar (matches hub) ---------- */
+header.topbar {
+  background:
+    radial-gradient(800px 300px at 50% -50%, rgba(255,255,255,0.06), transparent 70%),
+    linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%);
+  color: #fff; padding: 18px 28px 16px;
+  display: flex; align-items: center; gap: 24px;
+  position: sticky; top: 0; z-index: 50;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 4px 18px rgba(11,26,51,.18);
+}
+header.topbar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 25%, var(--gold-soft) 50%, var(--gold) 75%, transparent 100%);
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand img { height: 44px; filter: brightness(0) invert(1); opacity: .96; }
+.brand-text { display: flex; flex-direction: column; line-height: 1; }
+.brand-text .name {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600; font-size: 22px; letter-spacing: .04em;
+}
+.brand-text .sub {
+  font-family: 'Lato', sans-serif; font-weight: 300;
+  font-size: 11px; letter-spacing: .25em; text-transform: uppercase;
+  color: var(--mid); margin-top: 4px;
+}
+nav.mainnav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+nav.mainnav a {
+  color: rgba(255,255,255,0.75); text-decoration: none;
+  padding: 9px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 400; letter-spacing: .03em;
+  transition: background .15s, color .15s;
+}
+nav.mainnav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+nav.mainnav a.active {
+  background: rgba(255,255,255,0.12); color: #fff; font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--gold);
+}
+/* subtitle band under header for page context */
+.title-band {
+  background: linear-gradient(135deg, #122548 0%, #1B3564 60%, #1e4080 100%);
+  padding: 14px 28px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 20px;
+  position: relative;
+}
+.title-band::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, #C9A84C 20%, #E5D08A 50%, #C9A84C 80%, transparent 100%); }
+.title-band .tb-logo { height: 48px; object-fit: contain; filter: brightness(0) invert(1); }
+.title-band .tb-div { width: 1px; height: 38px; background: rgba(255,255,255,0.2); }
+.title-band h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600; font-size: 28px; color: #fff; line-height: 1;
+}
+.title-band .sub { margin-top: 4px; color: #AEC0D6; font-size: 13px; }
+
+/* ---------- controls ---------- */
+.controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  padding: 16px 22px; background: var(--white);
+  border-bottom: 1px solid var(--border);
+}
+.legend { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.legend .item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--navy-dark); font-weight: 700; }
+.legend .swatch { width: 22px; height: 11px; border-radius: 3px; }
+.sw-solds { background: linear-gradient(90deg, #4ade80 0%, var(--green-dk) 100%); }
+.sw-model { background: linear-gradient(90deg, #a78bfa 0%, var(--purple-dk) 100%); }
+.sw-lead  { background: repeating-linear-gradient(135deg, var(--gold) 0 7px, var(--gold-soft) 7px 14px); }
+.spacer { flex: 1 1 auto; }
+.scale-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.scale-toggle button {
+  border: 0; background: var(--white); color: var(--navy-dark);
+  font: inherit; font-weight: 700; font-size: 12.5px;
+  padding: 7px 14px; cursor: pointer;
+}
+.scale-toggle button.active { background: var(--navy); color: #fff; }
+
+/* ---------- chart ---------- */
+.wrap { padding: 18px 22px 40px; }
+.chart-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+}
+.scroller { overflow-x: auto; }
+.gantt { position: relative; min-width: max-content; }
+
+/* month header */
+.months {
+  display: flex; position: sticky; top: 0; z-index: 4;
+  background: var(--light); border-bottom: 1px solid var(--border);
+  margin-left: var(--label-w);
+}
+.month {
+  border-left: 1px solid var(--border);
+  font-size: 11.5px; font-weight: 700; letter-spacing: .5px;
+  text-transform: uppercase; color: var(--navy-dark);
+  padding: 8px 0 7px; text-align: center; flex: 0 0 auto;
+}
+.month .yr { display: block; font-size: 9.5px; color: var(--muted); font-weight: 700; letter-spacing: 1px; }
+.month:first-child { border-left: 0; }
+
+/* rows */
+.rows { position: relative; }
+.gridlines { position: absolute; inset: 0 0 0 var(--label-w); z-index: 0; pointer-events: none; }
+.gridlines .v { position: absolute; top: 0; bottom: 0; border-left: 1px solid #eef3fa; }
+
+.grp-head {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px var(--label-w) 8px 16px;
+  background: var(--light);
+  border-top: 1px solid var(--border);
+  font-size: 11.5px; font-weight: 900; letter-spacing: .9px; text-transform: uppercase;
+  color: var(--navy-dark);
+  position: relative; z-index: 2;
+}
+.grp-head .dot { width: 9px; height: 9px; border-radius: 50%; }
+.grp-head .cnt { color: var(--muted); font-weight: 700; }
+.dot-solds { background: var(--green); }
+.dot-model { background: var(--purple); }
+.dot-lead  { background: var(--gold); }
+
+.row { display: flex; align-items: center; min-height: var(--row-h); position: relative; z-index: 1; }
+.row:hover { background: #f6f9fd; }
+.row .label {
+  width: var(--label-w); flex: 0 0 var(--label-w);
+  padding: 5px 12px 5px 16px; overflow: hidden;
+  position: sticky; left: 0; z-index: 3;
+  background: inherit;
+}
+.row:nth-child(even) { background: #fbfcfe; }
+.row .job { font-size: 12.5px; font-weight: 900; color: var(--navy); line-height: 1.1; }
+.row .addr { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .name { font-size: 11px; color: var(--steel); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track { position: relative; flex: 1 1 auto; height: 100%; }
+
+.bar {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  height: 18px; border-radius: 5px;
+  display: flex; align-items: center;
+  box-shadow: var(--shadow-sm);
+  cursor: default;
+}
+.bar.solds { background: linear-gradient(90deg, #4ade80 0%, var(--green-dk) 100%); }
+.bar.model { background: linear-gradient(90deg, #a78bfa 0%, var(--purple-dk) 100%); }
+.bar.lead  {
+  background: repeating-linear-gradient(135deg, var(--gold) 0 7px, var(--gold-soft) 7px 14px);
+  border: 1px dashed var(--amber-dk);
+  height: 16px;
+}
+.bar .pct {
+  font-size: 10px; font-weight: 900; color: #fff; padding-left: 7px;
+  text-shadow: 0 1px 1px rgba(0,0,0,.25); white-space: nowrap;
+}
+.bar.lead .pct { color: var(--amber-dk); text-shadow: none; }
+/* estimated-end portion (no complete_date) shown lighter */
+.bar .est { position: absolute; right: 0; top: 0; bottom: 0; border-radius: 0 5px 5px 0;
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,.28) 0 5px, transparent 5px 10px); }
+
+.bar-cap { position: absolute; top: 50%; transform: translate(-50%,-50%);
+  font-size: 10px; font-weight: 900; color: var(--navy-dark); white-space: nowrap; }
+
+/* markers */
+.today {
+  position: absolute; top: 0; bottom: 0; width: 2px;
+  background: var(--red); z-index: 5; pointer-events: none;
+}
+.today::after {
+  content: 'TODAY'; position: absolute; top: -1px; left: 4px;
+  font-size: 9px; font-weight: 900; letter-spacing: 1px; color: var(--red);
+  background: var(--white); padding: 1px 4px; border-radius: 3px;
+  box-shadow: var(--shadow-sm);
+}
+.close-mark {
+  position: absolute; top: 50%; transform: translate(-50%,-50%) rotate(45deg);
+  width: 11px; height: 11px; background: var(--gold);
+  border: 1.5px solid var(--amber-dk); z-index: 4;
+}
+.close-mark::after {
+  content: attr(data-d); position: absolute; left: 50%; top: -22px;
+  transform: translateX(-50%) rotate(-45deg);
+  font-size: 9px; font-weight: 900; color: var(--amber-dk); white-space: nowrap;
+}
+
+/* states */
+.state { padding: 60px 22px; text-align: center; color: var(--muted); }
+.state h3 { font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--navy); margin-bottom: 6px; }
+.state .err { color: var(--red); font-weight: 700; }
+.foot { padding: 12px 22px 0; font-size: 11.5px; color: var(--muted); }
+.foot b { color: var(--navy-dark); }
+
+@media (max-width: 640px) {
+  :root { --label-w: 150px; }
+  .topbar h1 { font-size: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ===== VBH shared top nav (leads pattern + hub gold) ===== */
+.vbh-nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; overflow-x: auto; }
+.vbh-nav::-webkit-scrollbar { display: none; }
+.vbh-nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-family: 'Lato', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
+.vbh-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.vbh-nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
+.vbh-nav a.vbh-back { color: rgba(255,255,255,0.78); border-right: 1px solid rgba(255,255,255,0.14); }
+</style>
+</head>
+<body>
+
+<nav class="vbh-nav">
+  <a class="vbh-back" href="/hub.html">← Hub</a>
+  <a href="/">Work Order</a>
+  <a href="/dashboard.html">Dashboard</a>
+  <a href="/leads.html">Leads</a>
+  <a href="/intake.html">Intake</a>
+  <a href="/projects.html">Projects</a>
+  <a href="/gantt.html" class="active">Timeline</a>
+  <a href="/meeting.html">Meeting</a>
+  <a href="/equipment.html">Assets</a>
+</nav>
+
+<div class="title-band">
+  <img class="tb-logo" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCA1MDQgMTk1LjI5MiI+CiAgPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI5LjcuMSwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDIuMS4xIEJ1aWxkIDgpICAtLT4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLnN0MCB7CiAgICAgICAgZmlsbDogIzViODliNDsKICAgICAgfQoKICAgICAgLnN0MSB7CiAgICAgICAgZmlsbDogIzAwMmU2ZDsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHBvbHlnb24gY2xhc3M9InN0MSIgcG9pbnRzPSIxMjMuNjI5IDgzLjI4NyAxNTcuMDQ5IDguMjAxIDEzNy40NTIgOC4yMDEgMTE5LjQ1MSA1NC41NTUgMTAwLjMxMSA4LjIwMSA4MC40ODkgOC4yMDEgMTA5LjgxOCA3NC4wOTcgMTIzLjYyOSA4My4yODciLz4KICA8cG9seWdvbiBjbGFzcz0ic3QxIiBwb2ludHM9IjEyOS4xNDIgMTIzLjk5OSA3My4zOTEgOTguNTE3IDE1LjkwNSAxMjMuOTk5IDE1LjY3OSAxMzQuMDg4IDczLjM5MSAxMTcuMzY2IDEyOS4xNDIgMTM0LjA4OCAxMjkuMTQyIDEyMy45OTkiLz4KICA8cG9seWdvbiBjbGFzcz0ic3QwIiBwb2ludHM9IjEyOS4xNDIgOTYuODc1IDczLjI3OCA1OS43NzQgMTUuNzkyIDk2Ljg3NSAxNS43OTIgMTE1LjI3IDczLjI3OCA4OC43MDcgMTI5LjE0MiAxMTUuMjc1IDEyOS4xNDIgOTYuODc1Ii8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTE1NS4yOTksNTUuMzQzYzAtMTAuMDk4LDEwLjc2Ny0xMi45NTgsMjEuNzItMTUuOTk3LDguMDk3LTIuMjM1LDExLjQxMS00LjAyMiwxMS40MTEtNy4wNiwwLTIuNjgxLTIuNTc2LTQuNTU5LTcuMjctNC41NTktNS43MDYsMC05LjIwNCwzLjEzLTEwLjAzMSw4LjMxMmgtMTQuOTFjMS42NTYtMTEuMDgsMTEuNjg3LTE4LjY3OCwyNS41ODUtMTguNjc4LDE0LjYzMiwwLDIyLjczMiw2LjUyNSwyMi43MzIsMTguNTg5djMyLjE3NGgtMTYuMTA2di01LjAwNmMtMy43NzQsMy44NDMtOS4yOTUsNS44OTgtMTUuNzM5LDUuODk4LTEwLjU4MiwwLTE3LjM5My01LjQ1LTE3LjM5My0xMy42NzJaTTE3Ny45NCw1OS4yNzZjMy45NTYsMCw4LjAwNi0xLjQzLDEwLjQ5MS0zLjkzM3YtNy4zMjhsLjA5MS00LjExMWMtMS45MzIsMS4zNDEtNC42MDEsMi4xNDQtNy44MjIsMy4yMTctNS43OTksMS44NzYtOS41NzEsMy40ODQtOS41NzEsNy4zMjgsMCwyLjg2LDIuNDg1LDQuODI3LDYuODEsNC44MjdaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIxNi45MTIsMTguNjEyaDE2LjM4M3Y1LjQ1MmMzLjU5LTQuMDIyLDguNzQyLTYuNTI1LDE1LjAwMS02LjUyNSwxMC44NiwwLDE4LjAzOSw2LjUyNSwxOC4wMzksMTYuNzEydjMzLjg3MWgtMTYuMzgzdi0zMS41NDdjMC01LjE4NC0zLjMxMi03Ljg2NS04LjA5OS03Ljg2NS0zLjU4OCwwLTYuNjI2LDEuNDMtOC41NTgsMy44NDN2MzUuNTY5aC0xNi4zODNWMTguNjEyWiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuMzY2LDczLjcyNGgzNC41MTJjMTMuOTksMCwyMS45MDUsNi42MTQsMjEuOTA1LDE2Ljg5MSwwLDUuOTg3LTMuMTMsMTAuOTAyLTkuMDIsMTMuNjcyLDYuNzE5LDIuNTAzLDEwLjQsNy41OTgsMTAuNCwxNC41NjksMCwxMC41NDUtOC4xOTEsMTcuNDI2LTIyLjM2NSwxNy40MjZoLTM1LjQzMnYtNjIuNTU4Wk0xNTIuMzkyLDg1LjY5OHYxMy4zMTdoMTUuMjc3YzQuNTEsMCw3LjQ1NS0yLjIzNSw3LjQ1NS02LjYxNHMtMi45NDUtNi43MDMtNy40NTUtNi43MDNoLTE1LjI3N1pNMTUyLjM5MiwxMTAuNDU1djE0LjAyOWgxNi4wMTRjNC44NzcsMCw3LjkxNS0yLjMyMiw3LjkxNS02Ljk2OSwwLTQuNTU5LTMuMDM4LTcuMDYtNy45MTUtNy4wNmgtMTYuMDE0WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xOTkuMTQyLDEyMC42NDJ2LTMzLjg3MWgxNi4zODF2MzEuNTQ3YzAsNS4yNzMsMy4zMTQsNy44NjUsOC4xOTEsNy44NjUsMy40OTYsMCw2LjUzNS0xLjQzLDguNDY2LTMuNzU0di0zNS42NThoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi01LjM2M2MtMy40OTYsNC4wMjItOC43NDIsNi40MzQtMTQuOTA4LDYuNDM0LTEwLjk1MywwLTE4LjEzLTYuNTIzLTE4LjEzLTE2LjcxMVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMjU0LjkwOCwxMTguNzY0aDE0LjkxYzEuMTAzLDUuODExLDUuMDYxLDguNzYsMTAuNjc2LDguNzYsNS43OTcsMCw4LjI4Mi0xLjk2Nyw4LjI4Mi00LjU1OSwwLTQuMTA5LTYuMTY2LTUuMjcxLTEzLjI1Mi02LjcwMS05LjI5NS0xLjg3OC0yMC4xNTUtNC4zNzktMjAuMTU1LTE1LjEwNCwwLTkuMTE1LDguNjUxLTE1LjY0LDIyLjU0Ny0xNS42NCwxNC4yNjUsMCwyMy43NDUsNi41MjUsMjUuNzcsMTcuNjk2aC0xNC43MjVjLTEuMzgtNS40NTItNS4xNTQtNy42ODctMTAuNzY5LTcuNjg3LTQuODc3LDAtNy4yNywxLjg3OC03LjI3LDQuMTExLDAsMy43NTQsNi4xNjgsNC44MjUsMTMuMjU0LDYuMjU1LDkuMjk1LDEuOTY3LDIwLjE1NSw0LjY0OSwyMC4xNTUsMTUuNTUsMCw5LjAyOC04LjkyOCwxNi4wODgtMjMuNTYxLDE2LjA4OC0xMy44OTgsMC0yMy45MjktNi4yNTctMjUuODYxLTE4Ljc2OVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMzEwLjc2NSw3My43MjRoMTYuMTk5bC0uMjc2LDM0LjEzOSwxOC4yMjItMjEuMDkxaDE3LjQ4NmwtMTcuMzk1LDE5Ljc1MSwxOC40MDgsMjkuNzZoLTE4LjIyNGwtMTEuMDQzLTE4Ljg1Ni03LjM2NCw4LjIyLjE4NCwxMC42MzZoLTE2LjE5OXYtNjIuNTU4WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zNjcuNDUxLDcyLjIwNWgxNi4zODN2MTEuMDgyaC0xNi4zODN2LTExLjA4MlpNMzY3LjQ1MSw4Ni43NzFoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTM5MS4zNzQsODYuNzcxaDE2LjM4M3Y4LjA0NGMzLjQwNS01LjgwOSw4LjgzNS05LjAyOCwxNi4xMDYtOS4wMjhoLjgyN3YxMy44NTNjLTEuNDcyLS4zNTctMi45NDUtLjQ0Ni00LjUwOC0uNDQ2LTUuMDYzLDAtOS44NDksMS43ODctMTIuNDI1LDUuMDkzdjMxLjk5NWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTQzMS4wMzQsNzMuNzI0aDE2LjE5OWwtLjI3NiwzNC4xMzksMTguMjIyLTIxLjA5MWgxNy40ODZsLTE3LjM5NSwxOS43NTEsMTguNDA4LDI5Ljc2aC0xOC4yMjRsLTExLjA0My0xOC44NTYtNy4zNjQsOC4yMi4xODQsMTAuNjM2aC0xNi4xOTl2LTYyLjU1OFoiLz4KICA8Zz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuNDM0LDE0NC45MTRoMTIuMzk1djE3LjM2MWgxNy4zMjl2LTE3LjM2MWgxMi4zOTV2NDQuODQ0aC0xMi4zOTV2LTE4LjY0M2gtMTcuMzI5djE4LjY0M2gtMTIuMzk1di00NC44NDRaIi8+CiAgICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMTgxLjY4MiwxNzIuMDE0YzAtMTEuNzI0LDcuNzMyLTE4LjcwOCwxOS41OTQtMTguNzA4LDExLjc5NCwwLDE5LjUyNiw2Ljk4MywxOS41MjYsMTguNzA4cy03LjY2NCwxOC43MDUtMTkuNTI2LDE4LjcwNS0xOS41OTQtNi45ODMtMTkuNTk0LTE4LjcwNVpNMjA5LjEzOCwxNzIuMDE0YzAtNy4yNDEtMi45OTktMTAuNzYzLTcuODYyLTEwLjc2M3MtNy44NjUsMy41MjItNy44NjUsMTAuNzYzLDIuOTk5LDEwLjc2MSw3Ljg2NSwxMC43NjEsNy44NjItMy41MjIsNy44NjItMTAuNzYxWiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIyNC42NjIsMTU0LjI2OGgxMS44NjR2My45NzJjMi40NjUtMi45NDYsNi4xMy00Ljc0MSwxMC41MjgtNC43NDEsNC43MzMsMCw4LjQ2NSwxLjk4NSwxMC40NjUsNS40NDQsMi42NjYtMy4zMjksNi43MzEtNS40NDQsMTEuNzI5LTUuNDQ0LDcuNTk3LDAsMTIuNTk1LDQuNjc2LDEyLjU5NSwxMS45OHYyNC4yNzloLTExLjg2MnYtMjIuOTM1YzAtMy41ODctMi4yLTUuMzE2LTUuMzk5LTUuMzE2LTIuMTMzLDAtNC4xMzMuODM0LTUuNTMyLDIuMzA4LjA2OC41MTEuMDY4LDEuMDg5LjA2OCwxLjY2NXYyNC4yNzloLTExLjcyOXYtMjIuOTM1YzAtMy41ODctMi4xMzMtNS4zMTYtNS4xOTktNS4zMTYtMi4zMzMsMC00LjM5OC45NjEtNS42NjQsMi41NjN2MjUuNjg5aC0xMS44NjR2LTM1LjQ5MVoiLz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0yODUuNTczLDE3Mi4wMTRjMC0xMS41MzIsNy44NjUtMTguNzA4LDE5LjI2MS0xOC43MDgsMTAuNzI4LDAsMTguNzkzLDYuODU2LDE4Ljc5MywxOS4xNTZ2Ljc2OGgtMjYuNTI1Yy4zMzMsNi41OTgsMy4xOTksOS44MDIsNy43OTcsOS44MDIsMy42NjcsMCw2LjE5OC0yLjExNSw3LjE5OS02LjcyOGgxMS4xOTZjLTEuNzM1LDkuMDMzLTguNTMsMTQuNDE1LTE4LjUyNywxNC40MTUtMTEuNDYxLDAtMTkuMTkzLTcuMTExLTE5LjE5My0xOC43MDVaTTI5Ny41MDMsMTY3LjUyOWgxNC40NmMtMS4xMzEtNC40ODUtMy42NjQtNi43MjYtNy4xOTYtNi43MjYtMy43MzIsMC02LjI2NSwyLjI0LTcuMjY0LDYuNzI2WiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTMyNi41NTgsMTc3LjIwM2gxMC43OTZjLjgwMSw0LjE2MywzLjY2NCw2LjI3OCw3LjcyOSw2LjI3OCw0LjIsMCw2LTEuNDA5LDYtMy4yNjYsMC0yLjk0OS00LjQ2NS0zLjc4Mi05LjU5Ny00LjgwNi02LjczMS0xLjM0NC0xNC41OTUtMy4xMzktMTQuNTk1LTEwLjgyNiwwLTYuNTM1LDYuMjY1LTExLjIxMSwxNi4zMjctMTEuMjExLDEwLjMzLDAsMTcuMTkzLDQuNjc2LDE4LjY2LDEyLjY4M2gtMTAuNjYzYy0uOTk5LTMuOTA3LTMuNzMyLTUuNTA5LTcuNzk3LTUuNTA5LTMuNTMyLDAtNS4yNjQsMS4zNDctNS4yNjQsMi45NDksMCwyLjY5MSw0LjQ2MywzLjQ1OSw5LjU5Nyw0LjQ4Myw2LjczMSwxLjQwOSwxNC41OTMsMy4zMzIsMTQuNTkzLDExLjE0NiwwLDYuNDctNi40NjMsMTEuNTMyLTE3LjA2MSwxMS41MzItMTAuMDYyLDAtMTcuMzI2LTQuNDgzLTE4LjcyNS0xMy40NTFaIi8+CiAgPC9nPgo8L3N2Zz4=" alt="Van Buskirk Homes"/>
+  <div class="tb-div"></div>
+  <div>
+    <h1>Build Timeline</h1>
+    <div class="sub">New starts &middot; Solds, Models &amp; Prospective &mdash; spot the gaps in the schedule</div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="legend">
+    <span class="item"><span class="swatch sw-solds"></span>Solds</span>
+    <span class="item"><span class="swatch sw-model"></span>Models</span>
+    <span class="item"><span class="swatch sw-lead"></span>Prospective</span>
+  </div>
+  <span class="spacer"></span>
+  <div class="scale-toggle" id="scaleToggle">
+    <button data-px="34">Compact</button>
+    <button data-px="54" class="active">Standard</button>
+    <button data-px="84">Wide</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="chart-card">
+    <div id="content" class="scroller">
+      <div class="state"><h3>Loading timeline…</h3><div>Pulling active builds and prospective starts.</div></div>
+    </div>
+  </div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — adjust if your leads table uses different names.
+   The projects table is read directly from the tracker schema.
+   ============================================================ */
+const LEADS_TABLE      = 'leads';
+const LEAD_JOB_FIELD   = 'job_number';      // job # on a lead row
+const LEAD_START_FIELD = 'start_date';      // prospective start
+const LEAD_ADDR_FIELD  = 'tentative_address';
+const LEAD_NAME_FIELD  = 'owner1_last';     // homeowner last name on a lead row
+const PROJ_NAME_FIELD  = 'buyer_realtor';   // projects store the homeowner in buyer_realtor; we derive the last name from it
+
+const MONTHS_END_FROM_START = 7;            // bar end = start + 7 months when no complete_date
+/* ============================================================ */
+
+const SUPABASE_URL  = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseUrl)  || 'https://bppirsahciuxrqzitfxa.supabase.co';
+const SUPABASE_ANON = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseAnon) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwcGlyc2FoY2l1eHJxeml0ZnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTExMjcsImV4cCI6MjA5NTk4NzEyN30.Yy3en8gNoTPSVkztlGr6XbUq6ZU3-NHJ4TUIVnZQ4eE';
+
+let sb = null;
+let PX_PER_MONTH = 54;
+
+// Surface setup problems on screen instead of hanging on "Loading…"
+function fail(title, detail, hint) {
+  const c = document.getElementById('content');
+  if (c) c.innerHTML = `<div class="state"><h3>${title}</h3>`
+    + `<div class="err">${detail ? esc(detail) : ''}</div>`
+    + (hint ? `<div style="margin-top:8px;max-width:520px;margin-inline:auto;line-height:1.5">${hint}</div>` : '')
+    + `</div>`;
+}
+
+function initClient() {
+  if (!window.supabase || !window.supabase.createClient) {
+    fail('Supabase library didn’t load',
+      'window.supabase is undefined.',
+      'The Supabase CDN script was blocked or failed to load. Check the network tab for <b>@supabase/supabase-js</b>, and confirm the page can reach the CDN.');
+    return false;
+  }
+  if (!SUPABASE_URL || !SUPABASE_ANON) {
+    fail('Missing Supabase credentials',
+      `URL: ${SUPABASE_URL ? 'ok' : 'undefined'} · key: ${SUPABASE_ANON ? 'ok' : 'undefined'}`,
+      'This usually means <b>/vbh-config.js</b> didn’t load — most often because the page was opened from disk rather than served from vbchomes.net. Host it on the hub (or wherever the other tiles live) so <b>/vbh-config.js</b> resolves.');
+    return false;
+  }
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    return true;
+  } catch (e) {
+    fail('Couldn’t create Supabase client', e.message || String(e));
+    return false;
+  }
+}
+
+const MS_DAY = 86400000;
+const fmtDay = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const addMonths = (d, n) => { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; };
+const parseDate = s => { if (!s) return null; const d = new Date(s + (String(s).length <= 10 ? 'T00:00:00' : '')); return isNaN(d) ? null : d; };
+const startOfMonth = d => new Date(d.getFullYear(), d.getMonth(), 1);
+const monthsBetween = (a, b) => (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// The timeline label wants just the surname. buyer_realtor now carries the
+// canonical "Martin, David and Patty" (surname before the comma); legacy rows
+// may still be freeform "David & Patty Martin" (surname = last token).
+// Leads already carry owner1_last, so they skip this.
+function lastName(full){
+  const s = String(full ?? '').trim();
+  if (!s) return '';
+  if (s.includes(',')) return s.split(',')[0].trim();
+  const parts = s.split(/\s+/);
+  return parts[parts.length - 1];
+}
+
+// reject if a thenable (Supabase query builder) doesn't settle in time
+function withTimeout(thenable, ms, label) {
+  return Promise.race([
+    Promise.resolve(thenable),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out after ${ms/1000}s — no response from Supabase`)), ms))
+  ]);
+}
+
+// derive {start, end, estimated, close, pct} for a row
+function deriveBar(start, complete, closing, pct) {
+  const s = parseDate(start);
+  if (!s) return null;
+  let end = parseDate(complete);
+  let estimated = false;
+  if (!end) { end = addMonths(s, MONTHS_END_FROM_START); estimated = true; }
+  return { start: s, end, estimated, close: parseDate(closing), pct };
+}
+
+async function load() {
+  const content = document.getElementById('content');
+  let projects = [], leads = [], leadErr = null;
+
+  try {
+    const r = await withTimeout(
+      sb.from('projects').select('*').in('stage', ['solds', 'model']),
+      15000, 'projects query');
+    if (r.error) throw r.error;
+    projects = r.data || [];
+  } catch (e) {
+    fail('Couldn’t load projects', e.message || String(e),
+      'If this timed out, the request may be blocked before it reaches Supabase — the same endpoint-security HTTPS interception that hit your laptop before. Try another network or browser to confirm.');
+    return;
+  }
+
+  // leads are optional — if the table/columns differ, we degrade gracefully
+  let leadCols = [];
+  try {
+    const r = await withTimeout(sb.from(LEADS_TABLE).select('*'), 15000, 'leads query');
+    if (r.error) throw r.error;
+    const rows = r.data || [];
+    if (rows.length) leadCols = Object.keys(rows[0]);
+    leads = rows.filter(l => l[LEAD_JOB_FIELD] && l[LEAD_START_FIELD]);
+  } catch (e) { leadErr = e.message || String(e); }
+
+  const groups = [
+    { key: 'solds', title: 'Solds — Under Construction', dot: 'dot-solds', cls: 'solds',
+      items: projects.filter(p => p.stage === 'solds').map(p => ({
+        job: p.job_number, addr: p.address, name: lastName(p[PROJ_NAME_FIELD]),
+        bar: deriveBar(p.start_date, p.complete_date, p.closing_date,
+              p.pct_complete != null ? Math.round(p.pct_complete * 100) : null)
+      })) },
+    { key: 'model', title: 'Models — Show Homes', dot: 'dot-model', cls: 'model',
+      items: projects.filter(p => p.stage === 'model').map(p => ({
+        job: p.job_number, addr: p.address, name: lastName(p[PROJ_NAME_FIELD]),
+        bar: deriveBar(p.start_date, p.complete_date, p.closing_date,
+              p.pct_complete != null ? Math.round(p.pct_complete * 100) : null)
+      })) },
+    { key: 'lead', title: 'Prospective Starts', dot: 'dot-lead', cls: 'lead',
+      items: leads.map(l => ({
+        job: l[LEAD_JOB_FIELD], addr: l[LEAD_ADDR_FIELD], name: l[LEAD_NAME_FIELD], prob: l.probability,
+        bar: deriveBar(l[LEAD_START_FIELD], l.completion_date || null, l.completion_date || null, null)
+      })) },
+  ].map(g => ({ ...g, items: g.items.filter(i => i.bar).sort((a,b)=> a.bar.start - b.bar.start) }))
+   .filter(g => g.items.length);
+
+  const all = groups.flatMap(g => g.items.map(i => i.bar));
+  if (!all.length) {
+    content.innerHTML = `<div class="state"><h3>No dated builds yet</h3><div>Add a start date to a sold, model, or prospective lead and it’ll appear here.</div></div>`;
+    document.getElementById('foot').innerHTML = leadErr ? footNote(leadErr, 0, []) : '';
+    return;
+  }
+
+  // timeline bounds — pad one month each side, snap to month starts
+  const today = new Date(); today.setHours(0,0,0,0);
+  let min = new Date(Math.min(...all.map(b => +b.start), +today));
+  let max = new Date(Math.max(...all.map(b => +b.end),   +today));
+  min = startOfMonth(addMonths(min, -1));
+  max = startOfMonth(addMonths(max, 2));
+  const totalMonths = monthsBetween(min, max);
+
+  const xOf = d => (monthsBetween(min, d) + (d.getDate() - 1) / 31) * PX_PER_MONTH;
+
+  // month header
+  let mh = '';
+  for (let i = 0; i < totalMonths; i++) {
+    const m = addMonths(min, i);
+    mh += `<div class="month" style="width:${PX_PER_MONTH}px">${m.toLocaleDateString('en-US',{month:'short'})}<span class="yr">${m.getFullYear()}</span></div>`;
+  }
+
+  // gridlines
+  let grid = '';
+  for (let i = 0; i <= totalMonths; i++) grid += `<div class="v" style="left:${i*PX_PER_MONTH}px"></div>`;
+
+  // rows
+  let rowsHtml = '';
+  for (const g of groups) {
+    rowsHtml += `<div class="grp-head"><span class="dot ${g.dot}"></span>${esc(g.title)} <span class="cnt">· ${g.items.length}</span></div>`;
+    for (const it of g.items) {
+      const b = it.bar;
+      const left = xOf(b.start);
+      const width = Math.max(xOf(b.end) - left, 10);
+      const estPart = b.estimated ? `<span class="est" style="width:${Math.min(0.5,(MONTHS_END_FROM_START-Math.max(0,monthsBetween(b.start, new Date())))/MONTHS_END_FROM_START)*100||34}%"></span>` : '';
+      const pctTxt = b.pct != null
+        ? `<span class="pct">${b.pct}%</span>`
+        : (g.cls==='lead' ? `<span class="pct">${it.prob ? it.prob+'%' : 'planned'}</span>` : '');
+      const closeMark = b.close
+        ? `<span class="close-mark" data-d="${fmtDay(b.close)}" style="left:${xOf(b.close)}px" title="Closing ${fmtDay(b.close)}"></span>` : '';
+      const tip = `${it.job||''} · ${fmtDay(b.start)} → ${fmtDay(b.end)}${b.estimated?' (est.)':''}`;
+      rowsHtml += `
+        <div class="row">
+          <div class="label">
+            <div class="job">${esc(it.job || '—')}</div>
+            ${it.addr ? `<div class="addr">${esc(it.addr)}</div>` : ''}
+            ${it.name ? `<div class="name">${esc(it.name)}</div>` : ''}
+            ${(!it.addr && !it.name) ? `<div class="addr">(no address)</div>` : ''}
+          </div>
+          <div class="track">
+            <div class="bar ${g.cls}" style="left:${left}px;width:${width}px" title="${esc(tip)}">${pctTxt}${estPart}</div>
+            ${closeMark}
+          </div>
+        </div>`;
+    }
+  }
+
+  const trackW = totalMonths * PX_PER_MONTH;
+  const todayLeft = xOf(today);
+
+  content.innerHTML = `
+    <div class="gantt" style="--label-w:240px">
+      <div class="months">${mh}</div>
+      <div class="rows" style="min-width:${trackW}px">
+        <div class="gridlines">${grid}</div>
+        <div class="today" style="left:calc(var(--label-w) + ${todayLeft}px)"></div>
+        ${rowsHtml}
+      </div>
+    </div>`;
+
+  document.getElementById('foot').innerHTML = footNote(leadErr, leads.length, leadCols);
+}
+
+function footNote(leadErr, leadCount, leadCols) {
+  const base = `Bars run from <b>start date</b> to <b>complete date</b>. When no complete date is set, the end is estimated at <b>start + ${MONTHS_END_FROM_START} months</b> (hatched). Diamonds mark closings.`;
+  if (leadErr) return base + `<br>Prospective starts not loaded: <b>${esc(leadErr)}</b>. Edit the leads config block at the top of gantt.html.`;
+  if (leadCount === 0 && leadCols && leadCols.length) {
+    // we read the table but matched nothing — likely wrong column names
+    return base + `<br>No prospective starts matched. Your leads table columns are: <b>${esc(leadCols.join(', '))}</b>. `
+      + `Set <b>LEAD_JOB_FIELD</b> / <b>LEAD_START_FIELD</b> in the config block to the right names.`;
+  }
+  return base + ` Showing <b>${leadCount}</b> prospective start${leadCount===1?'':'s'}.`;
+}
+
+document.getElementById('scaleToggle').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  document.querySelectorAll('#scaleToggle button').forEach(b => b.classList.toggle('active', b === btn));
+  PX_PER_MONTH = +btn.dataset.px;
+  if (sb) load();
+});
+
+function boot() { if (initClient()) load(); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
+</body>
+</html>

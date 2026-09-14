@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>VBH Lead Migration</title>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="vbh-config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Lato',sans-serif;background:#0f1d3a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px}
+.box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:36px;max-width:600px;width:100%;display:flex;flex-direction:column;gap:18px}
+h1{font-size:1.4rem;font-weight:900;letter-spacing:.02em}
+p{font-size:.88rem;color:rgba(255,255,255,0.6);line-height:1.6}
+.warning{background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:12px 14px;font-size:.85rem;color:#fcd34d;line-height:1.5}
+textarea{width:100%;min-height:180px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:.82rem;padding:12px;font-family:monospace;outline:none;resize:vertical}
+textarea:focus{border-color:#6B8EB5}
+.or{text-align:center;font-size:.8rem;color:rgba(255,255,255,0.3)}
+.file-label{display:flex;align-items:center;justify-content:center;padding:14px;border:2px dashed rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;font-size:.85rem;color:rgba(255,255,255,0.5);transition:all .2s}
+.file-label:hover{border-color:#6B8EB5;color:#fff}
+input[type=file]{display:none}
+button{padding:13px 20px;background:#6B8EB5;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:900;cursor:pointer;letter-spacing:.04em;transition:background .2s}
+button:hover{background:#5a7aa3}
+button:disabled{background:#444;cursor:not-allowed}
+.log{background:rgba(0,0,0,0.3);border-radius:8px;padding:14px;font-size:.8rem;font-family:monospace;line-height:1.7;max-height:200px;overflow-y:auto;display:none}
+.log.active{display:block}
+.ok{color:#86efac}.err{color:#fca5a5}.info{color:#93c5fd}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>🔀 VBH Lead Migration Tool</h1>
+  <p>One-time use. Paste your exported JSON from the old localStorage-based leads tracker, then click Import. This will push all leads into the Supabase database powering the new hosted tracker.</p>
+  <div class="warning">⚠ Run this once. Importing the same file twice will create duplicate leads. After a successful import, verify in <a href="/leads.html" style="color:#fcd34d">/leads.html</a> and then you're done with this page.</div>
+
+  <textarea id="json-paste" placeholder="Paste your exported JSON here... (the entire array from VBH_Leads_XXXX-XX-XX.json)"></textarea>
+  <div class="or">— or —</div>
+  <label class="file-label" for="file-input">📂 Click to upload your .json file</label>
+  <input type="file" id="file-input" accept=".json" onchange="readFile(this)"/>
+
+  <button id="import-btn" onclick="runImport()">Import Leads to Supabase</button>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+const sb = supabase.createClient(VBH.SUPABASE_URL, VBH.SUPABASE_KEY);
+
+function readFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('json-paste').value = e.target.result; };
+  reader.readAsText(file);
+}
+
+function log(msg, type) {
+  const div = document.getElementById('log');
+  div.classList.add('active');
+  const line = document.createElement('div');
+  line.className = type || 'info';
+  line.textContent = msg;
+  div.appendChild(line);
+  div.scrollTop = div.scrollHeight;
+}
+
+// Map old localStorage field names to new Supabase column names
+function mapLead(old) {
+  // Old tracker used various field naming conventions — map them all
+  return {
+    // Status
+    status: old.status || old.pipelineStatus || 'New Inquiry',
+    lead_temp: old.leadTemp || old.lead_temp || old.temperature || '',
+    lead_grade: old.leadGrade || old.lead_grade || old.grade || '',
+    timeline_urgency: old.timelineUrgency || old.timeline_urgency || old.urgency || '',
+    star_rating: parseInt(old.starRating || old.star_rating || old.stars || 0) || 0,
+    next_followup: old.nextFollowup || old.next_followup || old.followupDate || '',
+
+    // Owner 1
+    owner1_first: old.owner1First || old.owner1_first || old.firstName || old.first_name || '',
+    owner1_last: old.owner1Last || old.owner1_last || old.lastName || old.last_name || '',
+    owner1_phone: old.owner1Phone || old.owner1_phone || old.phone || '',
+    owner1_email: old.owner1Email || old.owner1_email || old.email || '',
+
+    // Owner 2
+    owner2_first: old.owner2First || old.owner2_first || '',
+    owner2_last: old.owner2Last || old.owner2_last || '',
+    owner2_phone: old.owner2Phone || old.owner2_phone || '',
+    owner2_email: old.owner2Email || old.owner2_email || '',
+
+    // Contact
+    mailing_address: old.mailingAddress || old.mailing_address || old.address || '',
+    comm_preference: old.commPreference || old.comm_preference || old.contactPreference || '',
+
+    // Project
+    project_type: old.projectType || old.project_type || '',
+    budget: old.budget || '',
+    financing_type: old.financingType || old.financing_type || old.financing || '',
+    sq_footage: old.sqFootage || old.sq_footage || old.sqft || old.squareFootage || '',
+    beds: old.beds || old.bedrooms || '',
+    baths: old.baths || old.bathrooms || '',
+    start_date: old.startDate || old.start_date || '',
+    completion_date: old.completionDate || old.completion_date || old.endDate || '',
+
+    // Location
+    neighborhood: old.neighborhood || '',
+    tentative_address: old.tentativeAddress || old.tentative_address || old.streetAddress || '',
+    lot: old.lot || '',
+    block: old.block || '',
+    lot_cost: old.lotCost || old.lot_cost || '',
+
+    // Sales
+    job_number: old.jobNumber || old.job_number || old.jobNum || '',
+    sales_rep: old.salesRep || old.sales_rep || old.rep || '',
+    lead_source: old.leadSource || old.lead_source || old.source || '',
+    contract_status: old.contractStatus || old.contract_status || '',
+    deposit_status: old.depositStatus || old.deposit_status || '',
+
+    // Competition
+    competing_builders: old.competingBuilders || old.competing_builders || old.competing || '',
+    lost_reason: old.lostReason || old.lost_reason || '',
+
+    // Notes
+    internal_notes: old.internalNotes || old.internal_notes || old.commissionNotes || '',
+
+    // Contact log — preserve if exists
+    contact_log: old.contactLog || old.contact_log || []
+  };
+}
+
+async function runImport() {
+  const raw = document.getElementById('json-paste').value.trim();
+  if (!raw) { log('⚠ Paste or upload your JSON file first.', 'err'); return; }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch(e) {
+    log('✗ Invalid JSON. Make sure you pasted the complete file contents.', 'err');
+    return;
+  }
+
+  // Handle both array and {leads:[...]} shapes
+  const arr = Array.isArray(parsed) ? parsed : (parsed.leads || parsed.data || []);
+  if (!arr.length) { log('⚠ No leads found in the file.', 'err'); return; }
+
+  log(`Found ${arr.length} leads. Starting import...`, 'info');
+  document.getElementById('import-btn').disabled = true;
+
+  let success = 0;
+  let failed = 0;
+
+  for (let i = 0; i < arr.length; i++) {
+    const mapped = mapLead(arr[i]);
+    const name = [mapped.owner1_first, mapped.owner1_last].filter(Boolean).join(' ') || `Lead ${i+1}`;
+    const { error } = await sb.from('leads').insert([mapped]);
+    if (error) {
+      log(`✗ [${i+1}/${arr.length}] ${name} — ${error.message}`, 'err');
+      failed++;
+    } else {
+      log(`✓ [${i+1}/${arr.length}] ${name}`, 'ok');
+      success++;
+    }
+    // Small delay to avoid rate limiting
+    if (i < arr.length - 1) await new Promise(r => setTimeout(r, 120));
+  }
+
+  log('', 'info');
+  log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'info');
+  log(`Import complete: ${success} succeeded, ${failed} failed`, success === arr.length ? 'ok' : 'err');
+  if (success > 0) {
+    log(`✓ Go to /leads.html to verify your data`, 'ok');
+  }
+}
+</script>
+</body>
+</html>

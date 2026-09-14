@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Executive Update — Van Buskirk Homes</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
+
+<!-- ============================================================
+     CONFIG — EDIT THESE TWO LINES IF EMAILS DIFFER
+     ============================================================ -->
+<script>
+  const RECIPIENTS = {
+    steve: { name: "Steve Van Buskirk", email: "Steve@vanbuskirkco.com" },
+    kelly: { name: "Kelly Boyd",        email: "kelly.boyd@vanbuskirkco.com" }
+  };
+  const SENDER_NAME = "Jordan Hefner";
+  const SENDER_TITLE = "Director of Operations";
+
+  // Supabase
+  const SUPABASE_URL = "https://bppirsahciuxrqzitfxa.supabase.co";
+  // Anon public key — replace with your project's anon key (same one your other tiles use)
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwcGlyc2FoY2l1eHJxeml0ZnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTExMjcsImV4cCI6MjA5NTk4NzEyN30.Yy3en8gNoTPSVkztlGr6XbUq6ZU3-NHJ4TUIVnZQ4eE";
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+  :root{
+    --navy:#1B3564; --steel:#6B8EB5; --gold:#C9A84C; --light:#EBF0F7;
+    --ink:#1c2434; --muted:#5b6472; --line:#d8e0ec;
+    --red:#c0392b; --amber:#d4941e; --green:#2e8b57;
+    --shadow:0 1px 3px rgba(27,53,100,.08),0 6px 20px rgba(27,53,100,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Lato',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:var(--light); color:var(--ink); line-height:1.5;
+    padding:24px; min-height:100vh;
+  }
+  h1,h2,h3{font-family:'Cormorant Garamond','Cormorant',Georgia,serif;font-weight:600}
+
+  /* ---------- App shell ---------- */
+  .app{max-width:960px;margin:0 auto}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    background:#fff;border:1px solid var(--line);border-radius:12px;
+    padding:16px 22px;box-shadow:var(--shadow);margin-bottom:18px;flex-wrap:wrap
+  }
+  .topbar .brand{display:flex;align-items:center;gap:14px}
+  .topbar .brand img{height:46px;width:auto}
+  .topbar .brand .t h1{font-size:26px;color:var(--navy);line-height:1}
+  .topbar .brand .t p{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .date-pick{display:flex;flex-direction:column;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .date-pick input{
+    font-family:inherit;font-size:14px;color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:7px 10px;margin-top:3px;background:#fff
+  }
+  .btn{
+    font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.02em;
+    border:none;border-radius:8px;padding:10px 16px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:7px;transition:.15s;white-space:nowrap
+  }
+  .btn:hover{transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-primary:hover{background:#24457f}
+  .btn-gold{background:var(--gold);color:#3a2f0d}
+  .btn-gold:hover{background:#d8b95e}
+  .btn-ghost{background:#fff;color:var(--navy);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--light)}
+  .status-line{font-size:12px;color:var(--muted);margin:0 0 14px 4px}
+  .status-line b{color:var(--green)}
+  .status-line.err b{color:var(--red)}
+
+  /* ---------- The editable doc (also the PDF target) ---------- */
+  #doc{
+    background:#fff;border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow);padding:34px 40px 30px;position:relative
+  }
+  .doc-head{display:flex;align-items:flex-start;justify-content:space-between;
+    border-bottom:3px solid var(--navy);padding-bottom:14px;margin-bottom:6px}
+  .doc-head .l h2{font-size:30px;color:var(--navy);line-height:1.05}
+  .doc-head .l .sub{font-size:12.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+  .doc-head .r{text-align:right}
+  .doc-head .r img{height:52px;width:auto;margin-bottom:4px}
+  .doc-head .r .wk{font-size:12px;color:var(--muted)}
+  .doc-head .r .wk b{color:var(--navy);display:block;font-size:15px}
+
+  .to-line{font-size:12.5px;color:var(--muted);margin:14px 0 20px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .to-line b{color:var(--ink)}
+
+  section.blk{margin-bottom:20px}
+  .blk-head{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .blk-head h3{font-size:19px;color:var(--navy)}
+  .blk-head .rule{flex:1;height:1px;background:var(--line)}
+  .blk-head .cnt{font-size:11px;color:var(--muted);background:var(--light);
+    padding:2px 9px;border-radius:20px;font-weight:700}
+  .blk-head .add{font-size:11px;color:var(--steel);cursor:pointer;font-weight:700;
+    border:1px dashed var(--steel);border-radius:6px;padding:3px 9px;background:none}
+  .blk-head .add:hover{background:var(--light)}
+
+  table.grid{width:100%;border-collapse:collapse;font-size:13px}
+  table.grid th{
+    text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);font-weight:700;padding:0 10px 6px;border-bottom:1px solid var(--line)
+  }
+  table.grid td{padding:8px 10px;border-bottom:1px solid #eef2f8;vertical-align:middle}
+  table.grid tr:last-child td{border-bottom:none}
+  .cell-edit{outline:none;border-radius:4px;padding:2px 4px;margin:-2px -4px;transition:.1s}
+  .cell-edit:focus{background:var(--light);box-shadow:0 0 0 2px var(--steel) inset}
+  .cell-edit:empty:before{content:attr(data-ph);color:#b6c0d0}
+
+  .name{font-weight:700;color:var(--ink)}
+  .addr{font-size:11.5px;color:var(--muted)}
+
+  /* progress */
+  .prog{display:flex;align-items:center;gap:8px;min-width:120px}
+  .prog .bar{flex:1;height:7px;background:var(--light);border-radius:20px;overflow:hidden;min-width:60px}
+  .prog .fill{height:100%;background:var(--steel);border-radius:20px}
+  .prog .pct{font-size:12px;font-weight:700;color:var(--navy);min-width:34px;text-align:right}
+
+  /* status flags */
+  .flag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+    padding:3px 9px;border-radius:20px;cursor:pointer;user-select:none;white-space:nowrap}
+  .flag:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.9}
+  .flag.on-track{background:rgba(46,139,87,.12);color:var(--green)}
+  .flag.watch{background:rgba(212,148,30,.14);color:var(--amber)}
+  .flag.risk{background:rgba(192,57,43,.12);color:var(--red)}
+
+  /* probability pill (prospects) */
+  .pill{display:inline-block;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;color:#fff}
+  .pill.p25{background:var(--red)}
+  .pill.p50{background:var(--amber);color:#3a2f0d}
+  .pill.p75{background:var(--steel)}
+  .pill.p100{background:var(--green)}
+
+  .row-del{color:#c9ced8;cursor:pointer;font-weight:900;font-size:15px;line-height:1;padding:0 2px}
+  .row-del:hover{color:var(--red)}
+  tr:hover .row-del{color:#9aa3b2}
+
+  .empty{font-size:12.5px;color:var(--muted);font-style:italic;padding:6px 10px}
+
+  .doc-foot{margin-top:22px;padding-top:12px;border-top:2px solid var(--navy);
+    display:flex;justify-content:space-between;align-items:flex-end;font-size:11px;color:var(--muted)}
+  .doc-foot .sig b{color:var(--navy);font-size:13px;display:block;font-family:'Cormorant Garamond',serif}
+
+  .hint{font-size:11.5px;color:var(--muted);margin:10px 4px 0;text-align:center}
+  .hint code{background:var(--light);padding:1px 5px;border-radius:4px;color:var(--navy)}
+
+  /* hide controls in PDF capture */
+  .pdf-hide{}
+  #doc.capturing .row-del,#doc.capturing .add{visibility:hidden}
+  #doc.capturing .cell-edit:empty:before{content:""}
+
+  @media(max-width:640px){
+    body{padding:12px}
+    #doc{padding:22px 18px}
+    .doc-head{flex-direction:column;gap:10px}
+    .doc-head .r{text-align:left}
+    table.grid th:nth-child(2),table.grid td:nth-child(2){display:none}
+  }
+
+/* ===== VBH shared top nav (leads pattern + hub gold) ===== */
+.vbh-nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; overflow-x: auto; }
+.vbh-nav::-webkit-scrollbar { display: none; }
+.vbh-nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-family: 'Lato', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
+.vbh-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.vbh-nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
+.vbh-nav a.vbh-back { color: rgba(255,255,255,0.78); border-right: 1px solid rgba(255,255,255,0.14); }
+.vbh-nav { margin: -24px -24px 18px; }
+@media(max-width:640px){ .vbh-nav { margin: -12px -12px 14px; } }
+</style>
+</head>
+<body>
+<nav class="vbh-nav">
+  <a class="vbh-back" href="/hub.html">← Hub</a>
+  <a href="/">Work Order</a>
+  <a href="/dashboard.html">Dashboard</a>
+  <a href="/leads.html">Leads</a>
+  <a href="/intake.html">Intake</a>
+  <a href="/projects.html">Projects</a>
+  <a href="/gantt.html">Timeline</a>
+  <a href="/meeting.html">Meeting</a>
+  <a href="/equipment.html">Assets</a>
+</nav>
+<div class="app">
+
+  <!-- ===== Toolbar (not part of PDF) ===== -->
+  <div class="topbar">
+    <div class="brand">
+      <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCA1MDQgMTk1LjI5MiI+CiAgPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI5LjcuMSwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDIuMS4xIEJ1aWxkIDgpICAtLT4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLnN0MCB7CiAgICAgICAgZmlsbDogIzViODliNDsKICAgICAgfQoKICAgICAgLnN0MSB7CiAgICAgICAgZmlsbDogIzAwMmU2ZDsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHBvbHlnb24gY2xhc3M9InN0MSIgcG9pbnRzPSIxMjMuNjI5IDgzLjI4NyAxNTcuMDQ5IDguMjAxIDEzNy40NTIgOC4yMDEgMTE5LjQ1MSA1NC41NTUgMTAwLjMxMSA4LjIwMSA4MC40ODkgOC4yMDEgMTA5LjgxOCA3NC4wOTcgMTIzLjYyOSA4My4yODciLz4KICA8cG9seWdvbiBjbGFzcz0ic3QxIiBwb2ludHM9IjEyOS4xNDIgMTIzLjk5OSA3My4zOTEgOTguNTE3IDE1LjkwNSAxMjMuOTk5IDE1LjY3OSAxMzQuMDg4IDczLjM5MSAxMTcuMzY2IDEyOS4xNDIgMTM0LjA4OCAxMjkuMTQyIDEyMy45OTkiLz4KICA8cG9seWdvbiBjbGFzcz0ic3QwIiBwb2ludHM9IjEyOS4xNDIgOTYuODc1IDczLjI3OCA1OS43NzQgMTUuNzkyIDk2Ljg3NSAxNS43OTIgMTE1LjI3IDczLjI3OCA4OC43MDcgMTI5LjE0MiAxMTUuMjc1IDEyOS4xNDIgOTYuODc1Ii8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTE1NS4yOTksNTUuMzQzYzAtMTAuMDk4LDEwLjc2Ny0xMi45NTgsMjEuNzItMTUuOTk3LDguMDk3LTIuMjM1LDExLjQxMS00LjAyMiwxMS40MTEtNy4wNiwwLTIuNjgxLTIuNTc2LTQuNTU5LTcuMjctNC41NTktNS43MDYsMC05LjIwNCwzLjEzLTEwLjAzMSw4LjMxMmgtMTQuOTFjMS42NTYtMTEuMDgsMTEuNjg3LTE4LjY3OCwyNS41ODUtMTguNjc4LDE0LjYzMiwwLDIyLjczMiw2LjUyNSwyMi43MzIsMTguNTg5djMyLjE3NGgtMTYuMTA2di01LjAwNmMtMy43NzQsMy44NDMtOS4yOTUsNS44OTgtMTUuNzM5LDUuODk4LTEwLjU4MiwwLTE3LjM5My01LjQ1LTE3LjM5My0xMy42NzJaTTE3Ny45NCw1OS4yNzZjMy45NTYsMCw4LjAwNi0xLjQzLDEwLjQ5MS0zLjkzM3YtNy4zMjhsLjA5MS00LjExMWMtMS45MzIsMS4zNDEtNC42MDEsMi4xNDQtNy44MjIsMy4yMTctNS43OTksMS44NzYtOS41NzEsMy40ODQtOS41NzEsNy4zMjgsMCwyLjg2LDIuNDg1LDQuODI3LDYuODEsNC44MjdaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIxNi45MTIsMTguNjEyaDE2LjM4M3Y1LjQ1MmMzLjU5LTQuMDIyLDguNzQyLTYuNTI1LDE1LjAwMS02LjUyNSwxMC44NiwwLDE4LjAzOSw2LjUyNSwxOC4wMzksMTYuNzEydjMzLjg3MWgtMTYuMzgzdi0zMS41NDdjMC01LjE4NC0zLjMxMi03Ljg2NS04LjA5OS03Ljg2NS0zLjU4OCwwLTYuNjI2LDEuNDMtOC41NTgsMy44NDN2MzUuNTY5aC0xNi4zODNWMTguNjEyWiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuMzY2LDczLjcyNGgzNC41MTJjMTMuOTksMCwyMS45MDUsNi42MTQsMjEuOTA1LDE2Ljg5MSwwLDUuOTg3LTMuMTMsMTAuOTAyLTkuMDIsMTMuNjcyLDYuNzE5LDIuNTAzLDEwLjQsNy41OTgsMTAuNCwxNC41NjksMCwxMC41NDUtOC4xOTEsMTcuNDI2LTIyLjM2NSwxNy40MjZoLTM1LjQzMnYtNjIuNTU4Wk0xNTIuMzkyLDg1LjY5OHYxMy4zMTdoMTUuMjc3YzQuNTEsMCw3LjQ1NS0yLjIzNSw3LjQ1NS02LjYxNHMtMi45NDUtNi43MDMtNy40NTUtNi43MDNoLTE1LjI3N1pNMTUyLjM5MiwxMTAuNDU1djE0LjAyOWgxNi4wMTRjNC44NzcsMCw3LjkxNS0yLjMyMiw3LjkxNS02Ljk2OSwwLTQuNTU5LTMuMDM4LTcuMDYtNy45MTUtNy4wNmgtMTYuMDE0WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xOTkuMTQyLDEyMC42NDJ2LTMzLjg3MWgxNi4zODF2MzEuNTQ3YzAsNS4yNzMsMy4zMTQsNy44NjUsOC4xOTEsNy44NjUsMy40OTYsMCw2LjUzNS0xLjQzLDguNDY2LTMuNzU0di0zNS42NThoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi01LjM2M2MtMy40OTYsNC4wMjItOC43NDIsNi40MzQtMTQuOTA4LDYuNDM0LTEwLjk1MywwLTE4LjEzLTYuNTIzLTE4LjEzLTE2LjcxMVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMjU0LjkwOCwxMTguNzY0aDE0LjkxYzEuMTAzLDUuODExLDUuMDYxLDguNzYsMTAuNjc2LDguNzYsNS43OTcsMCw4LjI4Mi0xLjk2Nyw4LjI4Mi00LjU1OSwwLTQuMTA5LTYuMTY2LTUuMjcxLTEzLjI1Mi02LjcwMS05LjI5NS0xLjg3OC0yMC4xNTUtNC4zNzktMjAuMTU1LTE1LjEwNCwwLTkuMTE1LDguNjUxLTE1LjY0LDIyLjU0Ny0xNS42NCwxNC4yNjUsMCwyMy43NDUsNi41MjUsMjUuNzcsMTcuNjk2aC0xNC43MjVjLTEuMzgtNS40NTItNS4xNTQtNy42ODctMTAuNzY5LTcuNjg3LTQuODc3LDAtNy4yNywxLjg3OC03LjI3LDQuMTExLDAsMy43NTQsNi4xNjgsNC44MjUsMTMuMjU0LDYuMjU1LDkuMjk1LDEuOTY3LDIwLjE1NSw0LjY0OSwyMC4xNTUsMTUuNTUsMCw5LjAyOC04LjkyOCwxNi4wODgtMjMuNTYxLDE2LjA4OC0xMy44OTgsMC0yMy45MjktNi4yNTctMjUuODYxLTE4Ljc2OVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMzEwLjc2NSw3My43MjRoMTYuMTk5bC0uMjc2LDM0LjEzOSwxOC4yMjItMjEuMDkxaDE3LjQ4NmwtMTcuMzk1LDE5Ljc1MSwxOC40MDgsMjkuNzZoLTE4LjIyNGwtMTEuMDQzLTE4Ljg1Ni03LjM2NCw4LjIyLjE4NCwxMC42MzZoLTE2LjE5OXYtNjIuNTU4WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zNjcuNDUxLDcyLjIwNWgxNi4zODN2MTEuMDgyaC0xNi4zODN2LTExLjA4MlpNMzY3LjQ1MSw4Ni43NzFoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTM5MS4zNzQsODYuNzcxaDE2LjM4M3Y4LjA0NGMzLjQwNS01LjgwOSw4LjgzNS05LjAyOCwxNi4xMDYtOS4wMjhoLjgyN3YxMy44NTNjLTEuNDcyLS4zNTctMi45NDUtLjQ0Ni00LjUwOC0uNDQ2LTUuMDYzLDAtOS44NDksMS43ODctMTIuNDI1LDUuMDkzdjMxLjk5NWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTQzMS4wMzQsNzMuNzI0aDE2LjE5OWwtLjI3NiwzNC4xMzksMTguMjIyLTIxLjA5MWgxNy40ODZsLTE3LjM5NSwxOS43NTEsMTguNDA4LDI5Ljc2aC0xOC4yMjRsLTExLjA0My0xOC44NTYtNy4zNjQsOC4yMi4xODQsMTAuNjM2aC0xNi4xOTl2LTYyLjU1OFoiLz4KICA8Zz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuNDM0LDE0NC45MTRoMTIuMzk1djE3LjM2MWgxNy4zMjl2LTE3LjM2MWgxMi4zOTV2NDQuODQ0aC0xMi4zOTV2LTE4LjY0M2gtMTcuMzI5djE4LjY0M2gtMTIuMzk1di00NC44NDRaIi8+CiAgICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMTgxLjY4MiwxNzIuMDE0YzAtMTEuNzI0LDcuNzMyLTE4LjcwOCwxOS41OTQtMTguNzA4LDExLjc5NCwwLDE5LjUyNiw2Ljk4MywxOS41MjYsMTguNzA4cy03LjY2NCwxOC43MDUtMTkuNTI2LDE4LjcwNS0xOS41OTQtNi45ODMtMTkuNTk0LTE4LjcwNVpNMjA5LjEzOCwxNzIuMDE0YzAtNy4yNDEtMi45OTktMTAuNzYzLTcuODYyLTEwLjc2M3MtNy44NjUsMy41MjItNy44NjUsMTAuNzYzLDIuOTk5LDEwLjc2MSw3Ljg2NSwxMC43NjEsNy44NjItMy41MjIsNy44NjItMTAuNzYxWiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIyNC42NjIsMTU0LjI2OGgxMS44NjR2My45NzJjMi40NjUtMi45NDYsNi4xMy00Ljc0MSwxMC41MjgtNC43NDEsNC43MzMsMCw4LjQ2NSwxLjk4NSwxMC40NjUsNS40NDQsMi42NjYtMy4zMjksNi43MzEtNS40NDQsMTEuNzI5LTUuNDQ0LDcuNTk3LDAsMTIuNTk1LDQuNjc2LDEyLjU5NSwxMS45OHYyNC4yNzloLTExLjg2MnYtMjIuOTM1YzAtMy41ODctMi4yLTUuMzE2LTUuMzk5LTUuMzE2LTIuMTMzLDAtNC4xMzMuODM0LTUuNTMyLDIuMzA4LjA2OC41MTEuMDY4LDEuMDg5LjA2OCwxLjY2NXYyNC4yNzloLTExLjcyOXYtMjIuOTM1YzAtMy41ODctMi4xMzMtNS4zMTYtNS4xOTktNS4zMTYtMi4zMzMsMC00LjM5OC45NjEtNS42NjQsMi41NjN2MjUuNjg5aC0xMS44NjR2LTM1LjQ5MVoiLz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0yODUuNTczLDE3Mi4wMTRjMC0xMS41MzIsNy44NjUtMTguNzA4LDE5LjI2MS0xOC43MDgsMTAuNzI4LDAsMTguNzkzLDYuODU2LDE4Ljc5MywxOS4xNTZ2Ljc2OGgtMjYuNTI1Yy4zMzMsNi41OTgsMy4xOTksOS44MDIsNy43OTcsOS44MDIsMy42NjcsMCw2LjE5OC0yLjExNSw3LjE5OS02LjcyOGgxMS4xOTZjLTEuNzM1LDkuMDMzLTguNTMsMTQuNDE1LTE4LjUyNywxNC40MTUtMTEuNDYxLDAtMTkuMTkzLTcuMTExLTE5LjE5My0xOC43MDVaTTI5Ny41MDMsMTY3LjUyOWgxNC40NmMtMS4xMzEtNC40ODUtMy42NjQtNi43MjYtNy4xOTYtNi43MjYtMy43MzIsMC02LjI2NSwyLjI0LTcuMjY0LDYuNzI2WiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTMyNi41NTgsMTc3LjIwM2gxMC43OTZjLjgwMSw0LjE2MywzLjY2NCw2LjI3OCw3LjcyOSw2LjI3OCw0LjIsMCw2LTEuNDA5LDYtMy4yNjYsMC0yLjk0OS00LjQ2NS0zLjc4Mi05LjU5Ny00LjgwNi02LjczMS0xLjM0NC0xNC41OTUtMy4xMzktMTQuNTk1LTEwLjgyNiwwLTYuNTM1LDYuMjY1LTExLjIxMSwxNi4zMjctMTEuMjExLDEwLjMzLDAsMTcuMTkzLDQuNjc2LDE4LjY2LDEyLjY4M2gtMTAuNjYzYy0uOTk5LTMuOTA3LTMuNzMyLTUuNTA5LTcuNzk3LTUuNTA5LTMuNTMyLDAtNS4yNjQsMS4zNDctNS4yNjQsMi45NDksMCwyLjY5MSw0LjQ2MywzLjQ1OSw5LjU5Nyw0LjQ4Myw2LjczMSwxLjQwOSwxNC41OTMsMy4zMzIsMTQuNTkzLDExLjE0NiwwLDYuNDctNi40NjMsMTEuNTMyLTE3LjA2MSwxMS41MzItMTAuMDYyLDAtMTcuMzI2LTQuNDgzLTE4LjcyNS0xMy40NTFaIi8+CiAgPC9nPgo8L3N2Zz4=" alt="Van Buskirk Homes">
+      <div class="t">
+        <h1>Weekly Executive Update</h1>
+        <p>Ownership Briefing &middot; Van Buskirk Homes</p>
+      </div>
+    </div>
+    <div class="controls">
+      <label class="date-pick">Week ending
+        <input type="date" id="weekDate">
+      </label>
+      <button class="btn btn-ghost" id="btnRefresh">&#8635; Refresh data</button>
+      <button class="btn btn-gold" id="btnPdf">&#8681; Save PDF</button>
+      <button class="btn btn-primary" id="btnSend">&#9993; Send via Outlook</button>
+    </div>
+  </div>
+
+  <p class="status-line" id="statusLine">Loading live data from projects &amp; leads…</p>
+
+  <!-- ===== The document / PDF target ===== -->
+  <div id="doc">
+    <div class="doc-head">
+      <div class="l">
+        <h2>Weekly Operations Update</h2>
+        <div class="sub">Executive Summary — Confidential</div>
+      </div>
+      <div class="r">
+        <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCA1MDQgMTk1LjI5MiI+CiAgPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI5LjcuMSwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDIuMS4xIEJ1aWxkIDgpICAtLT4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLnN0MCB7CiAgICAgICAgZmlsbDogIzViODliNDsKICAgICAgfQoKICAgICAgLnN0MSB7CiAgICAgICAgZmlsbDogIzAwMmU2ZDsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHBvbHlnb24gY2xhc3M9InN0MSIgcG9pbnRzPSIxMjMuNjI5IDgzLjI4NyAxNTcuMDQ5IDguMjAxIDEzNy40NTIgOC4yMDEgMTE5LjQ1MSA1NC41NTUgMTAwLjMxMSA4LjIwMSA4MC40ODkgOC4yMDEgMTA5LjgxOCA3NC4wOTcgMTIzLjYyOSA4My4yODciLz4KICA8cG9seWdvbiBjbGFzcz0ic3QxIiBwb2ludHM9IjEyOS4xNDIgMTIzLjk5OSA3My4zOTEgOTguNTE3IDE1LjkwNSAxMjMuOTk5IDE1LjY3OSAxMzQuMDg4IDczLjM5MSAxMTcuMzY2IDEyOS4xNDIgMTM0LjA4OCAxMjkuMTQyIDEyMy45OTkiLz4KICA8cG9seWdvbiBjbGFzcz0ic3QwIiBwb2ludHM9IjEyOS4xNDIgOTYuODc1IDczLjI3OCA1OS43NzQgMTUuNzkyIDk2Ljg3NSAxNS43OTIgMTE1LjI3IDczLjI3OCA4OC43MDcgMTI5LjE0MiAxMTUuMjc1IDEyOS4xNDIgOTYuODc1Ii8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTE1NS4yOTksNTUuMzQzYzAtMTAuMDk4LDEwLjc2Ny0xMi45NTgsMjEuNzItMTUuOTk3LDguMDk3LTIuMjM1LDExLjQxMS00LjAyMiwxMS40MTEtNy4wNiwwLTIuNjgxLTIuNTc2LTQuNTU5LTcuMjctNC41NTktNS43MDYsMC05LjIwNCwzLjEzLTEwLjAzMSw4LjMxMmgtMTQuOTFjMS42NTYtMTEuMDgsMTEuNjg3LTE4LjY3OCwyNS41ODUtMTguNjc4LDE0LjYzMiwwLDIyLjczMiw2LjUyNSwyMi43MzIsMTguNTg5djMyLjE3NGgtMTYuMTA2di01LjAwNmMtMy43NzQsMy44NDMtOS4yOTUsNS44OTgtMTUuNzM5LDUuODk4LTEwLjU4MiwwLTE3LjM5My01LjQ1LTE3LjM5My0xMy42NzJaTTE3Ny45NCw1OS4yNzZjMy45NTYsMCw4LjAwNi0xLjQzLDEwLjQ5MS0zLjkzM3YtNy4zMjhsLjA5MS00LjExMWMtMS45MzIsMS4zNDEtNC42MDEsMi4xNDQtNy44MjIsMy4yMTctNS43OTksMS44NzYtOS41NzEsMy40ODQtOS41NzEsNy4zMjgsMCwyLjg2LDIuNDg1LDQuODI3LDYuODEsNC44MjdaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIxNi45MTIsMTguNjEyaDE2LjM4M3Y1LjQ1MmMzLjU5LTQuMDIyLDguNzQyLTYuNTI1LDE1LjAwMS02LjUyNSwxMC44NiwwLDE4LjAzOSw2LjUyNSwxOC4wMzksMTYuNzEydjMzLjg3MWgtMTYuMzgzdi0zMS41NDdjMC01LjE4NC0zLjMxMi03Ljg2NS04LjA5OS03Ljg2NS0zLjU4OCwwLTYuNjI2LDEuNDMtOC41NTgsMy44NDN2MzUuNTY5aC0xNi4zODNWMTguNjEyWiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuMzY2LDczLjcyNGgzNC41MTJjMTMuOTksMCwyMS45MDUsNi42MTQsMjEuOTA1LDE2Ljg5MSwwLDUuOTg3LTMuMTMsMTAuOTAyLTkuMDIsMTMuNjcyLDYuNzE5LDIuNTAzLDEwLjQsNy41OTgsMTAuNCwxNC41NjksMCwxMC41NDUtOC4xOTEsMTcuNDI2LTIyLjM2NSwxNy40MjZoLTM1LjQzMnYtNjIuNTU4Wk0xNTIuMzkyLDg1LjY5OHYxMy4zMTdoMTUuMjc3YzQuNTEsMCw3LjQ1NS0yLjIzNSw3LjQ1NS02LjYxNHMtMi45NDUtNi43MDMtNy40NTUtNi43MDNoLTE1LjI3N1pNMTUyLjM5MiwxMTAuNDU1djE0LjAyOWgxNi4wMTRjNC44NzcsMCw3LjkxNS0yLjMyMiw3LjkxNS02Ljk2OSwwLTQuNTU5LTMuMDM4LTcuMDYtNy45MTUtNy4wNmgtMTYuMDE0WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xOTkuMTQyLDEyMC42NDJ2LTMzLjg3MWgxNi4zODF2MzEuNTQ3YzAsNS4yNzMsMy4zMTQsNy44NjUsOC4xOTEsNy44NjUsMy40OTYsMCw2LjUzNS0xLjQzLDguNDY2LTMuNzU0di0zNS42NThoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi01LjM2M2MtMy40OTYsNC4wMjItOC43NDIsNi40MzQtMTQuOTA4LDYuNDM0LTEwLjk1MywwLTE4LjEzLTYuNTIzLTE4LjEzLTE2LjcxMVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMjU0LjkwOCwxMTguNzY0aDE0LjkxYzEuMTAzLDUuODExLDUuMDYxLDguNzYsMTAuNjc2LDguNzYsNS43OTcsMCw4LjI4Mi0xLjk2Nyw4LjI4Mi00LjU1OSwwLTQuMTA5LTYuMTY2LTUuMjcxLTEzLjI1Mi02LjcwMS05LjI5NS0xLjg3OC0yMC4xNTUtNC4zNzktMjAuMTU1LTE1LjEwNCwwLTkuMTE1LDguNjUxLTE1LjY0LDIyLjU0Ny0xNS42NCwxNC4yNjUsMCwyMy43NDUsNi41MjUsMjUuNzcsMTcuNjk2aC0xNC43MjVjLTEuMzgtNS40NTItNS4xNTQtNy42ODctMTAuNzY5LTcuNjg3LTQuODc3LDAtNy4yNywxLjg3OC03LjI3LDQuMTExLDAsMy43NTQsNi4xNjgsNC44MjUsMTMuMjU0LDYuMjU1LDkuMjk1LDEuOTY3LDIwLjE1NSw0LjY0OSwyMC4xNTUsMTUuNTUsMCw5LjAyOC04LjkyOCwxNi4wODgtMjMuNTYxLDE2LjA4OC0xMy44OTgsMC0yMy45MjktNi4yNTctMjUuODYxLTE4Ljc2OVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMzEwLjc2NSw3My43MjRoMTYuMTk5bC0uMjc2LDM0LjEzOSwxOC4yMjItMjEuMDkxaDE3LjQ4NmwtMTcuMzk1LDE5Ljc1MSwxOC40MDgsMjkuNzZoLTE4LjIyNGwtMTEuMDQzLTE4Ljg1Ni03LjM2NCw4LjIyLjE4NCwxMC42MzZoLTE2LjE5OXYtNjIuNTU4WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zNjcuNDUxLDcyLjIwNWgxNi4zODN2MTEuMDgyaC0xNi4zODN2LTExLjA4MlpNMzY3LjQ1MSw4Ni43NzFoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTM5MS4zNzQsODYuNzcxaDE2LjM4M3Y4LjA0NGMzLjQwNS01LjgwOSw4LjgzNS05LjAyOCwxNi4xMDYtOS4wMjhoLjgyN3YxMy44NTNjLTEuNDcyLS4zNTctMi45NDUtLjQ0Ni00LjUwOC0uNDQ2LTUuMDYzLDAtOS44NDksMS43ODctMTIuNDI1LDUuMDkzdjMxLjk5NWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTQzMS4wMzQsNzMuNzI0aDE2LjE5OWwtLjI3NiwzNC4xMzksMTguMjIyLTIxLjA5MWgxNy40ODZsLTE3LjM5NSwxOS43NTEsMTguNDA4LDI5Ljc2aC0xOC4yMjRsLTExLjA0My0xOC44NTYtNy4zNjQsOC4yMi4xODQsMTAuNjM2aC0xNi4xOTl2LTYyLjU1OFoiLz4KICA8Zz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuNDM0LDE0NC45MTRoMTIuMzk1djE3LjM2MWgxNy4zMjl2LTE3LjM2MWgxMi4zOTV2NDQuODQ0aC0xMi4zOTV2LTE4LjY0M2gtMTcuMzI5djE4LjY0M2gtMTIuMzk1di00NC44NDRaIi8+CiAgICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMTgxLjY4MiwxNzIuMDE0YzAtMTEuNzI0LDcuNzMyLTE4LjcwOCwxOS41OTQtMTguNzA4LDExLjc5NCwwLDE5LjUyNiw2Ljk4MywxOS41MjYsMTguNzA4cy03LjY2NCwxOC43MDUtMTkuNTI2LDE4LjcwNS0xOS41OTQtNi45ODMtMTkuNTk0LTE4LjcwNVpNMjA5LjEzOCwxNzIuMDE0YzAtNy4yNDEtMi45OTktMTAuNzYzLTcuODYyLTEwLjc2M3MtNy44NjUsMy41MjItNy44NjUsMTAuNzYzLDIuOTk5LDEwLjc2MSw3Ljg2NSwxMC43NjEsNy44NjItMy41MjIsNy44NjItMTAuNzYxWiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIyNC42NjIsMTU0LjI2OGgxMS44NjR2My45NzJjMi40NjUtMi45NDYsNi4xMy00Ljc0MSwxMC41MjgtNC43NDEsNC43MzMsMCw4LjQ2NSwxLjk4NSwxMC40NjUsNS40NDQsMi42NjYtMy4zMjksNi43MzEtNS40NDQsMTEuNzI5LTUuNDQ0LDcuNTk3LDAsMTIuNTk1LDQuNjc2LDEyLjU5NSwxMS45OHYyNC4yNzloLTExLjg2MnYtMjIuOTM1YzAtMy41ODctMi4yLTUuMzE2LTUuMzk5LTUuMzE2LTIuMTMzLDAtNC4xMzMuODM0LTUuNTMyLDIuMzA4LjA2OC41MTEuMDY4LDEuMDg5LjA2OCwxLjY2NXYyNC4yNzloLTExLjcyOXYtMjIuOTM1YzAtMy41ODctMi4xMzMtNS4zMTYtNS4xOTktNS4zMTYtMi4zMzMsMC00LjM5OC45NjEtNS42NjQsMi41NjN2MjUuNjg5aC0xMS44NjR2LTM1LjQ5MVoiLz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0yODUuNTczLDE3Mi4wMTRjMC0xMS41MzIsNy44NjUtMTguNzA4LDE5LjI2MS0xOC43MDgsMTAuNzI4LDAsMTguNzkzLDYuODU2LDE4Ljc5MywxOS4xNTZ2Ljc2OGgtMjYuNTI1Yy4zMzMsNi41OTgsMy4xOTksOS44MDIsNy43OTcsOS44MDIsMy42NjcsMCw2LjE5OC0yLjExNSw3LjE5OS02LjcyOGgxMS4xOTZjLTEuNzM1LDkuMDMzLTguNTMsMTQuNDE1LTE4LjUyNywxNC40MTUtMTEuNDYxLDAtMTkuMTkzLTcuMTExLTE5LjE5My0xOC43MDVaTTI5Ny41MDMsMTY3LjUyOWgxNC40NmMtMS4xMzEtNC40ODUtMy42NjQtNi43MjYtNy4xOTYtNi43MjYtMy43MzIsMC02LjI2NSwyLjI0LTcuMjY0LDYuNzI2WiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTMyNi41NTgsMTc3LjIwM2gxMC43OTZjLjgwMSw0LjE2MywzLjY2NCw2LjI3OCw3LjcyOSw2LjI3OCw0LjIsMCw2LTEuNDA5LDYtMy4yNjYsMC0yLjk0OS00LjQ2NS0zLjc4Mi05LjU5Ny00LjgwNi02LjczMS0xLjM0NC0xNC41OTUtMy4xMzktMTQuNTk1LTEwLjgyNiwwLTYuNTM1LDYuMjY1LTExLjIxMSwxNi4zMjctMTEuMjExLDEwLjMzLDAsMTcuMTkzLDQuNjc2LDE4LjY2LDEyLjY4M2gtMTAuNjYzYy0uOTk5LTMuOTA3LTMuNzMyLTUuNTA5LTcuNzk3LTUuNTA5LTMuNTMyLDAtNS4yNjQsMS4zNDctNS4yNjQsMi45NDksMCwyLjY5MSw0LjQ2MywzLjQ1OSw5LjU5Nyw0LjQ4Myw2LjczMSwxLjQwOSwxNC41OTMsMy4zMzIsMTQuNTkzLDExLjE0NiwwLDYuNDctNi40NjMsMTEuNTMyLTE3LjA2MSwxMS41MzItMTAuMDYyLDAtMTcuMzI2LTQuNDgzLTE4LjcyNS0xMy40NTFaIi8+CiAgPC9nPgo8L3N2Zz4=" alt="VBH">
+        <div class="wk">Week Ending<b id="docDate">—</b></div>
+      </div>
+    </div>
+
+    <div class="to-line">
+      <b>To:</b> Steve Van Buskirk (CEO) &middot; Kelly Boyd (COO)
+      &nbsp;&nbsp;|&nbsp;&nbsp;
+      <b>From:</b> Jordan Hefner, Director of Operations
+    </div>
+
+    <!-- Active Builds -->
+    <section class="blk">
+      <div class="blk-head">
+        <h3>Active Builds</h3>
+        <div class="rule"></div>
+        <span class="cnt" id="cntBuilds">0</span>
+        <button class="add" onclick="addBuildRow()">+ Add</button>
+      </div>
+      <table class="grid">
+        <thead><tr>
+          <th style="width:34%">Project</th>
+          <th style="width:12%">Phase</th>
+          <th style="width:26%">Progress</th>
+          <th style="width:22%">Status</th>
+          <th style="width:6%"></th>
+        </tr></thead>
+        <tbody id="buildsBody"></tbody>
+      </table>
+    </section>
+
+    <!-- Closings -->
+    <section class="blk">
+      <div class="blk-head">
+        <h3>Closings &amp; Escrow</h3>
+        <div class="rule"></div>
+        <span class="cnt" id="cntClose">0</span>
+        <button class="add" onclick="addCloseRow()">+ Add</button>
+      </div>
+      <table class="grid">
+        <thead><tr>
+          <th style="width:42%">Project</th>
+          <th style="width:20%">Stage</th>
+          <th style="width:32%">Note</th>
+          <th style="width:6%"></th>
+        </tr></thead>
+        <tbody id="closeBody"></tbody>
+      </table>
+    </section>
+
+    <!-- Prospects -->
+    <section class="blk">
+      <div class="blk-head">
+        <h3>Top Prospects</h3>
+        <div class="rule"></div>
+        <span class="cnt" id="cntProsp">0</span>
+        <button class="add" onclick="addProspRow()">+ Add</button>
+      </div>
+      <table class="grid">
+        <thead><tr>
+          <th style="width:40%">Prospect</th>
+          <th style="width:16%">Probability</th>
+          <th style="width:38%">Note</th>
+          <th style="width:6%"></th>
+        </tr></thead>
+        <tbody id="prospBody"></tbody>
+      </table>
+    </section>
+
+    <div class="doc-foot">
+      <div class="sig">
+        <b>Jordan Hefner</b>
+        Director of Operations &middot; Van Buskirk Homes
+      </div>
+      <div>2571 S Westlake Dr, Sioux Falls, SD 57106 &middot; 605-951-5220</div>
+    </div>
+  </div>
+
+  <p class="hint">
+    Every cell is editable — click to adjust before sending. Click a status/probability tag to cycle it.
+    &nbsp;<b>Send via Outlook</b> saves the PDF and opens a pre-addressed draft; drag the PDF in and send.
+  </p>
+</div>
+
+<script>
+/* ============================================================
+   Supabase client
+   ============================================================ */
+let sb = null;
+try {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch(e){ console.warn("Supabase init failed", e); }
+
+// Canonical project label — one convention across the whole hub:
+// "R26022 - 908 Bluffside Drive - Martin, David and Patty"
+// (job number - address - client). buyer_realtor carries the client as
+// "Last, First and First" — written that way at lead conversion; older
+// freeform rows are being tidied by hand in the Projects panel.
+function vbhProjectLabel(p) {
+  if (!p) return '';
+  return [p.job_number, p.address, p.buyer_realtor]
+    .map(x => (x == null ? '' : String(x).trim()))
+    .filter(Boolean)
+    .join(' - ');
+}
+
+// Client name in canonical "Last, First and First" form.
+// Same surname (or none) on owner 2 → "Martin, David and Patty".
+// Different surname → "Martin, David and Patty Jones".
+function canonicalClientName(l) {
+  if (!l) return '';
+  const f1 = (l.owner1_first || '').trim(), l1 = (l.owner1_last || '').trim();
+  const f2 = (l.owner2_first || '').trim(), l2 = (l.owner2_last || '').trim();
+  let out = l1 ? (f1 ? l1 + ', ' + f1 : l1) : f1;
+  const second = (l2 && l2.toLowerCase() !== l1.toLowerCase())
+    ? [f2, l2].filter(Boolean).join(' ')
+    : f2;
+  if (second) out += (out ? ' and ' : '') + second;
+  return out;
+}
+
+const ACTIVE_STAGES = ["solds","model"];      // active builds
+const CLOSING_STAGES = ["escrow"];            // near-close
+const $ = s => document.querySelector(s);
+
+/* ---- date helpers ---- */
+function fmtLong(d){
+  return d.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+}
+function setDates(){
+  const iso = $("#weekDate").value;
+  const d = iso ? new Date(iso+'T12:00:00') : new Date();
+  $("#docDate").textContent = fmtLong(d);
+}
+
+/* auto-detect a column value from a row given candidate names */
+function pick(row, cands){
+  for(const c of cands){ if(row && row[c]!=null && row[c]!=="") return row[c]; }
+  return "";
+}
+
+/* ---- STATUS FLAG cycling ---- */
+const FLAGS = [
+  {cls:"on-track", label:"On Track"},
+  {cls:"watch",    label:"Watch"},
+  {cls:"risk",     label:"At Risk"}
+];
+function makeFlag(label){
+  let idx = FLAGS.findIndex(f=>f.label.toLowerCase()===String(label||"").toLowerCase());
+  if(idx<0) idx=0;
+  const span=document.createElement('span');
+  span.className='flag '+FLAGS[idx].cls;
+  span.textContent=FLAGS[idx].label;
+  span.dataset.idx=idx;
+  span.onclick=()=>{
+    let i=(+span.dataset.idx+1)%FLAGS.length;
+    span.dataset.idx=i;
+    span.className='flag '+FLAGS[i].cls;
+    span.textContent=FLAGS[i].label;
+  };
+  return span;
+}
+
+/* ---- PROBABILITY pill cycling ---- */
+const PROBS=[25,50,75,100];
+function makePill(val){
+  let v = PROBS.includes(+val)?+val:50;
+  const span=document.createElement('span');
+  const paint=()=>{ span.className='pill p'+v; span.textContent=v+'%'; };
+  paint();
+  span.style.cursor='pointer';
+  span.onclick=()=>{ v=PROBS[(PROBS.indexOf(v)+1)%PROBS.length]; paint(); };
+  return span;
+}
+
+function editable(text, ph){
+  const div=document.createElement('div');
+  div.className='cell-edit';
+  div.contentEditable=true;
+  div.dataset.ph=ph||'';
+  div.textContent=text||'';
+  return div;
+}
+function delBtn(tr){
+  const s=document.createElement('span');
+  s.className='row-del'; s.textContent='×'; s.title='Remove row';
+  s.onclick=()=>{ tr.remove(); recount(); };
+  return s;
+}
+function recount(){
+  $("#cntBuilds").textContent=$("#buildsBody").children.length;
+  $("#cntClose").textContent =$("#closeBody").children.length;
+  $("#cntProsp").textContent =$("#prospBody").children.length;
+}
+
+/* ============================================================
+   Row builders
+   ============================================================ */
+function buildRow({name="",addr="",phase="",pct=0,status="On Track"}){
+  const tr=document.createElement('tr');
+
+  const tdName=document.createElement('td');
+  const nm=editable(name,'Project name'); nm.classList.add('name');
+  const ad=editable(addr,'Address'); ad.classList.add('addr');
+  tdName.append(nm,ad);
+
+  const tdPhase=document.createElement('td');
+  tdPhase.appendChild(editable(phase,'—'));
+
+  const tdProg=document.createElement('td');
+  const wrap=document.createElement('div'); wrap.className='prog';
+  const bar=document.createElement('div'); bar.className='bar';
+  const fill=document.createElement('div'); fill.className='fill';
+  const p=Math.max(0,Math.min(100,Math.round(pct)));
+  fill.style.width=p+'%'; bar.appendChild(fill);
+  const pctEl=document.createElement('span'); pctEl.className='pct';
+  const pctEd=editable(String(p),''); pctEd.style.minWidth='26px'; pctEd.style.textAlign='right';
+  pctEd.oninput=()=>{ let v=Math.max(0,Math.min(100,parseInt(pctEd.textContent)||0)); fill.style.width=v+'%'; };
+  pctEl.append(pctEd,document.createTextNode('%'));
+  wrap.append(bar,pctEl);
+  tdProg.appendChild(wrap);
+
+  const tdStatus=document.createElement('td');
+  tdStatus.appendChild(makeFlag(status));
+
+  const tdDel=document.createElement('td');
+  tdDel.appendChild(delBtn(tr));
+
+  tr.append(tdName,tdPhase,tdProg,tdStatus,tdDel);
+  return tr;
+}
+function addBuildRow(data={}){ $("#buildsBody").appendChild(buildRow(data)); recount(); }
+
+function closeRow({name="",addr="",stage="Escrow",note=""}){
+  const tr=document.createElement('tr');
+  const tdName=document.createElement('td');
+  const nm=editable(name,'Project'); nm.classList.add('name');
+  const ad=editable(addr,'Address'); ad.classList.add('addr');
+  tdName.append(nm,ad);
+  const tdStage=document.createElement('td'); tdStage.appendChild(editable(stage,'—'));
+  const tdNote=document.createElement('td'); tdNote.appendChild(editable(note,'Target date / detail'));
+  const tdDel=document.createElement('td'); tdDel.appendChild(delBtn(tr));
+  tr.append(tdName,tdStage,tdNote,tdDel);
+  return tr;
+}
+function addCloseRow(data={}){ $("#closeBody").appendChild(closeRow(data)); recount(); }
+
+function prospRow({name="",addr="",prob=50,note=""}){
+  const tr=document.createElement('tr');
+  const tdName=document.createElement('td');
+  const nm=editable(name,'Prospect'); nm.classList.add('name');
+  const ad=editable(addr,'Location'); ad.classList.add('addr');
+  tdName.append(nm,ad);
+  const tdProb=document.createElement('td'); tdProb.appendChild(makePill(prob));
+  const tdNote=document.createElement('td'); tdNote.appendChild(editable(note,'Status / next step'));
+  const tdDel=document.createElement('td'); tdDel.appendChild(delBtn(tr));
+  tr.append(tdName,tdProb,tdNote,tdDel);
+  return tr;
+}
+function addProspRow(data={}){ $("#prospBody").appendChild(prospRow(data)); recount(); }
+
+/* ============================================================
+   LIVE PULL from Supabase
+   ============================================================ */
+async function loadData(){
+  const sl=$("#statusLine");
+  sl.classList.remove('err');
+  sl.innerHTML="Loading live data from projects &amp; leads…";
+
+  $("#buildsBody").innerHTML="";
+  $("#closeBody").innerHTML="";
+  $("#prospBody").innerHTML="";
+
+  if(!sb || SUPABASE_ANON_KEY.startsWith("REPLACE")){
+    sl.classList.add('err');
+    sl.innerHTML="<b>Not connected.</b> Add your Supabase anon key in the CONFIG block, then Refresh. You can still edit rows manually.";
+    seedEmpty();
+    return;
+  }
+
+  try{
+    const {data:projects,error:pErr}=await sb.from('projects').select('*');
+    if(pErr) throw pErr;
+    const {data:leads,error:lErr}=await sb.from('leads').select('*');
+    if(lErr) console.warn('leads pull:',lErr);
+
+    // ----- Active builds -----
+    const builds=(projects||[]).filter(p=>ACTIVE_STAGES.includes(p.stage));
+    builds.sort((a,b)=>(b.pct_complete||0)-(a.pct_complete||0));
+    builds.forEach(p=>addBuildRow({
+      name: vbhProjectLabel(p) || ('#'+(p.id||'')),
+      addr: '',
+      phase: pick(p,['phase_note','phase']),
+      pct: Math.round((p.pct_complete||0)*100),
+      status: mapStatus(p.status)
+    }));
+
+    // ----- Closings / escrow (+ recently closed) -----
+    const now=Date.now(), wk=7*864e5;
+    const closing=(projects||[]).filter(p=>{
+      if(CLOSING_STAGES.includes(p.stage)) return true;
+      if(p.stage==='closed'){
+        const t=Date.parse(p.updated_at||p.closed_at||p.updated||'');
+        return t && (now-t)<wk;
+      }
+      return false;
+    });
+    closing.forEach(p=>addCloseRow({
+      name: vbhProjectLabel(p) || ('#'+(p.id||'')),
+      addr: '',
+      stage: p.stage==='closed'?'Closed':'Escrow',
+      note: pick(p,['status','phase_note'])
+    }));
+
+    // ----- Top prospects -----
+    const pros=(leads||[]).filter(l=>{
+      const s=(pick(l,['status','stage'])||'').toLowerCase();
+      return !s.includes('lost') && !s.includes('dead') && !s.includes('converted');
+    });
+    pros.sort((a,b)=>(b.probability||0)-(a.probability||0));
+    pros.slice(0,6).forEach(l=>addProspRow({
+      name: canonicalClientName(l) || pick(l,['owner1_last','last_name','name','contact','prospect']),
+      addr: pick(l,['address','location','area','neighborhood','subdivision']),
+      prob: l.probability||50,
+      note: pick(l,['status','stage','note','notes'])
+    }));
+
+    recount();
+    const stamp=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    sl.innerHTML=`<b>Live data loaded</b> — ${builds.length} active build(s), ${closing.length} closing, ${Math.min(pros.length,6)} prospect(s). Pulled ${stamp}. Edit anything below before sending.`;
+    if(!builds.length && !closing.length && !pros.length) seedEmpty();
+  }catch(e){
+    console.error(e);
+    sl.classList.add('err');
+    sl.innerHTML=`<b>Data pull failed.</b> ${e.message||e}. Check the anon key / RLS. You can still fill rows manually.`;
+    seedEmpty();
+  }
+}
+
+function mapStatus(s){
+  s=(s||'').toLowerCase();
+  if(s.includes('risk')||s.includes('delay')||s.includes('behind')||s.includes('block')) return 'At Risk';
+  if(s.includes('watch')||s.includes('hold')||s.includes('pending')) return 'Watch';
+  return 'On Track';
+}
+function seedEmpty(){
+  if(!$("#buildsBody").children.length) addBuildRow({});
+  if(!$("#closeBody").children.length)  addCloseRow({});
+  if(!$("#prospBody").children.length)  addProspRow({});
+}
+
+/* ============================================================
+   PDF generation
+   ============================================================ */
+async function makePdf(){
+  const doc=$("#doc");
+  doc.classList.add('capturing');
+  const canvas=await html2canvas(doc,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+  doc.classList.remove('capturing');
+
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF('p','pt','letter');           // 612 x 792
+  const pw=pdf.internal.pageSize.getWidth();
+  const ph=pdf.internal.pageSize.getHeight();
+  const margin=28;
+  const iw=pw-margin*2;
+  const ih=canvas.height*(iw/canvas.width);
+  const img=canvas.toDataURL('image/png');
+  if(ih<=ph-margin*2){
+    pdf.addImage(img,'PNG',margin,margin,iw,ih);
+  }else{
+    // scale to fit height so it stays single-page for owners
+    const sh=ph-margin*2, sw=canvas.width*(sh/canvas.height);
+    pdf.addImage(img,'PNG',(pw-sw*(iw/ (canvas.width)))/2 ,margin, sw*(iw/canvas.width), sh);
+  }
+  return pdf;
+}
+function fileName(){
+  const d=$("#weekDate").value||new Date().toISOString().slice(0,10);
+  return `VBH_Weekly_Update_${d}.pdf`;
+}
+async function savePdf(){
+  const b=$("#btnPdf"); const t=b.textContent; b.textContent='Generating…';
+  try{ const pdf=await makePdf(); pdf.save(fileName()); }
+  catch(e){ alert('PDF error: '+(e.message||e)); }
+  b.textContent=t;
+}
+
+/* ============================================================
+   Outlook handoff — saves PDF, opens pre-addressed draft
+   ============================================================ */
+async function sendOutlook(){
+  await savePdf();  // download PDF first so it's ready to attach
+  const d=$("#docDate").textContent;
+  const to=`${RECIPIENTS.steve.email};${RECIPIENTS.kelly.email}`;
+  const subject=`Weekly Operations Update — Week Ending ${d}`;
+  const builds=$("#buildsBody").children.length;
+  const closing=$("#closeBody").children.length;
+  const prosp=$("#prospBody").children.length;
+  const body=
+`Steve, Kelly —
+
+Attached is this week's operations update (week ending ${d}).
+
+At a glance:
+  • ${builds} active build(s) in progress
+  • ${closing} home(s) in escrow / recently closed
+  • ${prosp} prospect(s) in the pipeline
+
+Full detail — progress, status flags, and next steps — is in the attached one-page PDF. Happy to walk through anything.
+
+${SENDER_NAME}
+${SENDER_TITLE} | Van Buskirk Homes`;
+
+  // Try the Outlook web deep-link first (works with M365), fall back to mailto.
+  const owa=`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const mailto=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  const win=window.open(owa,'_blank');
+  if(!win){ window.location.href=mailto; }
+}
+
+/* ============================================================
+   Wire up
+   ============================================================ */
+(function init(){
+  // default week-ending date = upcoming/most recent Wednesday
+  const today=new Date();
+  const day=today.getDay();               // 0 Sun..6 Sat; Wed=3
+  const diff=(day-3+7)%7;                  // days since last Wed
+  const wed=new Date(today); wed.setDate(today.getDate()-diff);
+  $("#weekDate").value=wed.toISOString().slice(0,10);
+  setDates();
+
+  $("#weekDate").addEventListener('change',setDates);
+  $("#btnRefresh").addEventListener('click',loadData);
+  $("#btnPdf").addEventListener('click',savePdf);
+  $("#btnSend").addEventListener('click',sendOutlook);
+
+  loadData();
+})();
+</script>
+</body>
+</html>

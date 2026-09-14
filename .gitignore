@@ -1,0 +1,23 @@
+# OS / editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
+
+# Node (Netlify CLI / tooling only — the hub itself has no build step)
+node_modules/
+
+# Netlify local state
+.netlify/
+
+# Supabase local state (CLI)
+supabase/.temp/
+supabase/.branches/
+
+# Secrets never live in the repo. Local-only env files:
+.env
+.env.*
+*.local
+
+# Scratch
+tmp/

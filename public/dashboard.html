@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VBH Work Order Dashboard</title>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Dashboards"/>
+<meta name="theme-color" content="#1B3564"/>
+<link rel="manifest" href="/manifest-dash.json"/>
+<link rel="apple-touch-icon" href="/icon-dash-192.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--navy:#1B3564;--navy-deep:#111f3e;--navy-mid:#243f72;--steel:#6B8EB5;--steel-light:#8aadd0;--light:#edf2f8;--light2:#f5f8fc;--border:#cddaec;--gold:#c9a84c;--muted:#5a7699;}
+body{font-family:Lato,sans-serif;background:var(--light2);color:var(--navy);min-height:100vh;}
+header{background:linear-gradient(135deg,var(--navy-deep) 0%,var(--navy) 60%,var(--navy-mid) 100%);padding:0 36px;height:80px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 4px 24px rgba(10,20,50,0.3);position:relative;}
+header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--steel),var(--gold),var(--steel),transparent);opacity:0.6;}
+.logo-wrap{display:flex;align-items:center;gap:18px;}
+.logo-img{height:50px;width:auto;filter:brightness(0) invert(1);opacity:.95;}
+.logo-div{width:1px;height:34px;background:rgba(107,142,181,0.4);}
+.logo-title{font-family:'Cormorant Garamond',Georgia,serif;color:white;font-size:20px;font-weight:600;letter-spacing:.1em;line-height:1;}
+.logo-sub{color:var(--steel-light);font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-top:3px;}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+.hdr-date{color:rgba(255,255,255,0.4);font-size:12px;margin-right:4px;}
+.sync-label{color:rgba(255,255,255,0.45);font-size:11px;letter-spacing:.04em;display:flex;align-items:center;gap:5px;}
+.sync-label::before{content:'';width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulse 2s infinite;}
+.sync-label.error::before{background:#dc2626;animation:none;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.pipeline{background:var(--navy);padding:0 36px;display:flex;align-items:stretch;border-bottom:1px solid rgba(107,142,181,0.2);box-shadow:0 2px 8px rgba(10,20,50,0.15);}
+.pill{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,0.4);border-bottom:3px solid transparent;transition:all .18s;white-space:nowrap;user-select:none;}
+.pill:hover{color:rgba(255,255,255,0.8);border-bottom-color:var(--steel);}
+.pill.active{color:white;border-bottom-color:var(--gold);}
+.pct{border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);min-width:22px;text-align:center;}
+.pill.active .pct{background:var(--gold);color:var(--navy-deep);}
+.vtoggle{background:rgba(255,255,255,0.06);border-left:1px solid rgba(107,142,181,0.2);display:flex;align-items:center;padding:0 12px;gap:6px;margin-left:auto;}
+.vbtn{padding:6px 14px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:rgba(255,255,255,0.4);transition:all .15s;}
+.vbtn.active{background:rgba(255,255,255,0.15);color:white;}
+main{padding:22px 36px;max-width:1600px;margin:0 auto;}
+.toolbar{display:flex;gap:12px;margin-bottom:18px;align-items:center;flex-wrap:wrap;}
+.sw{flex:1;min-width:180px;position:relative;}
+.si{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--steel);font-size:14px;pointer-events:none;}
+#search{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:10px 12px 10px 36px;font-size:14px;font-family:Lato,sans-serif;color:var(--navy);outline:none;background:white;box-shadow:0 1px 4px rgba(27,53,100,0.05);}
+.fsel{border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:Lato,sans-serif;color:var(--navy);background:white;outline:none;cursor:pointer;min-width:150px;}
+.wcount{color:var(--muted);font-size:13px;white-space:nowrap;}
+.wo-list{display:flex;flex-direction:column;gap:8px;}
+.woc{background:white;border-radius:10px;padding:15px 20px;cursor:pointer;border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 1px 4px rgba(27,53,100,0.05);transition:all .18s;position:relative;overflow:hidden;}
+.woc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;}
+.woc.st-p::before{background:var(--steel);}
+.woc.st-a::before{background:#10b981;}
+.woc.st-i::before{background:var(--gold);}
+.woc.st-c::before{background:#6366f1;}
+.woc.st-r::before{background:#ef4444;}
+/* priority emphasis: High dominates the eye without losing status accent */
+.woc.pri-high{border-color:#f0a8a0;background:linear-gradient(90deg,#fff6f4 0%,#ffffff 18%);box-shadow:0 1px 4px rgba(180,40,20,0.10);}
+.woc.pri-high::before{width:6px;background:#dc2626;}
+.woc.pri-high:hover{border-color:#dc2626;box-shadow:0 5px 18px rgba(180,40,20,0.18);}
+.woc.pri-med{border-color:#e6cf8f;}
+.woc.pri-med::before{width:5px;background:var(--gold);}
+.pri-flag{display:inline-flex;align-items:center;gap:4px;background:#dc2626;color:#fff;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:5px;}
+.woc:hover{box-shadow:0 5px 18px rgba(27,53,100,0.12);transform:translateY(-1px);border-color:var(--steel);}
+.wt{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:17px;margin-bottom:3px;}
+.wm{color:var(--muted);font-size:13px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+.chip{background:var(--light);color:var(--navy);font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:5px;}
+.chi{background:#fee2e2;color:#991b1b;}
+.chm{background:#fef3c7;color:#92400e;}
+.chl{background:#d1fae5;color:#065f46;}
+.wr{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.dd{font-size:12px;font-weight:300;color:#a0bdd8;}
+.ds{color:#f59e0b;font-weight:700;font-size:12px;}
+.dov{color:#dc2626;font-weight:700;font-size:12px;}
+.empty{text-align:center;padding:80px 0;color:var(--muted);font-size:15px;}
+.loading{text-align:center;padding:80px 0;color:var(--muted);font-size:15px;}
+.badge{border-radius:5px;padding:4px 11px;font-size:11px;font-weight:700;white-space:nowrap;letter-spacing:.06em;text-transform:uppercase;}
+.bp{background:#dbeafe;color:#1e40af;}
+.ba{background:#d1fae5;color:#065f46;}
+.bi{background:#fef9c3;color:#854d0e;}
+.bc{background:#ede9fe;color:#5b21b6;}
+.br{background:#fee2e2;color:#991b1b;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(8,16,40,0.6);z-index:200;align-items:center;justify-content:center;padding:24px;}
+.overlay.open{display:flex;}
+.modal{background:white;border-radius:14px;width:100%;max-width:720px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 80px rgba(8,16,40,0.4);}
+.mh{background:linear-gradient(135deg,var(--navy-deep),var(--navy));padding:20px 26px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:flex-start;}
+.mht{color:white;font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:21px;letter-spacing:.04em;}
+.mhs{color:var(--steel-light);font-size:13px;margin-top:3px;}
+.mhx{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);width:30px;height:30px;border-radius:6px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.mhx:hover{background:rgba(255,255,255,.2);color:white;}
+.mb{padding:24px 26px;}
+.ds2{margin-bottom:20px;}
+.dsl{font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--steel);text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;}
+.dr{display:flex;flex-direction:column;gap:2px;}
+.dlb{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;}
+.dv{color:var(--navy);font-size:14px;}
+.nb{background:var(--light2);border-radius:8px;padding:13px 15px;font-size:14px;line-height:1.7;border-left:3px solid var(--steel);}
+.nb.gold{border-left-color:var(--gold);}
+.nb.green{border-left-color:#10b981;}
+.nb.purple{border-left-color:#6366f1;}
+.ap{border-radius:10px;padding:18px;margin-top:4px;}
+.ap-approve{background:#f0fdf4;border:1.5px solid #86efac;}
+.ap-crew{background:#fefce8;border:1.5px solid #fde047;}
+.ap-done{background:#f5f3ff;border:1.5px solid #c4b5fd;}
+.ap-rej{background:#fef2f2;border:1.5px solid #fca5a5;}
+.apt{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;}
+.apt-g{color:#065f46;}.apt-y{color:#92400e;}.apt-p{color:#5b21b6;}.apt-r{color:#991b1b;}
+.pf{margin-bottom:12px;}
+.pf label{display:block;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.pf input,.pf select,.pf textarea{width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:14px;font-family:Lato,sans-serif;color:var(--navy);background:white;outline:none;}
+.pf textarea{resize:vertical;}
+.pa{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;}
+.btn-appr{background:#059669;color:white;border:none;border-radius:7px;padding:10px 20px;font-family:Lato,sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}
+.btn-appr:hover{background:#047857;}
+.btn-inp{background:#d97706;color:white;border:none;border-radius:7px;padding:10px 20px;font-family:Lato,sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}
+.btn-comp{background:#6366f1;color:white;border:none;border-radius:7px;padding:10px 20px;font-family:Lato,sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}
+.btn-rej{background:white;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;padding:10px 20px;font-family:Lato,sans-serif;font-weight:700;font-size:13px;cursor:pointer;}
+.btn-del{background:white;color:#9ca3af;border:1.5px solid var(--border);border-radius:7px;padding:10px 14px;font-family:Lato,sans-serif;font-weight:700;font-size:12px;cursor:pointer;}
+.mf{display:flex;gap:10px;margin-top:20px;padding-top:18px;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center;}
+.crew-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;}
+.cc{background:white;border-radius:10px;padding:16px 18px;cursor:pointer;border:1px solid var(--border);box-shadow:0 1px 4px rgba(27,53,100,0.05);transition:all .18s;position:relative;overflow:hidden;}
+.cc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;}
+.cc.st-a::before{background:#10b981;}.cc.st-i::before{background:var(--gold);}
+.cc:hover{box-shadow:0 5px 16px rgba(27,53,100,0.12);transform:translateY(-1px);}
+.co2{display:none;position:fixed;inset:0;background:rgba(8,16,40,0.6);z-index:300;align-items:center;justify-content:center;}
+.co2.open{display:flex;}
+.cb{background:white;border-radius:14px;padding:30px;max-width:340px;width:100%;text-align:center;box-shadow:0 16px 60px rgba(8,16,40,0.35);}
+.cb h3{font-family:'Cormorant Garamond',Georgia,serif;color:var(--navy);font-size:22px;font-weight:600;margin-bottom:10px;}
+.cb p{color:var(--muted);font-size:14px;margin-bottom:22px;}
+.ca{display:flex;gap:10px;}
+.btn-cd{flex:1;background:#dc2626;color:white;border:none;border-radius:7px;padding:12px;font-family:Lato,sans-serif;font-weight:700;font-size:13px;cursor:pointer;}
+.btn-cc2{flex:1;background:var(--light);color:var(--navy);border:1.5px solid var(--border);border-radius:7px;padding:12px;font-family:Lato,sans-serif;font-weight:700;font-size:13px;cursor:pointer;}
+.toast-wrap{position:fixed;top:92px;right:28px;z-index:500;display:flex;flex-direction:column;gap:10px;}
+/* photo strip on card */
+.ph-strip{display:flex;gap:6px;margin-top:8px;padding-left:8px;flex-wrap:wrap;}
+.ph-strip img{width:44px;height:44px;object-fit:cover;border-radius:5px;border:1px solid var(--border);background:var(--light);cursor:pointer;transition:transform .12s;}
+.ph-strip img:hover{transform:scale(1.08);}
+.ph-strip .ph-more{width:44px;height:44px;border-radius:5px;background:var(--navy);color:white;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:1px solid var(--border);cursor:pointer;}
+/* photo grid in detail panel */
+.ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:8px;}
+.ph-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;transition:transform .15s,box-shadow .15s;}
+.ph-grid img:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(27,53,100,0.2);}
+/* lightbox */
+.lb-ov{position:fixed;inset:0;background:rgba(10,20,50,0.92);z-index:1000;display:none;align-items:center;justify-content:center;}
+.lb-ov.open{display:flex;}
+.lb-ov img{max-width:92vw;max-height:88vh;object-fit:contain;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,0.5);}
+.lb-btn{position:absolute;background:rgba(255,255,255,0.12);color:white;border:none;border-radius:50%;width:48px;height:48px;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:background .15s;}
+.lb-btn:hover{background:rgba(255,255,255,0.25);}
+.lb-prev{left:24px;top:50%;transform:translateY(-50%);}
+.lb-next{right:24px;top:50%;transform:translateY(-50%);}
+.lb-close{top:24px;right:24px;}
+.lb-info{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:white;font-size:14px;background:rgba(0,0,0,0.4);padding:8px 16px;border-radius:6px;}
+::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+</style>
+
+<style id="vbh-stdnav-css">
+/* ===== VBH shared top nav (leads pattern + hub gold) ===== */
+.vbh-nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; overflow-x: auto; }
+.vbh-nav::-webkit-scrollbar { display: none; }
+.vbh-nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-family: 'Lato', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
+.vbh-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.vbh-nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
+.vbh-nav a.vbh-back { color: rgba(255,255,255,0.78); border-right: 1px solid rgba(255,255,255,0.14); }
+.vbh-band { background: linear-gradient(135deg, #122548 0%, #1B3564 60%, #1e4080 100%); padding: 10px 32px; min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: relative; }
+.vbh-band::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, #C9A84C 20%, #E5D08A 50%, #C9A84C 80%, transparent 100%); }
+.vbh-band .vb-left { display: flex; align-items: center; gap: 20px; }
+.vbh-band .vb-logo { height: 52px; object-fit: contain; filter: brightness(0) invert(1); }
+.vbh-band .vb-div { width: 1px; height: 38px; background: rgba(255,255,255,0.2); }
+.vbh-band .vb-title h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.5rem; font-weight: 700; color: #fff; letter-spacing: .03em; line-height: 1.1; margin: 0; }
+.vbh-band .vb-title span { font-size: .72rem; color: #AEC0D6; letter-spacing: .1em; text-transform: uppercase; font-weight: 400; }
+.vbh-band .vb-right { display: flex; align-items: center; gap: 10px; }
+</style>
+
+</head>
+<body>
+<nav class="vbh-nav">
+  <a class="vbh-back" href="/hub.html">← Hub</a>
+  <a href="/">Work Order</a>
+  <a href="/dashboard.html" class="active">Dashboard</a>
+  <a href="/leads.html">Leads</a>
+  <a href="/intake.html">Intake</a>
+  <a href="/projects.html">Projects</a>
+  <a href="/gantt.html">Timeline</a>
+  <a href="/meeting.html">Meeting</a>
+  <a href="/equipment.html">Assets</a>
+</nav>
+<header class="vbh-band">
+  <div class="vb-left">
+    <img class="vb-logo" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCA1MDQgMTk1LjI5MiI+CiAgPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI5LjcuMSwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDIuMS4xIEJ1aWxkIDgpICAtLT4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLnN0MCB7CiAgICAgICAgZmlsbDogIzViODliNDsKICAgICAgfQoKICAgICAgLnN0MSB7CiAgICAgICAgZmlsbDogIzAwMmU2ZDsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHBvbHlnb24gY2xhc3M9InN0MSIgcG9pbnRzPSIxMjMuNjI5IDgzLjI4NyAxNTcuMDQ5IDguMjAxIDEzNy40NTIgOC4yMDEgMTE5LjQ1MSA1NC41NTUgMTAwLjMxMSA4LjIwMSA4MC40ODkgOC4yMDEgMTA5LjgxOCA3NC4wOTcgMTIzLjYyOSA4My4yODciLz4KICA8cG9seWdvbiBjbGFzcz0ic3QxIiBwb2ludHM9IjEyOS4xNDIgMTIzLjk5OSA3My4zOTEgOTguNTE3IDE1LjkwNSAxMjMuOTk5IDE1LjY3OSAxMzQuMDg4IDczLjM5MSAxMTcuMzY2IDEyOS4xNDIgMTM0LjA4OCAxMjkuMTQyIDEyMy45OTkiLz4KICA8cG9seWdvbiBjbGFzcz0ic3QwIiBwb2ludHM9IjEyOS4xNDIgOTYuODc1IDczLjI3OCA1OS43NzQgMTUuNzkyIDk2Ljg3NSAxNS43OTIgMTE1LjI3IDczLjI3OCA4OC43MDcgMTI5LjE0MiAxMTUuMjc1IDEyOS4xNDIgOTYuODc1Ii8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTE1NS4yOTksNTUuMzQzYzAtMTAuMDk4LDEwLjc2Ny0xMi45NTgsMjEuNzItMTUuOTk3LDguMDk3LTIuMjM1LDExLjQxMS00LjAyMiwxMS40MTEtNy4wNiwwLTIuNjgxLTIuNTc2LTQuNTU5LTcuMjctNC41NTktNS43MDYsMC05LjIwNCwzLjEzLTEwLjAzMSw4LjMxMmgtMTQuOTFjMS42NTYtMTEuMDgsMTEuNjg3LTE4LjY3OCwyNS41ODUtMTguNjc4LDE0LjYzMiwwLDIyLjczMiw2LjUyNSwyMi43MzIsMTguNTg5djMyLjE3NGgtMTYuMTA2di01LjAwNmMtMy43NzQsMy44NDMtOS4yOTUsNS44OTgtMTUuNzM5LDUuODk4LTEwLjU4MiwwLTE3LjM5My01LjQ1LTE3LjM5My0xMy42NzJaTTE3Ny45NCw1OS4yNzZjMy45NTYsMCw4LjAwNi0xLjQzLDEwLjQ5MS0zLjkzM3YtNy4zMjhsLjA5MS00LjExMWMtMS45MzIsMS4zNDEtNC42MDEsMi4xNDQtNy44MjIsMy4yMTctNS43OTksMS44NzYtOS41NzEsMy40ODQtOS41NzEsNy4zMjgsMCwyLjg2LDIuNDg1LDQuODI3LDYuODEsNC44MjdaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIxNi45MTIsMTguNjEyaDE2LjM4M3Y1LjQ1MmMzLjU5LTQuMDIyLDguNzQyLTYuNTI1LDE1LjAwMS02LjUyNSwxMC44NiwwLDE4LjAzOSw2LjUyNSwxOC4wMzksMTYuNzEydjMzLjg3MWgtMTYuMzgzdi0zMS41NDdjMC01LjE4NC0zLjMxMi03Ljg2NS04LjA5OS03Ljg2NS0zLjU4OCwwLTYuNjI2LDEuNDMtOC41NTgsMy44NDN2MzUuNTY5aC0xNi4zODNWMTguNjEyWiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuMzY2LDczLjcyNGgzNC41MTJjMTMuOTksMCwyMS45MDUsNi42MTQsMjEuOTA1LDE2Ljg5MSwwLDUuOTg3LTMuMTMsMTAuOTAyLTkuMDIsMTMuNjcyLDYuNzE5LDIuNTAzLDEwLjQsNy41OTgsMTAuNCwxNC41NjksMCwxMC41NDUtOC4xOTEsMTcuNDI2LTIyLjM2NSwxNy40MjZoLTM1LjQzMnYtNjIuNTU4Wk0xNTIuMzkyLDg1LjY5OHYxMy4zMTdoMTUuMjc3YzQuNTEsMCw3LjQ1NS0yLjIzNSw3LjQ1NS02LjYxNHMtMi45NDUtNi43MDMtNy40NTUtNi43MDNoLTE1LjI3N1pNMTUyLjM5MiwxMTAuNDU1djE0LjAyOWgxNi4wMTRjNC44NzcsMCw3LjkxNS0yLjMyMiw3LjkxNS02Ljk2OSwwLTQuNTU5LTMuMDM4LTcuMDYtNy45MTUtNy4wNmgtMTYuMDE0WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xOTkuMTQyLDEyMC42NDJ2LTMzLjg3MWgxNi4zODF2MzEuNTQ3YzAsNS4yNzMsMy4zMTQsNy44NjUsOC4xOTEsNy44NjUsMy40OTYsMCw2LjUzNS0xLjQzLDguNDY2LTMuNzU0di0zNS42NThoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi01LjM2M2MtMy40OTYsNC4wMjItOC43NDIsNi40MzQtMTQuOTA4LDYuNDM0LTEwLjk1MywwLTE4LjEzLTYuNTIzLTE4LjEzLTE2LjcxMVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMjU0LjkwOCwxMTguNzY0aDE0LjkxYzEuMTAzLDUuODExLDUuMDYxLDguNzYsMTAuNjc2LDguNzYsNS43OTcsMCw4LjI4Mi0xLjk2Nyw4LjI4Mi00LjU1OSwwLTQuMTA5LTYuMTY2LTUuMjcxLTEzLjI1Mi02LjcwMS05LjI5NS0xLjg3OC0yMC4xNTUtNC4zNzktMjAuMTU1LTE1LjEwNCwwLTkuMTE1LDguNjUxLTE1LjY0LDIyLjU0Ny0xNS42NCwxNC4yNjUsMCwyMy43NDUsNi41MjUsMjUuNzcsMTcuNjk2aC0xNC43MjVjLTEuMzgtNS40NTItNS4xNTQtNy42ODctMTAuNzY5LTcuNjg3LTQuODc3LDAtNy4yNywxLjg3OC03LjI3LDQuMTExLDAsMy43NTQsNi4xNjgsNC44MjUsMTMuMjU0LDYuMjU1LDkuMjk1LDEuOTY3LDIwLjE1NSw0LjY0OSwyMC4xNTUsMTUuNTUsMCw5LjAyOC04LjkyOCwxNi4wODgtMjMuNTYxLDE2LjA4OC0xMy44OTgsMC0yMy45MjktNi4yNTctMjUuODYxLTE4Ljc2OVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMzEwLjc2NSw3My43MjRoMTYuMTk5bC0uMjc2LDM0LjEzOSwxOC4yMjItMjEuMDkxaDE3LjQ4NmwtMTcuMzk1LDE5Ljc1MSwxOC40MDgsMjkuNzZoLTE4LjIyNGwtMTEuMDQzLTE4Ljg1Ni03LjM2NCw4LjIyLjE4NCwxMC42MzZoLTE2LjE5OXYtNjIuNTU4WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zNjcuNDUxLDcyLjIwNWgxNi4zODN2MTEuMDgyaC0xNi4zODN2LTExLjA4MlpNMzY3LjQ1MSw4Ni43NzFoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTM5MS4zNzQsODYuNzcxaDE2LjM4M3Y4LjA0NGMzLjQwNS01LjgwOSw4LjgzNS05LjAyOCwxNi4xMDYtOS4wMjhoLjgyN3YxMy44NTNjLTEuNDcyLS4zNTctMi45NDUtLjQ0Ni00LjUwOC0uNDQ2LTUuMDYzLDAtOS44NDksMS43ODctMTIuNDI1LDUuMDkzdjMxLjk5NWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTQzMS4wMzQsNzMuNzI0aDE2LjE5OWwtLjI3NiwzNC4xMzksMTguMjIyLTIxLjA5MWgxNy40ODZsLTE3LjM5NSwxOS43NTEsMTguNDA4LDI5Ljc2aC0xOC4yMjRsLTExLjA0My0xOC44NTYtNy4zNjQsOC4yMi4xODQsMTAuNjM2aC0xNi4xOTl2LTYyLjU1OFoiLz4KICA8Zz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuNDM0LDE0NC45MTRoMTIuMzk1djE3LjM2MWgxNy4zMjl2LTE3LjM2MWgxMi4zOTV2NDQuODQ0aC0xMi4zOTV2LTE4LjY0M2gtMTcuMzI5djE4LjY0M2gtMTIuMzk1di00NC44NDRaIi8+CiAgICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMTgxLjY4MiwxNzIuMDE0YzAtMTEuNzI0LDcuNzMyLTE4LjcwOCwxOS41OTQtMTguNzA4LDExLjc5NCwwLDE5LjUyNiw2Ljk4MywxOS41MjYsMTguNzA4cy03LjY2NCwxOC43MDUtMTkuNTI2LDE4LjcwNS0xOS41OTQtNi45ODMtMTkuNTk0LTE4LjcwNVpNMjA5LjEzOCwxNzIuMDE0YzAtNy4yNDEtMi45OTktMTAuNzYzLTcuODYyLTEwLjc2M3MtNy44NjUsMy41MjItNy44NjUsMTAuNzYzLDIuOTk5LDEwLjc2MSw3Ljg2NSwxMC43NjEsNy44NjItMy41MjIsNy44NjItMTAuNzYxWiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIyNC42NjIsMTU0LjI2OGgxMS44NjR2My45NzJjMi40NjUtMi45NDYsNi4xMy00Ljc0MSwxMC41MjgtNC43NDEsNC43MzMsMCw4LjQ2NSwxLjk4NSwxMC40NjUsNS40NDQsMi42NjYtMy4zMjksNi43MzEtNS40NDQsMTEuNzI5LTUuNDQ0LDcuNTk3LDAsMTIuNTk1LDQuNjc2LDEyLjU5NSwxMS45OHYyNC4yNzloLTExLjg2MnYtMjIuOTM1YzAtMy41ODctMi4yLTUuMzE2LTUuMzk5LTUuMzE2LTIuMTMzLDAtNC4xMzMuODM0LTUuNTMyLDIuMzA4LjA2OC41MTEuMDY4LDEuMDg5LjA2OCwxLjY2NXYyNC4yNzloLTExLjcyOXYtMjIuOTM1YzAtMy41ODctMi4xMzMtNS4zMTYtNS4xOTktNS4zMTYtMi4zMzMsMC00LjM5OC45NjEtNS42NjQsMi41NjN2MjUuNjg5aC0xMS44NjR2LTM1LjQ5MVoiLz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0yODUuNTczLDE3Mi4wMTRjMC0xMS41MzIsNy44NjUtMTguNzA4LDE5LjI2MS0xOC43MDgsMTAuNzI4LDAsMTguNzkzLDYuODU2LDE4Ljc5MywxOS4xNTZ2Ljc2OGgtMjYuNTI1Yy4zMzMsNi41OTgsMy4xOTksOS44MDIsNy43OTcsOS44MDIsMy42NjcsMCw2LjE5OC0yLjExNSw3LjE5OS02LjcyOGgxMS4xOTZjLTEuNzM1LDkuMDMzLTguNTMsMTQuNDE1LTE4LjUyNywxNC40MTUtMTEuNDYxLDAtMTkuMTkzLTcuMTExLTE5LjE5My0xOC43MDVaTTI5Ny41MDMsMTY3LjUyOWgxNC40NmMtMS4xMzEtNC40ODUtMy42NjQtNi43MjYtNy4xOTYtNi43MjYtMy43MzIsMC02LjI2NSwyLjI0LTcuMjY0LDYuNzI2WiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTMyNi41NTgsMTc3LjIwM2gxMC43OTZjLjgwMSw0LjE2MywzLjY2NCw2LjI3OCw3LjcyOSw2LjI3OCw0LjIsMCw2LTEuNDA5LDYtMy4yNjYsMC0yLjk0OS00LjQ2NS0zLjc4Mi05LjU5Ny00LjgwNi02LjczMS0xLjM0NC0xNC41OTUtMy4xMzktMTQuNTk1LTEwLjgyNiwwLTYuNTM1LDYuMjY1LTExLjIxMSwxNi4zMjctMTEuMjExLDEwLjMzLDAsMTcuMTkzLDQuNjc2LDE4LjY2LDEyLjY4M2gtMTAuNjYzYy0uOTk5LTMuOTA3LTMuNzMyLTUuNTA5LTcuNzk3LTUuNTA5LTMuNTMyLDAtNS4yNjQsMS4zNDctNS4yNjQsMi45NDksMCwyLjY5MSw0LjQ2MywzLjQ1OSw5LjU5Nyw0LjQ4Myw2LjczMSwxLjQwOSwxNC41OTMsMy4zMzIsMTQuNTkzLDExLjE0NiwwLDYuNDctNi40NjMsMTEuNTMyLTE3LjA2MSwxMS41MzItMTAuMDYyLDAtMTcuMzI2LTQuNDgzLTE4LjcyNS0xMy40NTFaIi8+CiAgPC9nPgo8L3N2Zz4=" alt="Van Buskirk Homes"/>
+    <div class="vb-div"></div>
+    <div class="vb-title">
+      <h1>Work Order Dashboard</h1>
+      <span>Van Buskirk Homes &middot; Maintenance Operations</span>
+    </div>
+  </div>
+  <div class="vb-right">
+    <span class="hdr-date" id="hdr-date"></span>
+    <span class="sync-label" id="sync-label">Live</span>
+  </div>
+</header>
+
+
+
+<div class="pipeline" id="pipeline"></div>
+
+<main>
+  <div class="toolbar">
+    <div class="sw"><span class="si">&#9906;</span><input id="search" type="text" placeholder="Search by requestor, job type, neighborhood..." oninput="render()"/></div>
+    <select class="fsel" id="f-req" onchange="render()"><option value="">All Requestors</option><option>Brandt Williams</option><option>Clay Nelson</option><option>Gabbie Hibbert</option><option>Jordan Hefner</option><option>Kelly Boyd</option><option>Logan Callahan</option><option>Steve Van Buskirk</option></select>
+    <select class="fsel" id="f-nei" onchange="render()">
+      <option value="">All Neighborhoods</option>
+      <optgroup label="Scheduled (2026)">
+        <option>Brandon Bluffs</option><option>Vistas at Stone Ridge</option>
+        <option>River Park</option><option>Willow Ridge</option>
+        <option>Sioux Falls Industrial</option><option>Mapleton Highlands</option>
+        <option>Mydland Estates</option><option>Devitt Farms</option>
+        <option>Hazeltine</option><option>Heritage Pond</option>
+        <option>Akerson Commercial</option><option>Copper Creek - Bill Drive</option>
+        <option>77th and Louise</option><option>271st Street - LGC</option>
+        <option>Canterbury Heights</option><option>Pinewood Ponds</option>
+        <option>Granite Valley</option>
+      </optgroup>
+      <optgroup label="Additional">
+        <option>The Bluffs of Brandon</option><option>Westwater at Cherry Lake</option>
+        <option>Hammerhead</option><option>Mapleton Legends</option>
+        <option>Hitchcock Place</option><option>Lake Mitchell</option><option>West Water</option>
+      </optgroup>
+    </select>
+    <span class="wcount" id="wcount"></span>
+  </div>
+  <div id="list-wrap"><div class="loading">Loading work orders...</div></div>
+</main>
+
+<div class="overlay" id="det-ov">
+  <div class="modal">
+    <div class="mh">
+      <div><div class="mht" id="d-title"></div><div class="mhs" id="d-sub"></div></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="badge" id="d-badge"></span>
+        <button class="mhx" onclick="closeDet()">x</button>
+      </div>
+    </div>
+    <div class="mb" id="d-body"></div>
+  </div>
+</div>
+
+<div class="co2" id="co2">
+  <div class="cb">
+    <h3>Delete this work order?</h3>
+    <p>This cannot be undone.</p>
+    <div class="ca">
+      <button class="btn-cc2" onclick="closeCo()">Cancel</button>
+      <button class="btn-cd" id="co-del">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="tw"></div>
+
+<div class="lb-ov" id="lb-ov" onclick="closeLB(event)">
+  <button class="lb-btn lb-close" onclick="closeLB()" title="Close">&times;</button>
+  <button class="lb-btn lb-prev" onclick="lbNav(-1, event)" title="Previous">&#10094;</button>
+  <button class="lb-btn lb-next" onclick="lbNav(1, event)" title="Next">&#10095;</button>
+  <img id="lb-img" alt="photo" onclick="event.stopPropagation()"/>
+  <div class="lb-info" id="lb-info"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script>
+var STATUSES = ['Pending Approval','Approved','In Progress','Complete','Rejected'];
+var SC = {'Pending Approval':'bp','Approved':'ba','In Progress':'bi','Complete':'bc','Rejected':'br'};
+var CC = {'Pending Approval':'st-p','Approved':'st-a','In Progress':'st-i','Complete':'st-c','Rejected':'st-r'};
+var PC = {'High':'chip chi','Medium':'chip chm','Low':'chip chl'};
+
+var orders = [];
+var filterStatus = 'All';
+var currentView = 'jordan';
+var showArchive = false;
+var pendingDelId = null;
+
+function updateClock() {
+  var el = document.getElementById('hdr-date');
+  if (el) el.textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}) + ' -- ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+
+function setSyncStatus(ok) {
+  var el = document.getElementById('sync-label');
+  if (ok) { el.textContent = 'Live'; el.classList.remove('error'); }
+  else    { el.textContent = 'Offline'; el.classList.add('error'); }
+}
+
+function ddClass(d) {
+  if (!d) return 'dd';
+  var days = Math.floor((new Date(d) - new Date()) / 86400000);
+  if (days < 0) return 'dov';
+  if (days <= 3) return 'ds';
+  return 'dd';
+}
+function ddLabel(d) {
+  if (!d) return '';
+  var days = Math.floor((new Date(d) - new Date()) / 86400000);
+  if (days < 0) return 'OVERDUE ' + Math.abs(days) + 'd';
+  if (days === 0) return 'Due TODAY';
+  if (days <= 3) return 'Due in ' + days + 'd';
+  return 'By ' + d;
+}
+
+function render() {
+  // Base set for the current view: active board hides archived; archive view shows only archived
+  var base = orders.filter(function(o){ return showArchive ? o.archived === true : o.archived !== true; });
+
+  var counts = {};
+  STATUSES.forEach(function(s) { counts[s] = base.filter(function(o){return o.status===s;}).length; });
+  var pip = document.getElementById('pipeline');
+  pip.innerHTML = STATUSES.map(function(s) {
+    return '<div class="pill' + (filterStatus===s?' active':'') + '" onclick="setFilter(\'' + s + '\')">' +
+      '<span class="pct">' + counts[s] + '</span>' + s + '</div>';
+  }).join('') +
+  '<div class="vtoggle">' +
+  '<button class="vbtn' + (currentView==='jordan'?' active':'') + '" onclick="setView(\'jordan\')">Jordan View</button>' +
+  '<button class="vbtn' + (currentView==='crew'?' active':'') + '" onclick="setView(\'crew\')">Crew View</button>' +
+  '<button class="vbtn' + (showArchive?' active':'') + '" onclick="toggleArchive()">' + (showArchive ? '\u2190 Active' : '\ud83d\udcc2 Archive') + '</button>' +
+  '</div>';
+
+  var q = document.getElementById('search').value.toLowerCase();
+  var fr = document.getElementById('f-req').value;
+  var fn = document.getElementById('f-nei').value;
+  var filtered = base.filter(function(o) {
+    var ms = filterStatus==='All' || o.status===filterStatus;
+    var mq = !q || (o.job_type||'').toLowerCase().indexOf(q)>-1 || (o.requestor||'').toLowerCase().indexOf(q)>-1 || (o.neighborhood||'').toLowerCase().indexOf(q)>-1 || (o.description||'').toLowerCase().indexOf(q)>-1;
+    var mr = !fr || o.requestor===fr;
+    var mn = !fn || o.neighborhood===fn;
+    return ms && mq && mr && mn;
+  });
+  if (currentView==='crew') filtered = filtered.filter(function(o){return o.status==='Approved'||o.status==='In Progress';});
+
+  // sort: priority first (High>Med>Low>none), then due-date urgency (overdue first) within each tier
+  var PRANK = {'High':0,'Medium':1,'Low':2};
+  function dueRank(d){ if(!d) return Infinity; return Math.floor((new Date(d)-new Date())/86400000); }
+  filtered.sort(function(a,b){
+    var pa = PRANK[a.priority]!==undefined ? PRANK[a.priority] : 3;
+    var pb = PRANK[b.priority]!==undefined ? PRANK[b.priority] : 3;
+    if (pa!==pb) return pa-pb;
+    return dueRank(a.needed_by) - dueRank(b.needed_by);
+  });
+
+  document.getElementById('wcount').textContent = filtered.length + ' work order' + (filtered.length!==1?'s':'');
+  var wrap = document.getElementById('list-wrap');
+
+  if (!filtered.length) {
+    wrap.innerHTML = '<div class="empty">' + (currentView==='crew' ? 'No approved work orders for the crew.' : 'No work orders found.') + '</div>';
+    return;
+  }
+
+  if (currentView==='crew') {
+    wrap.innerHTML = '<div class="crew-grid">' + filtered.map(function(o) {
+      return '<div class="cc ' + (CC[o.status]||'') + '" onclick="openDet(' + o.id + ')">' +
+        '<div style="padding-left:8px;font-family:Cormorant Garamond,Georgia,serif;font-weight:600;font-size:16px;margin-bottom:4px;">' + (o.job_type||'') + '</div>' +
+        '<div style="padding-left:8px;color:var(--muted);font-size:13px;">' + (o.neighborhood||'') + (o.location?' -- '+o.location:'') + '</div>' +
+        '<div style="padding-left:8px;color:var(--muted);font-size:13px;margin-top:2px;">Requested by ' + (o.requestor||'') + (o.est_time?' -- '+o.est_time:'') + '</div>' +
+        '<div style="padding-left:8px;margin-top:8px;"><span class="' + (ddClass(o.needed_by)) + '">' + (ddLabel(o.needed_by)||o.needed_by||'') + '</span></div>' +
+        '<div style="padding-left:8px;margin-top:8px;"><span class="badge ' + (SC[o.status]||'') + '">' + o.status + '</span></div>' +
+        renderPhotoStrip(o, o.id) +
+        '</div>';
+    }).join('') + '</div>';
+  } else {
+    wrap.innerHTML = '<div class="wo-list">' + filtered.map(function(o) {
+      var priCls = o.priority==='High' ? ' pri-high' : (o.priority==='Medium' ? ' pri-med' : '');
+      return '<div class="woc ' + (CC[o.status]||'') + priCls + '" onclick="openDet(' + o.id + ')">' +
+        '<div style="flex:1;min-width:0;padding-left:8px;">' +
+        '<div class="wt">' + (o.priority==='High' ? '<span class="pri-flag">&#9650; High</span> ' : '') + (o.job_type||'') + '</div>' +
+        '<div class="wm">' +
+        '<span class="chip">' + (o.requestor||'') + '</span>' +
+        '<span>' + (o.neighborhood||'') + '</span>' +
+        (o.location ? '<span>-- ' + o.location + '</span>' : '') +
+        (o.priority==='Medium' ? '<span class="' + (PC[o.priority]||'chip') + '">' + o.priority + '</span>' : '') +
+        (o.est_time ? '<span>-- ' + o.est_time + '</span>' : '') +
+        '</div>' +
+        renderPhotoStrip(o, o.id) +
+        '</div>' +
+        '<div class="wr">' +
+        '<span class="badge ' + (SC[o.status]||'') + '">' + o.status + '</span>' +
+        '<span class="' + ddClass(o.needed_by) + '">' + (ddLabel(o.needed_by)||'') + '</span>' +
+        '</div></div>';
+    }).join('') + '</div>';
+  }
+}
+
+function renderPhotoStrip(o, woId) {
+  if (!o.photo_urls || !o.photo_urls.length) return '';
+  var urls = o.photo_urls;
+  var maxShow = 4;
+  var visible = urls.slice(0, maxShow);
+  var more = urls.length > maxShow ? urls.length - maxShow : 0;
+  var html = '<div class="ph-strip">';
+  visible.forEach(function(u, i) {
+    html += '<img src="' + u + '" loading="lazy" onclick="event.stopPropagation(); openLB(' + woId + ',' + i + ')" alt="photo"/>';
+  });
+  if (more) {
+    html += '<div class="ph-more" onclick="event.stopPropagation(); openLB(' + woId + ',' + maxShow + ')">+' + more + '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function setFilter(s) { filterStatus = filterStatus===s ? 'All' : s; render(); }
+function setView(v) { currentView = v; render(); }
+function toggleArchive() { showArchive = !showArchive; filterStatus = 'All'; render(); }
+
+function openDet(id) {
+  var o = null;
+  for (var i=0;i<orders.length;i++){if(orders[i].id===id){o=orders[i];break;}}
+  if (!o) return;
+  document.getElementById('d-title').textContent = o.job_type;
+  document.getElementById('d-sub').textContent = o.neighborhood + (o.location?' -- '+o.location:'') + '  --  Requested by ' + o.requestor;
+  var db = document.getElementById('d-badge');
+  db.textContent = o.status; db.className = 'badge ' + (SC[o.status]||'');
+
+  var info = '<div class="ds2"><div class="dsl">Request Details</div><div class="dgrid">' +
+    '<div class="dr"><span class="dlb">Requested By</span><span class="dv">' + (o.requestor||'') + '</span></div>' +
+    '<div class="dr"><span class="dlb">Date Needed By</span><span class="dv ' + ddClass(o.needed_by) + '">' + (ddLabel(o.needed_by)||o.needed_by||'') + '</span></div>' +
+    '<div class="dr"><span class="dlb">Job Type</span><span class="dv">' + (o.job_type||'') + '</span></div>' +
+    '<div class="dr"><span class="dlb">Neighborhood</span><span class="dv">' + (o.neighborhood||'') + '</span></div>' +
+    (o.location ? '<div class="dr"><span class="dlb">Location</span><span class="dv">' + o.location + '</span></div>' : '') +
+    (o.priority ? '<div class="dr"><span class="dlb">Priority</span><span class="dv">' + o.priority + '</span></div>' : '') +
+    (o.est_time ? '<div class="dr"><span class="dlb">Est. Time</span><span class="dv">' + o.est_time + '</span></div>' : '') +
+    (o.recurring ? '<div class="dr"><span class="dlb">Recurring</span><span class="dv">' + o.recurring + '</span></div>' : '') +
+    '</div></div>' +
+    '<div class="ds2"><div class="dsl">Work Description</div><div class="nb">' + (o.description||'') + '</div></div>' +
+    ((o.photo_urls && o.photo_urls.length) ? '<div class="ds2"><div class="dsl">Photos (' + o.photo_urls.length + ')</div><div class="ph-grid">' + o.photo_urls.map(function(u, i){ return '<img src="' + u + '" loading="lazy" onclick="openLB(' + id + ',' + i + ')" alt="photo"/>'; }).join('') + '</div></div>' : '') +
+    (o.notes ? '<div class="ds2"><div class="dsl">Notes for Jordan</div><div class="nb gold">' + o.notes + '</div></div>' : '') +
+    (o.approval_notes ? '<div class="ds2"><div class="dsl">Approval Notes</div><div class="nb green">' + o.approval_notes + '</div></div>' : '') +
+    (o.assigned_to ? '<div class="ds2"><div class="dsl">Assigned To</div><div class="nb">' + o.assigned_to + (o.assigned_to_email ? ' &nbsp;<span style="color:var(--muted);font-size:13px">(' + o.assigned_to_email + ')</span>' : '') + '</div></div>' : '') +
+    (o.completion_notes ? '<div class="ds2"><div class="dsl">Completion Notes</div><div class="nb purple">' + o.completion_notes + '</div></div>' : '') +
+    (o.completed_at ? '<div class="ds2"><div class="dsl">Completed At</div><div class="nb purple">' + new Date(o.completed_at).toLocaleString('en-US') + '</div></div>' : '');
+
+  var action = '';
+  if (o.status === 'Pending Approval') {
+    action = '<div class="ap ap-approve">' +
+      '<div class="apt apt-g">Approve this Work Order</div>' +
+      '<div class="pf"><label>Approval Notes (optional)</label><textarea id="ap-notes" rows="2" placeholder="Instructions for the crew...">' + (o.approval_notes||'') + '</textarea></div>' +
+      '<div class="pf"><label>Assign To Crew Member <span style="color:#dc2626">*</span></label><select id="ap-assign"><option value="">Select crew member...</option>' +
+      CREW.map(function(c){return '<option value="'+c.email+'" data-name="'+c.name+'">'+c.name+'</option>';}).join('') +
+      '</select></div>' +
+      '<div class="pa"><button class="btn-appr" onclick="updateStatus(' + id + ',\'Approved\')">Approve and Dispatch</button><button class="btn-rej" onclick="updateStatus(' + id + ',\'Rejected\')">Reject</button></div>' +
+      '</div>';
+  } else if (o.status === 'Approved') {
+    action = '<div class="ap ap-crew">' +
+      '<div class="apt apt-y">Crew -- Mark Progress</div>' +
+      '<div class="pa"><button class="btn-inp" onclick="updateStatus(' + id + ',\'In Progress\')">Mark In Progress</button><button class="btn-comp" onclick="updateStatus(' + id + ',\'Complete\')">Mark Complete</button></div>' +
+      '</div>';
+  } else if (o.status === 'In Progress') {
+    action = '<div class="ap ap-done">' +
+      '<div class="apt apt-p">Mark as Complete</div>' +
+      '<div class="pf"><label>Completion Notes</label><textarea id="comp-notes" rows="2" placeholder="Describe what was completed, any issues found..."></textarea></div>' +
+      '<div class="pa"><button class="btn-comp" onclick="updateStatus(' + id + ',\'Complete\')">Mark Complete</button></div>' +
+      '</div>';
+  } else if (o.status === 'Complete') {
+    action = '<div class="ap ap-done"><div class="apt apt-p">Work Order Complete</div><p style="font-size:13px;color:var(--muted)">This work order has been completed' + (o.archived ? ' and archived' : '') + '.</p>' +
+      (o.archived ? '<div class="pa"><button class="btn-appr" onclick="restoreOrder(' + id + ')">Restore to Active Board</button></div>' : '') +
+      '</div>';
+  } else if (o.status === 'Rejected') {
+    action = '<div class="ap ap-rej"><div class="apt apt-r">Re-open this Request?</div><div class="pa"><button class="btn-appr" onclick="updateStatus(' + id + ',\'Pending Approval\')">Re-open for Review</button></div></div>';
+  }
+
+  document.getElementById('d-body').innerHTML = info + action +
+    '<div class="mf"><button class="btn-del" onclick="confirmDel(' + id + ')">Delete Work Order</button></div>';
+  document.getElementById('det-ov').classList.add('open');
+}
+
+async function updateStatus(id, status) {
+  var o = null;
+  for (var i=0;i<orders.length;i++){if(orders[i].id===id){o=orders[i];break;}}
+  if (!o) return;
+
+  var changes = { status: status };
+
+  if (status === 'Approved') {
+    var aa = document.getElementById('ap-assign');
+    if (!aa || !aa.value) { showToast('Please select a crew member before approving.', '#dc2626'); return; }
+    var selectedOpt = aa.options[aa.selectedIndex];
+    changes.assigned_to_email = aa.value;
+    changes.assigned_to = selectedOpt.getAttribute('data-name') || aa.value;
+    var an = document.getElementById('ap-notes');
+    if (an) changes.approval_notes = an.value.trim();
+    changes.approved_at = new Date().toISOString();
+  }
+
+  var cn = document.getElementById('comp-notes');
+  if (cn && cn.value.trim()) changes.completion_notes = cn.value.trim();
+  if (status === 'Complete') { changes.completed_at = new Date().toISOString(); changes.archived = true; }
+
+  try {
+    var updated = await DB.update(id, changes);
+    // Merge updated fields back
+    Object.assign(o, updated);
+    closeDet();
+    render();
+    var msgs = {'Approved':'Work order approved!','In Progress':'Marked in progress.','Complete':'Marked complete!','Rejected':'Request rejected.','Pending Approval':'Re-opened.'};
+    var cols = {'Approved':'#10b981','Complete':'#6366f1','Rejected':'#dc2626'};
+    showToast(msgs[status]||status, cols[status]||null);
+
+    if (status === 'Approved') setTimeout(function(){ sendApprovalEmail(o); }, 400);
+    else if (status === 'Complete') setTimeout(function(){ sendCompletionEmail(o); }, 400);
+  } catch (err) {
+    console.error('Update error:', err);
+    showToast('Could not update: ' + (err.message || 'unknown'), '#dc2626');
+  }
+}
+
+async function restoreOrder(id) {
+  var o = null;
+  for (var i=0;i<orders.length;i++){if(orders[i].id===id){o=orders[i];break;}}
+  if (!o) return;
+  try {
+    var updated = await DB.update(id, { archived: false });
+    Object.assign(o, updated);
+    closeDet();
+    render();
+    showToast('Restored to active board.', '#10b981');
+  } catch (err) {
+    console.error('Restore error:', err);
+    showToast('Could not restore: ' + (err.message || 'unknown'), '#dc2626');
+  }
+}
+
+function sendApprovalEmail(o) {
+  var to = o.assigned_to_email || '';
+  var subject = 'Work Order Approved: ' + o.job_type + ' at ' + o.neighborhood;
+  var lines = [
+    'Hello ' + (o.assigned_to || 'Team') + ',', '',
+    'A new work order has been approved and assigned to you. Details below:', '',
+    '----------------------------------------',
+    'JOB TYPE:        ' + (o.job_type || '--'),
+    'DEVELOPMENT:     ' + (o.neighborhood || '--'),
+    'LOCATION:        ' + (o.location || 'See description'),
+    'PRIORITY:        ' + (o.priority || '--'),
+    'DATE NEEDED BY:  ' + (o.needed_by || '--'),
+    'EST. TIME:       ' + (o.est_time || 'Not specified'),
+    'RECURRING:       ' + (o.recurring || 'One-time'),
+    '----------------------------------------', '',
+    'WORK DESCRIPTION:', o.description || '(no description)', '',
+    (o.approval_notes ? 'APPROVAL NOTES FROM JORDAN:\n' + o.approval_notes + '\n' : ''),
+    (o.notes ? 'NOTES FROM REQUESTOR (' + o.requestor + '):\n' + o.notes + '\n' : ''),
+    'Please mark this work order as "In Progress" when you begin, and "Complete" when finished, on the VBH Work Order Dashboard.',
+    '', 'Thank you,', 'Jordan Hefner', 'Director of Operations', 'Van Buskirk Homes'
+  ];
+  var body = lines.join('\n');
+  var reqEmail = requestorEmail(o.requestor);
+  var ccList = [JORDAN_EMAIL];
+  if (reqEmail && ccList.indexOf(reqEmail) === -1) ccList.push(reqEmail);
+  window.location.href = 'mailto:' + encodeURIComponent(to) + '?cc=' + encodeURIComponent(ccList.join(',')) + '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+}
+
+function sendCompletionEmail(o) {
+  var subject = 'Work Order Complete: ' + o.job_type + ' at ' + o.neighborhood;
+  var lines = [
+    'Hello ' + (o.requestor || 'there') + ',', '',
+    'The work order you requested has been marked complete:', '',
+    '----------------------------------------',
+    'JOB TYPE:        ' + (o.job_type || '--'),
+    'DEVELOPMENT:     ' + (o.neighborhood || '--'),
+    'LOCATION:        ' + (o.location || 'See description'),
+    'COMPLETED BY:    ' + (o.assigned_to || '--'),
+    'COMPLETED AT:    ' + (o.completed_at ? new Date(o.completed_at).toLocaleString('en-US') : '--'),
+    'REQUESTED BY:    ' + (o.requestor || '--'),
+    'DATE NEEDED BY:  ' + (o.needed_by || '--'),
+    '----------------------------------------', '',
+    'WORK DESCRIPTION:', o.description || '(no description)', '',
+    (o.completion_notes ? 'COMPLETION NOTES:\n' + o.completion_notes + '\n' : ''),
+    'This work order has been logged in the VBH Work Order Dashboard.',
+    '', 'Thank you,', 'Van Buskirk Homes Maintenance'
+  ];
+  var body = lines.join('\n');
+  var to = requestorEmail(o.requestor);
+  if (to) {
+    window.location.href = 'mailto:' + encodeURIComponent(to) + '?cc=' + encodeURIComponent(JORDAN_EMAIL) + '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  } else {
+    // No email on file for this requestor -- fall back to Jordan only
+    window.location.href = 'mailto:' + encodeURIComponent(JORDAN_EMAIL) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  }
+}
+
+function closeDet() { document.getElementById('det-ov').classList.remove('open'); }
+
+// ----- LIGHTBOX -----
+var lbState = { urls: [], idx: 0 };
+function openLB(woId, startIdx) {
+  var o = null;
+  for (var i=0;i<orders.length;i++){if(orders[i].id===woId){o=orders[i];break;}}
+  if (!o || !o.photo_urls || !o.photo_urls.length) return;
+  lbState.urls = o.photo_urls;
+  lbState.idx = Math.max(0, Math.min(startIdx||0, o.photo_urls.length - 1));
+  showLB();
+  document.getElementById('lb-ov').classList.add('open');
+}
+function showLB() {
+  document.getElementById('lb-img').src = lbState.urls[lbState.idx];
+  document.getElementById('lb-info').textContent = (lbState.idx + 1) + ' of ' + lbState.urls.length;
+}
+function lbNav(dir, ev) {
+  if (ev) ev.stopPropagation();
+  if (!lbState.urls.length) return;
+  lbState.idx = (lbState.idx + dir + lbState.urls.length) % lbState.urls.length;
+  showLB();
+}
+function closeLB(ev) {
+  if (ev && ev.target && ev.target.id !== 'lb-ov' && ev.target.className !== 'lb-btn lb-close') {
+    // only close on backdrop or close-button click
+    if (ev.target.classList && !ev.target.classList.contains('lb-close')) return;
+  }
+  document.getElementById('lb-ov').classList.remove('open');
+}
+document.addEventListener('keydown', function(e) {
+  if (!document.getElementById('lb-ov').classList.contains('open')) return;
+  if (e.key === 'ArrowLeft') lbNav(-1);
+  else if (e.key === 'ArrowRight') lbNav(1);
+  else if (e.key === 'Escape') document.getElementById('lb-ov').classList.remove('open');
+});
+
+function confirmDel(id) {
+  pendingDelId = id;
+  document.getElementById('co2').classList.add('open');
+  document.getElementById('co-del').onclick = async function() {
+    try {
+      await DB.delete(pendingDelId);
+      orders = orders.filter(function(o){return o.id!==pendingDelId;});
+      closeCo(); closeDet(); render();
+      showToast('Work order deleted.', '#dc2626');
+    } catch (err) {
+      showToast('Could not delete: ' + err.message, '#dc2626');
+    }
+  };
+}
+function closeCo() { document.getElementById('co2').classList.remove('open'); }
+
+function showToast(msg, color) {
+  color = color || '#6B8EB5';
+  var tw = document.getElementById('tw');
+  var t = document.createElement('div');
+  t.style.cssText = 'background:white;border:1.5px solid #cddaec;border-radius:10px;padding:14px 18px;box-shadow:0 6px 24px rgba(27,53,100,0.15);border-left:4px solid ' + color + ';font-size:14px;font-weight:600;color:#1B3564;max-width:300px;';
+  t.textContent = msg;
+  tw.appendChild(t);
+  setTimeout(function(){if(t.parentNode)t.remove();}, 5000);
+}
+
+// ----- INITIAL LOAD + REALTIME SYNC -----
+async function loadAll() {
+  try {
+    orders = await DB.fetchAll();
+    setSyncStatus(true);
+    render();
+  } catch (err) {
+    console.error('Load error:', err);
+    setSyncStatus(false);
+    document.getElementById('list-wrap').innerHTML = '<div class="empty" style="color:#dc2626;">Could not connect to database. Check your internet connection.<br><br><button onclick="loadAll()" style="background:#1B3564;color:white;border:none;border-radius:7px;padding:10px 20px;cursor:pointer;font-weight:700;">Retry</button></div>';
+  }
+}
+
+function setupRealtime() {
+  DB.subscribe(function(payload) {
+    console.log('Realtime change:', payload);
+    if (payload.eventType === 'INSERT') {
+      orders.unshift(payload.new);
+      showToast('New request: ' + payload.new.job_type + ' -- ' + payload.new.requestor, '#10b981');
+    } else if (payload.eventType === 'UPDATE') {
+      for (var i=0;i<orders.length;i++){
+        if (orders[i].id === payload.new.id) { orders[i] = payload.new; break; }
+      }
+    } else if (payload.eventType === 'DELETE') {
+      orders = orders.filter(function(o){return o.id !== payload.old.id;});
+    }
+    render();
+  });
+}
+
+loadAll();
+setupRealtime();
+updateClock();
+setInterval(updateClock, 30000);
+</script>
+</body>
+</html>

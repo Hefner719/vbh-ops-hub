@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asset Tracker — Van Buskirk Homes</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --navy:#1B3564; --steel:#6B8EB5; --gold:#C9A84C; --light:#EBF0F7;
+    --ok:#2E7D5B; --warn:#C9861E; --bad:#B23A3A; --out:#7A6BB0;
+    --ink:#1c2733; --muted:#5b6b7d; --line:#d6e0ee; --card:#ffffff; --bg:#f4f7fc;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Lato',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+  h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;margin:0;}
+
+  header{background:var(--navy);color:#fff;padding:18px 26px;display:flex;
+    align-items:center;gap:18px;flex-wrap:wrap;}
+  header .brand{display:flex;align-items:center;gap:14px;}
+  header .logo{width:44px;height:44px;border-radius:6px;background:var(--gold);
+    display:flex;align-items:center;justify-content:center;color:var(--navy);
+    font-family:'Cormorant Garamond',serif;font-weight:700;font-size:22px;}
+  header h1{font-size:26px;letter-spacing:.3px;color:#fff;}
+  header .sub{color:var(--light);font-size:13px;opacity:.85;}
+  header nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;}
+  header nav a{color:var(--light);text-decoration:none;font-size:13px;
+    padding:7px 12px;border-radius:6px;}
+  header nav a:hover{background:rgba(255,255,255,.12);color:#fff;}
+  header nav a.active{background:var(--gold);color:var(--navy);font-weight:700;}
+
+  .wrap{max-width:1240px;margin:0 auto;padding:22px 26px 60px;}
+
+  .tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:20px;}
+  .tab{padding:12px 22px;cursor:pointer;font-size:15px;font-weight:700;color:var(--muted);
+    border:none;background:none;border-bottom:3px solid transparent;margin-bottom:-2px;}
+  .tab:hover{color:var(--navy);}
+  .tab.active{color:var(--navy);border-bottom-color:var(--gold);}
+  .tab .count{display:inline-block;margin-left:8px;background:var(--light);color:var(--navy);
+    font-size:12px;font-weight:700;padding:1px 9px;border-radius:20px;}
+
+  .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+  .toolbar input[type=search]{flex:1;min-width:200px;padding:10px 14px;border:1px solid var(--line);
+    border-radius:8px;font-size:14px;font-family:inherit;}
+  .filter-chips{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{padding:7px 13px;border:1px solid var(--line);border-radius:20px;background:#fff;
+    font-size:13px;cursor:pointer;color:var(--muted);}
+  .chip.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .btn{padding:10px 18px;border:none;border-radius:8px;font-size:14px;font-weight:700;
+    cursor:pointer;font-family:inherit;}
+  .btn-primary{background:var(--gold);color:var(--navy);}
+  .btn-primary:hover{filter:brightness(.96);}
+  .btn-ghost{background:#fff;color:var(--navy);border:1px solid var(--line);}
+
+  .kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:12px 18px;min-width:120px;}
+  .kpi .n{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--navy);line-height:1;}
+  .kpi .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;}
+
+  table{width:100%;border-collapse:collapse;background:var(--card);border-radius:10px;overflow:hidden;
+    box-shadow:0 1px 3px rgba(27,53,100,.06);}
+  thead th{background:var(--navy);color:#fff;text-align:left;font-size:12px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.5px;padding:12px 14px;}
+  tbody td{padding:12px 14px;border-top:1px solid var(--line);font-size:14px;vertical-align:middle;}
+  tbody tr:hover{background:var(--light);}
+  .id-cell{font-weight:700;color:var(--navy);}
+  .sub-line{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;}
+  .b-ok{background:#e3f3ec;color:var(--ok);}
+  .b-warn{background:#fbf1de;color:var(--warn);}
+  .b-bad{background:#f7e3e3;color:var(--bad);}
+  .b-out{background:#ece8f6;color:var(--out);}
+  .b-in{background:var(--light);color:var(--navy);}
+
+  .row-actions button{background:none;border:none;cursor:pointer;color:var(--steel);
+    font-size:13px;font-weight:700;padding:4px 6px;}
+  .row-actions button:hover{color:var(--navy);text-decoration:underline;}
+
+  .empty{text-align:center;padding:50px 20px;color:var(--muted);}
+  .empty h3{font-size:22px;color:var(--navy);margin-bottom:6px;}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(27,53,100,.45);display:none;
+    align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow:auto;}
+  .overlay.show{display:flex;}
+  .modal{background:#fff;border-radius:12px;width:100%;max-width:560px;box-shadow:0 12px 40px rgba(27,53,100,.3);}
+  .modal header{background:var(--navy);border-radius:12px 12px 0 0;padding:16px 22px;}
+  .modal header h2{color:#fff;font-size:22px;}
+  .modal .body{padding:22px;}
+  .field{margin-bottom:15px;}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+  .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--line);
+    border-radius:8px;font-size:14px;font-family:inherit;}
+  .field textarea{resize:vertical;min-height:60px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .modal .foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;}
+
+  .banner{background:#fff;border:1px solid var(--gold);border-left:4px solid var(--gold);
+    border-radius:8px;padding:12px 16px;font-size:13px;color:var(--muted);margin-bottom:16px;}
+  .banner b{color:var(--navy);}
+  @media(max-width:720px){
+    .hide-sm{display:none;}
+    header nav{width:100%;margin-left:0;}
+  }
+
+/* ===== VBH shared top nav (leads pattern + hub gold) ===== */
+.vbh-nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; overflow-x: auto; }
+.vbh-nav::-webkit-scrollbar { display: none; }
+.vbh-nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-family: 'Lato', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
+.vbh-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.vbh-nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
+.vbh-nav a.vbh-back { color: rgba(255,255,255,0.78); border-right: 1px solid rgba(255,255,255,0.14); }
+.vbh-band { background: linear-gradient(135deg, #122548 0%, #1B3564 60%, #1e4080 100%); padding: 10px 32px; min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: relative; }
+.vbh-band::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, #C9A84C 20%, #E5D08A 50%, #C9A84C 80%, transparent 100%); }
+.vbh-band .vb-left { display: flex; align-items: center; gap: 20px; }
+.vbh-band .vb-logo { height: 52px; object-fit: contain; filter: brightness(0) invert(1); }
+.vbh-band .vb-div { width: 1px; height: 38px; background: rgba(255,255,255,0.2); }
+.vbh-band .vb-title h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.5rem; font-weight: 700; color: #fff; letter-spacing: .03em; line-height: 1.1; margin: 0; }
+.vbh-band .vb-title span { font-size: .72rem; color: #AEC0D6; letter-spacing: .1em; text-transform: uppercase; font-weight: 400; }
+.vbh-band .vb-right { display: flex; align-items: center; gap: 10px; }
+</style>
+</head>
+<body>
+<nav class="vbh-nav">
+  <a class="vbh-back" href="/hub.html">← Hub</a>
+  <a href="/">Work Order</a>
+  <a href="/dashboard.html">Dashboard</a>
+  <a href="/leads.html">Leads</a>
+  <a href="/intake.html">Intake</a>
+  <a href="/projects.html">Projects</a>
+  <a href="/gantt.html">Timeline</a>
+  <a href="/meeting.html">Meeting</a>
+  <a href="/equipment.html" class="active">Assets</a>
+</nav>
+<header class="vbh-band">
+  <div class="vb-left">
+    <img class="vb-logo" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCA1MDQgMTk1LjI5MiI+CiAgPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI5LjcuMSwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDIuMS4xIEJ1aWxkIDgpICAtLT4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLnN0MCB7CiAgICAgICAgZmlsbDogIzViODliNDsKICAgICAgfQoKICAgICAgLnN0MSB7CiAgICAgICAgZmlsbDogIzAwMmU2ZDsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHBvbHlnb24gY2xhc3M9InN0MSIgcG9pbnRzPSIxMjMuNjI5IDgzLjI4NyAxNTcuMDQ5IDguMjAxIDEzNy40NTIgOC4yMDEgMTE5LjQ1MSA1NC41NTUgMTAwLjMxMSA4LjIwMSA4MC40ODkgOC4yMDEgMTA5LjgxOCA3NC4wOTcgMTIzLjYyOSA4My4yODciLz4KICA8cG9seWdvbiBjbGFzcz0ic3QxIiBwb2ludHM9IjEyOS4xNDIgMTIzLjk5OSA3My4zOTEgOTguNTE3IDE1LjkwNSAxMjMuOTk5IDE1LjY3OSAxMzQuMDg4IDczLjM5MSAxMTcuMzY2IDEyOS4xNDIgMTM0LjA4OCAxMjkuMTQyIDEyMy45OTkiLz4KICA8cG9seWdvbiBjbGFzcz0ic3QwIiBwb2ludHM9IjEyOS4xNDIgOTYuODc1IDczLjI3OCA1OS43NzQgMTUuNzkyIDk2Ljg3NSAxNS43OTIgMTE1LjI3IDczLjI3OCA4OC43MDcgMTI5LjE0MiAxMTUuMjc1IDEyOS4xNDIgOTYuODc1Ii8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTE1NS4yOTksNTUuMzQzYzAtMTAuMDk4LDEwLjc2Ny0xMi45NTgsMjEuNzItMTUuOTk3LDguMDk3LTIuMjM1LDExLjQxMS00LjAyMiwxMS40MTEtNy4wNiwwLTIuNjgxLTIuNTc2LTQuNTU5LTcuMjctNC41NTktNS43MDYsMC05LjIwNCwzLjEzLTEwLjAzMSw4LjMxMmgtMTQuOTFjMS42NTYtMTEuMDgsMTEuNjg3LTE4LjY3OCwyNS41ODUtMTguNjc4LDE0LjYzMiwwLDIyLjczMiw2LjUyNSwyMi43MzIsMTguNTg5djMyLjE3NGgtMTYuMTA2di01LjAwNmMtMy43NzQsMy44NDMtOS4yOTUsNS44OTgtMTUuNzM5LDUuODk4LTEwLjU4MiwwLTE3LjM5My01LjQ1LTE3LjM5My0xMy42NzJaTTE3Ny45NCw1OS4yNzZjMy45NTYsMCw4LjAwNi0xLjQzLDEwLjQ5MS0zLjkzM3YtNy4zMjhsLjA5MS00LjExMWMtMS45MzIsMS4zNDEtNC42MDEsMi4xNDQtNy44MjIsMy4yMTctNS43OTksMS44NzYtOS41NzEsMy40ODQtOS41NzEsNy4zMjgsMCwyLjg2LDIuNDg1LDQuODI3LDYuODEsNC44MjdaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIxNi45MTIsMTguNjEyaDE2LjM4M3Y1LjQ1MmMzLjU5LTQuMDIyLDguNzQyLTYuNTI1LDE1LjAwMS02LjUyNSwxMC44NiwwLDE4LjAzOSw2LjUyNSwxOC4wMzksMTYuNzEydjMzLjg3MWgtMTYuMzgzdi0zMS41NDdjMC01LjE4NC0zLjMxMi03Ljg2NS04LjA5OS03Ljg2NS0zLjU4OCwwLTYuNjI2LDEuNDMtOC41NTgsMy44NDN2MzUuNTY5aC0xNi4zODNWMTguNjEyWiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuMzY2LDczLjcyNGgzNC41MTJjMTMuOTksMCwyMS45MDUsNi42MTQsMjEuOTA1LDE2Ljg5MSwwLDUuOTg3LTMuMTMsMTAuOTAyLTkuMDIsMTMuNjcyLDYuNzE5LDIuNTAzLDEwLjQsNy41OTgsMTAuNCwxNC41NjksMCwxMC41NDUtOC4xOTEsMTcuNDI2LTIyLjM2NSwxNy40MjZoLTM1LjQzMnYtNjIuNTU4Wk0xNTIuMzkyLDg1LjY5OHYxMy4zMTdoMTUuMjc3YzQuNTEsMCw3LjQ1NS0yLjIzNSw3LjQ1NS02LjYxNHMtMi45NDUtNi43MDMtNy40NTUtNi43MDNoLTE1LjI3N1pNMTUyLjM5MiwxMTAuNDU1djE0LjAyOWgxNi4wMTRjNC44NzcsMCw3LjkxNS0yLjMyMiw3LjkxNS02Ljk2OSwwLTQuNTU5LTMuMDM4LTcuMDYtNy45MTUtNy4wNmgtMTYuMDE0WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xOTkuMTQyLDEyMC42NDJ2LTMzLjg3MWgxNi4zODF2MzEuNTQ3YzAsNS4yNzMsMy4zMTQsNy44NjUsOC4xOTEsNy44NjUsMy40OTYsMCw2LjUzNS0xLjQzLDguNDY2LTMuNzU0di0zNS42NThoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi01LjM2M2MtMy40OTYsNC4wMjItOC43NDIsNi40MzQtMTQuOTA4LDYuNDM0LTEwLjk1MywwLTE4LjEzLTYuNTIzLTE4LjEzLTE2LjcxMVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMjU0LjkwOCwxMTguNzY0aDE0LjkxYzEuMTAzLDUuODExLDUuMDYxLDguNzYsMTAuNjc2LDguNzYsNS43OTcsMCw4LjI4Mi0xLjk2Nyw4LjI4Mi00LjU1OSwwLTQuMTA5LTYuMTY2LTUuMjcxLTEzLjI1Mi02LjcwMS05LjI5NS0xLjg3OC0yMC4xNTUtNC4zNzktMjAuMTU1LTE1LjEwNCwwLTkuMTE1LDguNjUxLTE1LjY0LDIyLjU0Ny0xNS42NCwxNC4yNjUsMCwyMy43NDUsNi41MjUsMjUuNzcsMTcuNjk2aC0xNC43MjVjLTEuMzgtNS40NTItNS4xNTQtNy42ODctMTAuNzY5LTcuNjg3LTQuODc3LDAtNy4yNywxLjg3OC03LjI3LDQuMTExLDAsMy43NTQsNi4xNjgsNC44MjUsMTMuMjU0LDYuMjU1LDkuMjk1LDEuOTY3LDIwLjE1NSw0LjY0OSwyMC4xNTUsMTUuNTUsMCw5LjAyOC04LjkyOCwxNi4wODgtMjMuNTYxLDE2LjA4OC0xMy44OTgsMC0yMy45MjktNi4yNTctMjUuODYxLTE4Ljc2OVoiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMzEwLjc2NSw3My43MjRoMTYuMTk5bC0uMjc2LDM0LjEzOSwxOC4yMjItMjEuMDkxaDE3LjQ4NmwtMTcuMzk1LDE5Ljc1MSwxOC40MDgsMjkuNzZoLTE4LjIyNGwtMTEuMDQzLTE4Ljg1Ni03LjM2NCw4LjIyLjE4NCwxMC42MzZoLTE2LjE5OXYtNjIuNTU4WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zNjcuNDUxLDcyLjIwNWgxNi4zODN2MTEuMDgyaC0xNi4zODN2LTExLjA4MlpNMzY3LjQ1MSw4Ni43NzFoMTYuMzgzdjQ5LjUxMWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTM5MS4zNzQsODYuNzcxaDE2LjM4M3Y4LjA0NGMzLjQwNS01LjgwOSw4LjgzNS05LjAyOCwxNi4xMDYtOS4wMjhoLjgyN3YxMy44NTNjLTEuNDcyLS4zNTctMi45NDUtLjQ0Ni00LjUwOC0uNDQ2LTUuMDYzLDAtOS44NDksMS43ODctMTIuNDI1LDUuMDkzdjMxLjk5NWgtMTYuMzgzdi00OS41MTFaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTQzMS4wMzQsNzMuNzI0aDE2LjE5OWwtLjI3NiwzNC4xMzksMTguMjIyLTIxLjA5MWgxNy40ODZsLTE3LjM5NSwxOS43NTEsMTguNDA4LDI5Ljc2aC0xOC4yMjRsLTExLjA0My0xOC44NTYtNy4zNjQsOC4yMi4xODQsMTAuNjM2aC0xNi4xOTl2LTYyLjU1OFoiLz4KICA8Zz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMzUuNDM0LDE0NC45MTRoMTIuMzk1djE3LjM2MWgxNy4zMjl2LTE3LjM2MWgxMi4zOTV2NDQuODQ0aC0xMi4zOTV2LTE4LjY0M2gtMTcuMzI5djE4LjY0M2gtMTIuMzk1di00NC44NDRaIi8+CiAgICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMTgxLjY4MiwxNzIuMDE0YzAtMTEuNzI0LDcuNzMyLTE4LjcwOCwxOS41OTQtMTguNzA4LDExLjc5NCwwLDE5LjUyNiw2Ljk4MywxOS41MjYsMTguNzA4cy03LjY2NCwxOC43MDUtMTkuNTI2LDE4LjcwNS0xOS41OTQtNi45ODMtMTkuNTk0LTE4LjcwNVpNMjA5LjEzOCwxNzIuMDE0YzAtNy4yNDEtMi45OTktMTAuNzYzLTcuODYyLTEwLjc2M3MtNy44NjUsMy41MjItNy44NjUsMTAuNzYzLDIuOTk5LDEwLjc2MSw3Ljg2NSwxMC43NjEsNy44NjItMy41MjIsNy44NjItMTAuNzYxWiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTIyNC42NjIsMTU0LjI2OGgxMS44NjR2My45NzJjMi40NjUtMi45NDYsNi4xMy00Ljc0MSwxMC41MjgtNC43NDEsNC43MzMsMCw4LjQ2NSwxLjk4NSwxMC40NjUsNS40NDQsMi42NjYtMy4zMjksNi43MzEtNS40NDQsMTEuNzI5LTUuNDQ0LDcuNTk3LDAsMTIuNTk1LDQuNjc2LDEyLjU5NSwxMS45OHYyNC4yNzloLTExLjg2MnYtMjIuOTM1YzAtMy41ODctMi4yLTUuMzE2LTUuMzk5LTUuMzE2LTIuMTMzLDAtNC4xMzMuODM0LTUuNTMyLDIuMzA4LjA2OC41MTEuMDY4LDEuMDg5LjA2OCwxLjY2NXYyNC4yNzloLTExLjcyOXYtMjIuOTM1YzAtMy41ODctMi4xMzMtNS4zMTYtNS4xOTktNS4zMTYtMi4zMzMsMC00LjM5OC45NjEtNS42NjQsMi41NjN2MjUuNjg5aC0xMS44NjR2LTM1LjQ5MVoiLz4KICAgIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0yODUuNTczLDE3Mi4wMTRjMC0xMS41MzIsNy44NjUtMTguNzA4LDE5LjI2MS0xOC43MDgsMTAuNzI4LDAsMTguNzkzLDYuODU2LDE4Ljc5MywxOS4xNTZ2Ljc2OGgtMjYuNTI1Yy4zMzMsNi41OTgsMy4xOTksOS44MDIsNy43OTcsOS44MDIsMy42NjcsMCw2LjE5OC0yLjExNSw3LjE5OS02LjcyOGgxMS4xOTZjLTEuNzM1LDkuMDMzLTguNTMsMTQuNDE1LTE4LjUyNywxNC40MTUtMTEuNDYxLDAtMTkuMTkzLTcuMTExLTE5LjE5My0xOC43MDVaTTI5Ny41MDMsMTY3LjUyOWgxNC40NmMtMS4xMzEtNC40ODUtMy42NjQtNi43MjYtNy4xOTYtNi43MjYtMy43MzIsMC02LjI2NSwyLjI0LTcuMjY0LDYuNzI2WiIvPgogICAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTMyNi41NTgsMTc3LjIwM2gxMC43OTZjLjgwMSw0LjE2MywzLjY2NCw2LjI3OCw3LjcyOSw2LjI3OCw0LjIsMCw2LTEuNDA5LDYtMy4yNjYsMC0yLjk0OS00LjQ2NS0zLjc4Mi05LjU5Ny00LjgwNi02LjczMS0xLjM0NC0xNC41OTUtMy4xMzktMTQuNTk1LTEwLjgyNiwwLTYuNTM1LDYuMjY1LTExLjIxMSwxNi4zMjctMTEuMjExLDEwLjMzLDAsMTcuMTkzLDQuNjc2LDE4LjY2LDEyLjY4M2gtMTAuNjYzYy0uOTk5LTMuOTA3LTMuNzMyLTUuNTA5LTcuNzk3LTUuNTA5LTMuNTMyLDAtNS4yNjQsMS4zNDctNS4yNjQsMi45NDksMCwyLjY5MSw0LjQ2MywzLjQ1OSw5LjU5Nyw0LjQ4Myw2LjczMSwxLjQwOSwxNC41OTMsMy4zMzIsMTQuNTkzLDExLjE0NiwwLDYuNDctNi40NjMsMTEuNTMyLTE3LjA2MSwxMS41MzItMTAuMDYyLDAtMTcuMzI2LTQuNDgzLTE4LjcyNS0xMy40NTFaIi8+CiAgPC9nPgo8L3N2Zz4=" alt="Van Buskirk Homes"/>
+    <div class="vb-div"></div>
+    <div class="vb-title">
+      <h1>Asset Tracker</h1>
+      <span>Signage &middot; Cameras &middot; Equipment</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="banner" id="connBanner">
+    <b>One-time setup:</b> Run the SQL in the header comment of this file's script to create the <b>assets</b> table in Supabase. Credentials are already wired. Until the table exists, saves will error and the tracker shows demo data.
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-type="signage" onclick="switchTab('signage')">Signage <span class="count" id="c-signage">0</span></button>
+    <button class="tab" data-type="camera" onclick="switchTab('camera')">Cameras <span class="count" id="c-camera">0</span></button>
+    <button class="tab" data-type="equipment" onclick="switchTab('equipment')">Equipment <span class="count" id="c-equipment">0</span></button>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="toolbar">
+    <input type="search" id="search" placeholder="Search by name, ID, tag, or job…" oninput="render()">
+    <div class="filter-chips" id="statusChips"></div>
+    <button class="btn btn-primary" onclick="openModal()">+ Add Item</button>
+  </div>
+
+  <div id="tableHost"></div>
+</div>
+
+<!-- Add / Edit modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <header><h2 id="modalTitle">Add Item</h2></header>
+    <div class="body">
+      <input type="hidden" id="f_id">
+      <div class="field">
+        <label>Name / Description</label>
+        <input id="f_name" placeholder="e.g. 4x8 Directional Sign, Reolink 810A, Wacker Plate Compactor">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>Asset Tag / Serial</label>
+          <input id="f_tag" placeholder="VB-SIGN-014">
+        </div>
+        <div class="field">
+          <label>Type</label>
+          <select id="f_type">
+            <option value="signage">Signage</option>
+            <option value="camera">Camera</option>
+            <option value="equipment">Equipment</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>Assigned Job Site</label>
+          <select id="f_project" onchange="onProjectPick()"><option value="">— None (use Location below) —</option></select>
+        </div>
+        <div class="field">
+          <label>Location <span style="font-weight:400;text-transform:none;color:var(--steel);">(if not a job site)</span></label>
+          <input id="f_location" list="locPresets" placeholder="Shop, Storage, or type a place…">
+          <datalist id="locPresets">
+            <option value="Shop"><option value="Storage Yard"><option value="Office">
+          </datalist>
+        </div>
+      </div>
+      <div class="field">
+        <label>Held By <span style="font-weight:400;text-transform:none;color:var(--steel);">(person, optional)</span></label>
+        <input id="f_holder" placeholder="Justin, Dallas…">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>Status</label>
+          <select id="f_checkout">
+            <option value="in">In Storage / Shop</option>
+            <option value="out">Deployed / On Site</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Condition</label>
+          <select id="f_condition">
+            <option value="good">Good</option>
+            <option value="service">Needs Service</option>
+            <option value="repair">In Repair</option>
+            <option value="retired">Retired / Lost</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Notes / Maintenance Log</label>
+        <textarea id="f_notes" placeholder="Last serviced, known issues, warranty, etc."></textarea>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn btn-ghost" id="deleteBtn" onclick="deleteItem()" style="color:var(--bad);display:none;">Delete</button>
+      <div style="margin-left:auto;display:flex;gap:10px;">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveItem()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   ONE-TIME SUPABASE SETUP  — run in the Supabase SQL editor:
+
+   create table if not exists assets (
+     id          uuid primary key default gen_random_uuid(),
+     name        text not null,
+     tag         text,
+     type        text not null default 'equipment',   -- signage | camera | equipment
+     project_id  uuid references projects(id),
+     location    text,                                -- free-text: Shop, Storage, or any non-project place
+     holder      text,
+     checkout    text default 'in',                   -- in | out
+     condition   text default 'good',                 -- good | service | repair | retired
+     notes       text,
+     updated_at  timestamptz default now(),
+     updated_by  text
+   );
+
+   Then set SUPABASE_URL and SUPABASE_ANON_KEY below.
+
+   ALREADY CREATED THE TABLE EARLIER? Just add the new location column:
+     alter table assets add column if not exists location text;
+   ===================================================================== */
+
+const SUPABASE_URL  = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseUrl)  || 'https://bppirsahciuxrqzitfxa.supabase.co';
+const SUPABASE_ANON = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseAnon) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwcGlyc2FoY2l1eHJxeml0ZnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTExMjcsImV4cCI6MjA5NTk4NzEyN30.Yy3en8gNoTPSVkztlGr6XbUq6ZU3-NHJ4TUIVnZQ4eE';
+
+let sb = null;
+if (SUPABASE_URL && SUPABASE_ANON) {
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+}
+
+// Canonical project label — one convention across the whole hub:
+// "R26022 - 908 Bluffside Drive - Martin, David and Patty"
+// (job number - address - client). buyer_realtor carries the client as
+// "Last, First and First" — written that way at lead conversion; older
+// freeform rows are being tidied by hand in the Projects panel.
+function vbhProjectLabel(p) {
+  if (!p) return '';
+  return [p.job_number, p.address, p.buyer_realtor]
+    .map(x => (x == null ? '' : String(x).trim()))
+    .filter(Boolean)
+    .join(' - ');
+}
+
+const TYPES = ['signage','camera','equipment'];
+const COND = {
+  good:    {label:'Good',         cls:'b-ok'},
+  service: {label:'Needs Service',cls:'b-warn'},
+  repair:  {label:'In Repair',    cls:'b-bad'},
+  retired: {label:'Retired/Lost', cls:'b-bad'}
+};
+const STATUS_FILTERS = [
+  {key:'all',      label:'All'},
+  {key:'out',      label:'Deployed'},
+  {key:'in',       label:'In Storage'},
+  {key:'service',  label:'Needs Service'},
+];
+
+let activeType = 'signage';
+let activeStatus = 'all';
+let items = [];          // all assets
+let projects = [];       // {id, label}
+
+/* -------- local demo seed (used only when Supabase not configured) -------- */
+const DEMO = [
+  {id:'d1',name:'4x8 Directional Sign',tag:'VB-SIGN-014',type:'signage',project_id:null,location:'Shop',holder:null,checkout:'in',condition:'good',notes:''},
+  {id:'d2',name:'Lot Marketing Rider',tag:'VB-SIGN-021',type:'signage',project_id:'p1',location:null,holder:null,checkout:'out',condition:'good',notes:'Installed on lot entrance.'},
+  {id:'d3',name:'Reolink 810A PoE',tag:'VB-CAM-003',type:'camera',project_id:'p1',location:null,holder:'Justin',checkout:'out',condition:'good',notes:'Front elevation, cellular backup.'},
+  {id:'d4',name:'Wacker Plate Compactor',tag:'VB-EQ-009',type:'equipment',project_id:null,location:'Storage Yard',holder:'Dallas',checkout:'out',condition:'service',notes:'Due for oil change.'},
+];
+const DEMO_PROJECTS = [{id:'p1',label:'River Park — Hoekstra'},{id:'p2',label:'171 Village Circle'}];
+
+/* ---------------- data layer ---------------- */
+async function loadProjects(){
+  if(!sb){ projects = DEMO_PROJECTS; return; }
+  // NOTE: the projects table stores the client in buyer_realtor — the old
+  // select asked for a nonexistent `buyer` column, so this dropdown was empty.
+  const {data,error} = await sb.from('projects').select('id, job_number, address, buyer_realtor').order('address');
+  if(error){ console.error(error); projects = []; return; }
+  projects = (data||[]).map(p=>({ id: p.id, label: vbhProjectLabel(p) || p.id }));
+}
+
+async function loadItems(){
+  if(!sb){ items = [...DEMO]; return; }
+  const {data,error} = await sb.from('assets').select('*').order('updated_at',{ascending:false});
+  if(error){ console.error(error); items = []; return; }
+  items = data||[];
+}
+
+async function upsertItem(rec){
+  if(!sb){
+    if(rec.id){ const i=items.findIndex(x=>x.id===rec.id); if(i>-1) items[i]={...items[i],...rec}; }
+    else { rec.id='d'+Date.now(); items.unshift(rec); }
+    return;
+  }
+  rec.updated_at = new Date().toISOString();
+  rec.updated_by = 'Asset Tracker';
+  if(rec.id){ const {error}=await sb.from('assets').update(rec).eq('id',rec.id); if(error)alert(error.message); }
+  else { delete rec.id; const {error}=await sb.from('assets').insert(rec); if(error)alert(error.message); }
+  await loadItems();
+}
+
+async function removeItem(id){
+  if(!sb){ items = items.filter(x=>x.id!==id); return; }
+  const {error}=await sb.from('assets').delete().eq('id',id); if(error)alert(error.message);
+  await loadItems();
+}
+
+/* ---------------- rendering ---------------- */
+function projLabel(pid){ const p=projects.find(x=>x.id===pid); return p?p.label:null; }
+
+function counts(){
+  const c={signage:0,camera:0,equipment:0};
+  items.forEach(i=>{ if(c[i.type]!=null) c[i.type]++; });
+  TYPES.forEach(t=>document.getElementById('c-'+t).textContent=c[t]);
+}
+
+function renderKpis(list){
+  const out = list.filter(i=>i.checkout==='out').length;
+  const svc = list.filter(i=>i.condition==='service'||i.condition==='repair').length;
+  const stor= list.filter(i=>i.checkout==='in').length;
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="n">${list.length}</div><div class="l">Total</div></div>
+    <div class="kpi"><div class="n">${out}</div><div class="l">Deployed</div></div>
+    <div class="kpi"><div class="n">${stor}</div><div class="l">In Storage</div></div>
+    <div class="kpi"><div class="n">${svc}</div><div class="l">Needs Attention</div></div>`;
+}
+
+function renderChips(){
+  document.getElementById('statusChips').innerHTML = STATUS_FILTERS.map(f=>
+    `<span class="chip ${activeStatus===f.key?'on':''}" onclick="setStatus('${f.key}')">${f.label}</span>`
+  ).join('');
+}
+
+function render(){
+  counts(); renderChips();
+  const q = (document.getElementById('search').value||'').toLowerCase().trim();
+  let list = items.filter(i=>i.type===activeType);
+
+  if(activeStatus==='out')     list=list.filter(i=>i.checkout==='out');
+  else if(activeStatus==='in') list=list.filter(i=>i.checkout==='in');
+  else if(activeStatus==='service') list=list.filter(i=>i.condition==='service'||i.condition==='repair');
+
+  const full = list;
+  if(q){
+    list = list.filter(i=>{
+      const hay = [i.name,i.tag,i.holder,i.location,projLabel(i.project_id)].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  renderKpis(full);
+
+  const host = document.getElementById('tableHost');
+  if(!list.length){
+    host.innerHTML = `<div class="empty"><h3>Nothing here yet</h3>
+      <p>${q?'No items match your search.':'Add your first '+activeType+' item to start tracking it.'}</p></div>`;
+    return;
+  }
+
+  host.innerHTML = `<table><thead><tr>
+    <th>Item</th><th>Location</th><th class="hide-sm">Held By</th>
+    <th>Status</th><th>Condition</th><th></th>
+  </tr></thead><tbody>${list.map(rowHtml).join('')}</tbody></table>`;
+}
+
+function whereText(i){
+  const job = projLabel(i.project_id);
+  if(job) return {txt:esc(job), muted:false};
+  if(i.location) return {txt:esc(i.location), muted:false};
+  return {txt:'Unassigned', muted:true};
+}
+
+function rowHtml(i){
+  const w = whereText(i);
+  const co = i.checkout==='out'
+    ? '<span class="badge b-out">Deployed</span>'
+    : '<span class="badge b-in">In Storage</span>';
+  const cond = COND[i.condition]||COND.good;
+  return `<tr>
+    <td><div class="id-cell">${esc(i.name)||'—'}</div>
+        <div class="sub-line">${esc(i.tag)||'no tag'}</div></td>
+    <td>${w.muted?'<span style="color:var(--muted)">'+w.txt+'</span>':w.txt}</td>
+    <td class="hide-sm">${esc(i.holder)||'—'}</td>
+    <td>${co}</td>
+    <td><span class="badge ${cond.cls}">${cond.label}</span></td>
+    <td class="row-actions" style="text-align:right;white-space:nowrap;">
+      <button onclick="openMove('${i.id}')">Move</button>
+      <button onclick="toggleCheckout('${i.id}')">${i.checkout==='out'?'Store':'Deploy'}</button>
+      <button onclick="openModal('${i.id}')">Edit</button>
+    </td>
+  </tr>`;
+}
+
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------------- interactions ---------------- */
+function switchTab(t){
+  activeType=t;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.type===t));
+  render();
+}
+function setStatus(k){ activeStatus=k; render(); }
+
+async function toggleCheckout(id){
+  const i = items.find(x=>x.id===id); if(!i) return;
+  const next = i.checkout==='out' ? 'in' : 'out';
+  // Storing: clear job-site assignment and drop to Shop if no location set.
+  // Deploying: keep whatever location/site it already has.
+  const patch = {id:i.id, checkout:next};
+  if(next==='in'){
+    patch.project_id = null;
+    if(!i.location) patch.location = 'Shop';
+  }
+  await upsertItem(patch);
+  render();
+}
+
+function fillProjectSelect(sel){
+  sel.innerHTML = '<option value="">— Unassigned / In Storage —</option>' +
+    projects.map(p=>`<option value="${p.id}">${esc(p.label)}</option>`).join('');
+}
+
+// Job site and free-text location are mutually exclusive — picking one clears the other
+function onProjectPick(){
+  if(document.getElementById('f_project').value){
+    document.getElementById('f_location').value='';
+  }
+}
+
+// Quick "Move" — relocate without opening the full editor
+async function openMove(id){
+  const i = items.find(x=>x.id===id); if(!i) return;
+  const opts = ['Shop','Storage Yard','Office',...projects.map(p=>p.label)];
+  const cur = projLabel(i.project_id) || i.location || '';
+  const dest = prompt(
+    `Move "${i.name}" to:\n\nType a job site, "Shop", "Storage Yard", or any place.\nLeave blank to unassign.\n\nJob sites: ${projects.map(p=>p.label).join('; ')||'(none)'}`,
+    cur
+  );
+  if(dest===null) return; // cancelled
+  const match = projects.find(p=>p.label.toLowerCase()===dest.trim().toLowerCase());
+  if(match){
+    await upsertItem({id:i.id, project_id:match.id, location:null, checkout:'out'});
+  } else if(dest.trim()===''){
+    await upsertItem({id:i.id, project_id:null, location:null, checkout:'in'});
+  } else {
+    const stored = /shop|storage|yard|office/i.test(dest);
+    await upsertItem({id:i.id, project_id:null, location:dest.trim(), checkout: stored?'in':'out'});
+  }
+  render();
+}
+
+function openModal(id){
+  const m = document.getElementById('overlay');
+  fillProjectSelect(document.getElementById('f_project'));
+  const del = document.getElementById('deleteBtn');
+  if(id){
+    const i = items.find(x=>x.id===id); if(!i) return;
+    document.getElementById('modalTitle').textContent='Edit Item';
+    document.getElementById('f_id').value=i.id;
+    document.getElementById('f_name').value=i.name||'';
+    document.getElementById('f_tag').value=i.tag||'';
+    document.getElementById('f_type').value=i.type||'equipment';
+    document.getElementById('f_project').value=i.project_id||'';
+    document.getElementById('f_location').value=i.location||'';
+    document.getElementById('f_holder').value=i.holder||'';
+    document.getElementById('f_checkout').value=i.checkout||'in';
+    document.getElementById('f_condition').value=i.condition||'good';
+    document.getElementById('f_notes').value=i.notes||'';
+    del.style.display='inline-block';
+  } else {
+    document.getElementById('modalTitle').textContent='Add Item';
+    ['f_id','f_name','f_tag','f_holder','f_notes','f_location'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('f_type').value=activeType;
+    document.getElementById('f_project').value='';
+    document.getElementById('f_checkout').value='in';
+    document.getElementById('f_condition').value='good';
+    del.style.display='none';
+  }
+  m.classList.add('show');
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('show'); }
+
+async function saveItem(){
+  const name = document.getElementById('f_name').value.trim();
+  if(!name){ alert('Name is required.'); return; }
+  const rec = {
+    name,
+    tag: document.getElementById('f_tag').value.trim()||null,
+    type: document.getElementById('f_type').value,
+    project_id: document.getElementById('f_project').value||null,
+    location: document.getElementById('f_location').value.trim()||null,
+    holder: document.getElementById('f_holder').value.trim()||null,
+    checkout: document.getElementById('f_checkout').value,
+    condition: document.getElementById('f_condition').value,
+    notes: document.getElementById('f_notes').value.trim()||null,
+  };
+  const id = document.getElementById('f_id').value;
+  if(id) rec.id=id;
+  await upsertItem(rec);
+  closeModal();
+  activeType = rec.type;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.type===rec.type));
+  render();
+}
+
+async function deleteItem(){
+  const id = document.getElementById('f_id').value;
+  if(!id) return;
+  if(!confirm('Delete this item permanently?')) return;
+  await removeItem(id);
+  closeModal(); render();
+}
+
+/* close modal on backdrop click */
+document.getElementById('overlay').addEventListener('click',e=>{
+  if(e.target.id==='overlay') closeModal();
+});
+
+/* ---------------- init ---------------- */
+(async function init(){
+  if(sb) document.getElementById('connBanner').style.display='none';
+  await loadProjects();
+  await loadItems();
+  render();
+})();
+</script>
+</body>
+</html>
