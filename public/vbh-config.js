@@ -20,7 +20,7 @@ const VBH_ROLES = {
 };
 
 const VBH = {
-  BUILD: 'shell-v1',
+  BUILD: 'shell-v1.1',
   ROLES: VBH_ROLES,
 
   /* Weekly Executive Update (weeklyupdate.html): who it goes to and who signs it. */
@@ -67,6 +67,10 @@ const VBH = {
     { id:'meeting',      path:'/meeting',      nav:'Meeting',      group:'ops',   protected:true,
       title:'Production Meeting', sub:'Tuesdays · 9:00–10:00 AM',
       tile:{ icon:'📋', accent:'steel', blurb:'Timed agenda for the Tuesday production meeting — active jobs, starts, action items, warranty. Buildertrend activity feeds the job cards.' } },
+
+    { id:'digest',       path:'/digest',       nav:'Digest',       group:'ops',   protected:true,
+      title:'Buildertrend Digest', sub:'What the PMs reported · by job',
+      tile:{ icon:'⟲', accent:'gold', blurb:'Every Buildertrend notification since last meeting, grouped by job: client updates, change orders with dollars, comments, and who has gone quiet. Copy or email it to the team.' } },
 
     { id:'projects',     path:'/projects',     nav:'Projects',     group:'ops',   protected:true,
       title:'Projects Tracker', sub:'Live pipeline · Solds · Escrow · Models · Maintenance',

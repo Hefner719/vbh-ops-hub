@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<!-- build:digest-v1 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#1B3564"/>
+<title>Buildertrend Digest · VBH Ops Hub</title>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-hub-192.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
+<script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ── page ── */
+.wrap { max-width: 1040px; margin: 0 auto; padding: 22px 20px 0; }
+h2, h3 { font-family: var(--font-head); color: var(--navy); margin: 0; }
+
+/* header controls */
+.range { display: flex; align-items: center; gap: 6px; }
+.range button {
+  padding: 6px 11px; border: 1px solid rgba(255,255,255,.28); border-radius: 7px;
+  background: rgba(255,255,255,.08); color: #fff; font: 700 .72rem/1 var(--font-body);
+  letter-spacing: .05em; text-transform: uppercase; cursor: pointer;
+}
+.range button.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+.hdr-btn {
+  padding: 7px 12px; border: 1px solid rgba(255,255,255,.28); border-radius: 7px;
+  background: rgba(255,255,255,.08); color: #fff; font: 700 .74rem/1 var(--font-body); cursor: pointer; white-space: nowrap;
+}
+.hdr-btn:hover { background: rgba(255,255,255,.18); }
+.hdr-btn.gold { background: var(--gold); border-color: var(--gold); }
+
+/* status line */
+.status { font-size: .78rem; color: var(--muted); margin: 0 0 14px 2px; }
+.status b { color: var(--navy); }
+
+/* summary tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.tile { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow-sm); border-left: 4px solid var(--steel); }
+.tile .lbl { font-size: .66rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.tile .val { font-family: var(--font-head); font-size: 1.8rem; font-weight: 700; color: var(--navy); line-height: 1.1; margin-top: 2px; }
+.tile .sub { font-size: .74rem; color: var(--muted); }
+.tile.warn { border-left-color: var(--amber); } .tile.warn .val { color: var(--amber-dk); }
+.tile.bad  { border-left-color: var(--red); }   .tile.bad  .val { color: var(--red-dk); }
+.tile.ok   { border-left-color: var(--green); }
+
+/* sections */
+.sec { margin-top: 26px; }
+.sec-head { display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid var(--steel); padding-bottom: 6px; margin-bottom: 12px; }
+.sec-head h2 { font-size: 1.25rem; }
+.sec-head .n { font-size: .74rem; color: var(--muted); }
+
+/* job blocks */
+.job { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); margin-bottom: 12px; overflow: hidden; break-inside: avoid; }
+.job-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.job-num { font-weight: 900; color: var(--navy); font-size: .9rem; letter-spacing: .02em; }
+.job-title { font-weight: 700; color: var(--ink); font-size: .9rem; }
+.job-client { color: var(--muted); font-size: .82rem; }
+.job-meta { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; background: var(--light); color: var(--navy); }
+.chip.stale { background: #fef3c7; color: var(--amber-dk); }
+.chip.none  { background: #fee2e2; color: var(--red-dk); }
+.job-body { padding: 12px 14px; display: grid; gap: 10px; }
+.upd { border-left: 3px solid var(--steel); background: var(--surface-2); padding: 8px 11px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: .84rem; line-height: 1.45; }
+.upd.stale { border-left-color: var(--amber); background: #fffaf0; }
+.upd-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin-bottom: 3px; font-size: .78rem; }
+.upd-head b { color: var(--navy); }
+.upd-head .who { color: var(--muted); }
+.upd-head a { margin-left: auto; color: var(--steel); font-weight: 700; text-decoration: none; font-size: .74rem; }
+.upd-head a:hover { color: var(--navy); text-decoration: underline; }
+.evs { display: grid; gap: 4px; font-size: .82rem; }
+.ev { display: flex; gap: 8px; align-items: baseline; line-height: 1.4; }
+.ev .ico { width: 16px; text-align: center; color: var(--muted); flex-shrink: 0; }
+.ev .ico.ok { color: var(--green-dk); font-weight: 900; }
+.ev .tag { font-size: .64rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.ev b { color: var(--navy); }
+.ev a { color: var(--steel); text-decoration: none; font-weight: 700; }
+.ev .when { color: var(--faint); font-size: .74rem; margin-left: auto; white-space: nowrap; }
+.quiet { color: var(--muted); font-style: italic; font-size: .82rem; }
+
+/* simple lists */
+.plain { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.plain .row { display: flex; gap: 12px; align-items: baseline; padding: 9px 14px; border-top: 1px solid var(--line); font-size: .84rem; }
+.plain .row:first-child { border-top: 0; }
+.plain .row .r { margin-left: auto; color: var(--muted); font-size: .76rem; white-space: nowrap; }
+.plain .row a { color: var(--steel); font-weight: 700; text-decoration: none; }
+.empty { padding: 14px; text-align: center; color: var(--muted); font-style: italic; font-size: .84rem; }
+
+@media (max-width: 640px) {
+  .job-head { flex-wrap: wrap; }
+  .job-meta { margin-left: 0; width: 100%; justify-content: flex-start; }
+}
+@media print {
+  .wrap { padding: 0; }
+  .status { display: none; }
+  .tile, .job, .plain { box-shadow: none; }
+  .upd-head a, .ev a { display: none; }
+  .tiles { grid-template-columns: repeat(6, 1fr); }
+}
+</style>
+</head>
+<body data-vbh-page="digest" data-vbh-build="digest-v1">
+
+<div data-vbh-header>
+  <div class="range" id="range" role="group" aria-label="Window">
+    <button data-days="7">7 days</button>
+    <button data-days="14" class="active">14 days</button>
+    <button data-days="30">30 days</button>
+  </div>
+  <button class="hdr-btn" id="btnCopy" type="button" title="Copy the digest as plain text">📋 Copy</button>
+  <button class="hdr-btn" id="btnMail" type="button" title="Open a pre-filled email to the meeting team">✉ Email team</button>
+  <button class="hdr-btn gold" type="button" onclick="window.print()">🖨 Print</button>
+</div>
+
+<div class="wrap">
+  <p class="status" id="status">Loading…</p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="sec">
+    <div class="sec-head"><h2>By job</h2><span class="n" id="jobsN"></span></div>
+    <div id="jobs"></div>
+  </div>
+
+  <div class="sec" id="secStale">
+    <div class="sec-head"><h2>Needs a client update</h2><span class="n">no Buildertrend client update in 14+ days</span></div>
+    <div class="plain" id="stale"></div>
+  </div>
+
+  <div class="sec" id="secUnmatched">
+    <div class="sec-head"><h2>In Buildertrend, not in the tracker</h2><span class="n">add these in Projects so they join the agenda</span></div>
+    <div class="plain" id="unmatched"></div>
+  </div>
+
+  <div class="sec" id="secUnclassified">
+    <div class="sec-head"><h2>Emails the parser couldn't place</h2><span class="n" id="unclN"></span></div>
+    <div class="plain" id="unclassified"></div>
+  </div>
+
+  <div class="sec" id="secHealth">
+    <div class="sec-head"><h2>Bridge health</h2></div>
+    <div class="plain" id="health"></div>
+  </div>
+</div>
+
+<div data-vbh-foot></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   BUILDERTREND DIGEST · build digest-v1
+   Everything on this page is read live from Supabase views; nothing is stored.
+     v_bt_events          parsed notifications (+ tracker join)
+     v_bt_unmatched_jobs  Buildertrend jobs with no tracker row
+     v_bt_unclassified    emails the parser couldn't place
+     bt_ingest_runs       ingest audit log
+     projects             active jobs (order + phase)
+   ═══════════════════════════════════════════════════════════════════════ */
+const AGENDA_STAGES = ['solds', 'escrow', 'model'];
+const STALE_DAYS = 14;
+const sb = VBH.sb();
+const $ = (s, r) => (r || document).querySelector(s);
+const esc = VBH.esc;
+
+let days = 14;
+let model = null;   // last built model, reused for copy/email
+
+const fmtDate = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+const fmtMoney = n => { if (n == null || isNaN(Number(n))) return ''; const v = Number(n), a = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return v < 0 ? `($${a})` : `$${a}`; };
+const fmtPeriod = e => {
+  if (!e.period_start || !e.period_end) return fmtDate(e.occurred_at);
+  const a = new Date(e.period_start + 'T12:00:00'), b = new Date(e.period_end + 'T12:00:00');
+  const mo = d => d.toLocaleDateString('en-US', { month: 'short' });
+  return a.getMonth() === b.getMonth() ? `${mo(a)} ${a.getDate()}–${b.getDate()}` : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}`;
+};
+const label = p => [p.job_number, p.address, p.buyer_realtor].filter(Boolean).join(' - ');
+const daysAgo = iso => Math.round((Date.now() - new Date(iso).getTime()) / 86400000);
+
+async function load() {
+  $('#status').textContent = 'Loading…';
+  const since = new Date(Date.now() - days * 86400000);
+  const sinceISO = since.toISOString();
+  const cols = 'id,event_type,job_number,job_name,occurred_at,actor,title,amount,period_start,period_end,summary,link,fields,event_created_at';
+
+  const [projects, events, latest, unmatched, uncl, runs, counts] = await Promise.all([
+    sb.from('projects').select('id,job_number,address,buyer_realtor,stage,status,phase_note,pct_complete').order('job_number'),
+    // dated items in the window, plus undated (CSV-imported) items parsed in the window
+    sb.from('v_bt_events').select(cols).or(`occurred_at.gte.${sinceISO},and(occurred_at.is.null,event_created_at.gte.${sinceISO})`).order('occurred_at', { ascending: false, nullsFirst: false }),
+    sb.from('v_bt_events').select('job_number,occurred_at,period_end,actor,summary,link,fields').eq('event_type', 'client_update').order('occurred_at', { ascending: false }),
+    sb.from('v_bt_unmatched_jobs').select('*'),
+    sb.from('v_bt_unclassified').select('id,received_at,from_address,subject,parse_status').limit(40),
+    sb.from('bt_ingest_runs').select('*').order('id', { ascending: false }).limit(1),
+    sb.from('bt_emails').select('source', { count: 'exact', head: true })
+  ]);
+  for (const r of [projects, events, latest, unmatched, uncl, runs]) if (r.error) throw r.error;
+
+  // latest client update per job (any age)
+  const latestByJob = new Map();
+  (latest.data || []).forEach(e => { if (!latestByJob.has(e.job_number)) latestByJob.set(e.job_number, e); });
+
+  const byJob = new Map();
+  (events.data || []).forEach(e => { if (!e.job_number) return; if (!byJob.has(e.job_number)) byJob.set(e.job_number, []); byJob.get(e.job_number).push(e); });
+
+  const allProjects = projects.data || [];
+  const active = allProjects.filter(p => AGENDA_STAGES.includes((p.stage || '').toLowerCase()));
+  const projByNum = new Map(allProjects.map(p => [(p.job_number || '').toUpperCase(), p]));
+  const activeNums = new Set(active.map(p => (p.job_number || '').toUpperCase()));
+
+  const stale = active.map(p => {
+    const num = (p.job_number || '').toUpperCase();
+    const u = latestByJob.get(num);
+    const age = u ? daysAgo(u.occurred_at) : null;
+    return { p, u, age };
+  }).filter(x => x.age == null || x.age > STALE_DAYS);
+
+  const all = events.data || [];
+  const sum = (type, fn) => all.filter(e => e.event_type === type).reduce((a, e) => a + (fn ? fn(e) : 1), 0);
+  model = {
+    since, days, active, projByNum, byJob, latestByJob, activeNums, stale,
+    unmatched: unmatched.data || [], uncl: uncl.data || [], run: (runs.data || [])[0] || null,
+    totals: {
+      updates: sum('client_update'),
+      coAdded: sum('change_order_added'), coAddedAmt: sum('change_order_added', e => Number(e.amount) || 0),
+      coApproved: sum('change_order_approved'), coApprovedAmt: sum('change_order_approved', e => Number(e.amount) || 0),
+      comments: sum('document_comment'), files: sum('change_order_file'),
+      unclassified: (uncl.data || []).length,
+      emails: counts.count
+    }
+  };
+  render();
+}
+
+function render() {
+  const m = model, t = m.totals;
+  $('#status').innerHTML = `Buildertrend activity since <b>${esc(m.since.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }))}</b> · ${m.active.length} active projects · read live, nothing to save.`;
+
+  $('#tiles').innerHTML = [
+    tile('Client updates', t.updates, 'published by PMs'),
+    tile('COs added', t.coAdded, fmtMoney(t.coAddedAmt)),
+    tile('COs approved', t.coApproved, fmtMoney(t.coApprovedAmt)),
+    tile('Comments', t.comments, 'on documents'),
+    tile('Need an update', m.stale.length, `${STALE_DAYS}+ days quiet`, m.stale.length ? 'warn' : 'ok'),
+    tile('Not in tracker', m.unmatched.length, 'Buildertrend jobs', m.unmatched.length ? 'bad' : 'ok')
+  ].join('');
+
+  // by job — active projects first (tracker order), then any other job numbers that had activity
+  const seen = new Set();
+  const blocks = [];
+  m.active.forEach(p => {
+    const num = (p.job_number || '').toUpperCase(); seen.add(num);
+    blocks.push(jobBlock(num, label(p), p, m.byJob.get(num) || [], m.latestByJob.get(num)));
+  });
+  [...m.byJob.keys()].filter(n => !seen.has(n)).sort().forEach(num => {
+    const evs = m.byJob.get(num), p = m.projByNum.get(num) || null;
+    blocks.push(jobBlock(num, p ? label(p) : (evs[0].job_name || num), p, evs, m.latestByJob.get(num)));
+  });
+  $('#jobs').innerHTML = blocks.join('') || '<div class="empty">No activity in this window.</div>';
+  $('#jobsN').textContent = `${m.active.length} active · ${m.byJob.size} with activity`;
+
+  $('#stale').innerHTML = m.stale.length ? m.stale.map(x => `
+    <div class="row"><b>${esc(x.p.job_number)}</b> ${esc([x.p.address, x.p.buyer_realtor].filter(Boolean).join(' · '))}
+      <span class="r">${x.u ? `last update ${esc(fmtDate(x.u.occurred_at))} · ${x.age} days · ${esc(x.u.actor || '')}` : 'no client update on record'}</span></div>`).join('')
+    : '<div class="empty">Every active project has a client update within ' + STALE_DAYS + ' days.</div>';
+
+  $('#unmatched').innerHTML = m.unmatched.length ? m.unmatched.map(u => `
+    <div class="row"><b>${esc(u.job_number)}</b> ${esc(String(u.job_name || '').replace(/^[RM]\d+\s*-\s*/i, ''))}
+      <span class="r">${u.events} notification${u.events === 1 ? '' : 's'}${u.last_seen ? ' · last ' + esc(fmtDate(u.last_seen)) : ''} · <a href="/projects?q=${encodeURIComponent(u.job_number)}">add in Projects ↗</a></span></div>`).join('')
+    : '<div class="empty">Every Buildertrend job has a tracker row.</div>';
+
+  $('#unclN').textContent = m.uncl.length ? `${m.uncl.length} shown · newest first` : '';
+  $('#unclassified').innerHTML = m.uncl.length ? m.uncl.map(u => `
+    <div class="row">${esc(u.subject || '(no subject)')}<span class="r">${esc((u.from_address || '').replace(/^\/o=.*cn=/i, ''))}${u.received_at ? ' · ' + esc(fmtDate(u.received_at)) : ''}</span></div>`).join('')
+    : '<div class="empty">Nothing unclassified.</div>';
+
+  const r = m.run;
+  $('#health').innerHTML = r ? `
+    <div class="row"><b>Last ingest run</b> ${esc(r.source)} · started ${esc(new Date(r.started_at).toLocaleString('en-US'))}
+      <span class="r">${r.fetched} fetched · ${r.inserted} new · ${r.duplicates} dup · ${r.parsed_ok} parsed · ${r.unclassified} unclassified · ${r.errors} error${r.errors === 1 ? '' : 's'}${r.error ? ' · ' + esc(r.error) : ''}</span></div>`
+    : `<div class="row"><b>Live ingest not running yet</b> — ${t.emails} email${t.emails === 1 ? '' : 's'} loaded from Outlook exports. Automatic polling starts when IT approves the Graph app registration (docs/it-request-graph-mail-read.md).</div>`;
+}
+
+function tile(lbl, val, sub, tone) {
+  return `<div class="tile ${tone || ''}"><div class="lbl">${esc(lbl)}</div><div class="val">${esc(String(val))}</div><div class="sub">${esc(sub || '')}</div></div>`;
+}
+
+function jobBlock(num, title, p, evs, upd) {
+  const feed = evs.filter(e => e.event_type !== 'client_update');
+  const age = upd ? daysAgo(upd.occurred_at) : null;
+  const chips = [];
+  if (p && p.phase_note) chips.push(`<span class="chip">${esc(p.phase_note)}</span>`);
+  if (p && p.pct_complete != null) chips.push(`<span class="chip">${Math.round(p.pct_complete * 100)}%</span>`);
+  if (!upd) chips.push('<span class="chip none">no client update</span>');
+  else if (age > STALE_DAYS) chips.push(`<span class="chip stale">${Math.floor(age / 7)} wk since update</span>`);
+  if (!p) chips.push('<span class="chip none">not in tracker</span>');
+  else if (!AGENDA_STAGES.includes((p.stage || '').toLowerCase())) chips.push(`<span class="chip">${esc(p.stage)}</span>`);
+
+  const parts = title.split(' - ');
+  const updHTML = upd ? `
+    <div class="upd${age > STALE_DAYS ? ' stale' : ''}">
+      <div class="upd-head"><b>Client update · ${esc(fmtPeriod(upd))}</b><span class="who">${esc(upd.actor || '')}</span>${upd.link ? `<a href="${esc(upd.link)}" target="_blank" rel="noopener">Open in Buildertrend ↗</a>` : ''}</div>
+      ${esc(upd.summary || '')}${upd.fields && upd.fields.truncated ? '…' : ''}
+    </div>` : '';
+  const feedHTML = feed.length ? `<div class="evs">${feed.map(evLine).join('')}</div>` : '';
+  const quiet = !upd && !feed.length ? '<div class="quiet">Nothing from Buildertrend for this job.</div>' : (!feed.length && upd && age > model.days ? `<div class="quiet">No new items in the last ${model.days} days — latest update shown for context.</div>` : '');
+
+  return `
+  <div class="job">
+    <div class="job-head">
+      <span class="job-num">${esc(parts[0])}</span>
+      <span class="job-title">${esc(parts.slice(1, 2).join(''))}</span>
+      ${parts[2] ? `<span class="job-client">${esc(parts.slice(2).join(' - '))}</span>` : ''}
+      <span class="job-meta">${chips.join('')}</span>
+    </div>
+    <div class="job-body">${updHTML}${feedHTML}${quiet}</div>
+  </div>`;
+}
+
+function evLine(e) {
+  const when = e.occurred_at ? `<span class="when">${esc(fmtDate(e.occurred_at))}</span>` : '<span class="when">undated</span>';
+  const link = e.link ? ` <a href="${esc(e.link)}" target="_blank" rel="noopener">↗</a>` : '';
+  const who = e.actor ? ` · ${esc(e.actor.split(' ')[0])}` : '';
+  switch (e.event_type) {
+    case 'change_order_added':    return `<div class="ev"><span class="ico">＋</span><span><span class="tag">CO added</span>${esc(e.title || '')} <b>${fmtMoney(e.amount)}</b>${who}${link}</span>${when}</div>`;
+    case 'change_order_approved': return `<div class="ev"><span class="ico ok">✓</span><span><span class="tag">CO approved</span>${e.fields && e.fields.co_number ? '#' + esc(e.fields.co_number) + ' ' : ''}${esc(e.title || '')} <b>${fmtMoney(e.amount)}</b>${link}</span>${when}</div>`;
+    case 'change_order_file':     return `<div class="ev"><span class="ico">📎</span><span><span class="tag">CO file</span>${esc(e.title || '')} ${e.amount != null ? '<b>' + fmtMoney(e.amount) + '</b>' : ''}${who}${link}</span>${when}</div>`;
+    case 'document_comment':      return `<div class="ev"><span class="ico">💬</span><span><span class="tag">Comment</span>${esc((e.actor || '').split(' ')[0])} on <i>${esc(e.title || 'document')}</i>${e.summary ? ': “' + esc(e.summary) + '”' : ''}${link}</span>${when}</div>`;
+    default:                      return `<div class="ev"><span class="ico">•</span><span><span class="tag">${esc(e.event_type)}</span>${esc(e.title || e.summary || '')}${link}</span>${when}</div>`;
+  }
+}
+
+/* ── plain-text version for Copy / Email ── */
+function digestText() {
+  const m = model, t = m.totals, L = [];
+  L.push(`VAN BUSKIRK HOMES · BUILDERTREND DIGEST`);
+  L.push(`Since ${m.since.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} · ${m.active.length} active projects`);
+  L.push(`${t.updates} client updates · ${t.coAdded} COs added ${fmtMoney(t.coAddedAmt)} · ${t.coApproved} COs approved ${fmtMoney(t.coApprovedAmt)} · ${t.comments} comments`);
+  L.push('');
+  m.active.forEach(p => {
+    const num = (p.job_number || '').toUpperCase();
+    const upd = m.latestByJob.get(num), evs = (m.byJob.get(num) || []).filter(e => e.event_type !== 'client_update');
+    L.push(`${label(p)}${p.phase_note ? ` — ${p.phase_note}` : ''}${p.pct_complete != null ? ` ${Math.round(p.pct_complete * 100)}%` : ''}`);
+    if (upd) {
+      const age = daysAgo(upd.occurred_at);
+      L.push(`  Update ${fmtPeriod(upd)} (${upd.actor || ''})${age > STALE_DAYS ? ` — ${Math.floor(age / 7)} wk ago` : ''}: ${upd.summary || ''}${upd.fields && upd.fields.truncated ? '…' : ''}`);
+    } else L.push('  No client update on record.');
+    evs.forEach(e => {
+      const who = e.actor ? ` (${e.actor.split(' ')[0]})` : '';
+      if (e.event_type === 'change_order_added') L.push(`  + CO added: ${e.title} ${fmtMoney(e.amount)}${who}`);
+      else if (e.event_type === 'change_order_approved') L.push(`  ✓ CO approved: ${e.fields && e.fields.co_number ? '#' + e.fields.co_number + ' ' : ''}${e.title} ${fmtMoney(e.amount)}`);
+      else if (e.event_type === 'document_comment') L.push(`  💬 ${(e.actor || '').split(' ')[0]} on ${e.title}: “${e.summary || ''}”`);
+      else L.push(`  • ${e.event_type}: ${e.title || e.summary || ''}`);
+    });
+    L.push('');
+  });
+  if (m.stale.length) { L.push('NEEDS A CLIENT UPDATE'); m.stale.forEach(x => L.push(`  ${x.p.job_number} ${x.p.address || ''}${x.u ? ` — last ${fmtDate(x.u.occurred_at)} (${x.age} days)` : ' — none on record'}`)); L.push(''); }
+  if (m.unmatched.length) { L.push('IN BUILDERTREND, NOT IN THE TRACKER'); m.unmatched.forEach(u => L.push(`  ${u.job_number} ${String(u.job_name || '').replace(/^[RM]\d+\s*-\s*/i, '')}`)); L.push(''); }
+  L.push(`— ${VBH.ROLES.opsDirector.title}, ${VBH.COMPANY.name} · vbchomes.net/digest`);
+  return L.join('\n');
+}
+
+async function copyText() {
+  try { await navigator.clipboard.writeText(digestText()); VBH.toast('✓ Digest copied'); }
+  catch (e) { VBH.toast('Copy blocked — use Print instead'); }
+}
+function emailTeam() {
+  const to = VBH.MEETING.team.map(p => p.email).filter(Boolean).join(';');
+  const subject = `Buildertrend digest — ${model.since.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  const body = digestText();
+  const owa = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const win = window.open(owa, '_blank');
+  if (!win) location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+/* ── wire up ── */
+$('#range').addEventListener('click', e => {
+  const b = e.target.closest('button[data-days]'); if (!b) return;
+  days = parseInt(b.dataset.days, 10);
+  document.querySelectorAll('#range button').forEach(x => x.classList.toggle('active', x === b));
+  load().catch(err => { $('#status').textContent = 'Load failed: ' + (err.message || err); });
+});
+$('#btnCopy').addEventListener('click', copyText);
+$('#btnMail').addEventListener('click', emailTeam);
+VBH.auth.require(() => load().catch(err => { $('#status').textContent = 'Load failed: ' + (err.message || err); console.error(err); }));
+</script>
+</body>
+</html>
