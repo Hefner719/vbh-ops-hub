@@ -101,7 +101,7 @@ Microsoft Graph poll of Jordan's Outlook **Buildertrend** folder from a Supabase
 ## Roadmap (in order)
 
 1. Bridge live: IT approves Graph app → Edge Function deployed → `pg_cron` every 15 min → parser tuned on live mail.
-2. `meeting.html` job cards show a read-only "since last meeting" strip from `v_bt_job_activity`; auto-rollover on first open of a new meeting week; auto-add cards for active projects with Buildertrend activity.
+2. ~~meeting.html integration~~ — done in `meeting-v6`: auto roll-forward to the coming meeting day on open; every solds/escrow/model tracker project gets a card (`ensureActiveProjectCards`); read-only Buildertrend strip per card from `v_bt_events`; unmatched-jobs banner from `v_bt_unmatched_jobs`. Buildertrend data is read live, never stored in the meeting JSON.
 3. `digest.html` in the hub + Friday/Monday email.
 4. Real login: Supabase Auth (magic link) + `profiles.role` with roles Owner, Ops Admin, Manager, Field, Labor; RLS on every table; retire the shared password. The shell gate is the single swap point.
 5. ~~Hub cleanup~~ — done in `cleanup-v1` / `shell-v1` (shared logo, migration pages archived, one config, shared chrome, build stamps).
