@@ -35,7 +35,7 @@ One shared password, `VBH.PASSWORD`, checked by the shell gate and remembered in
 ## Pages (all in `public/`)
 
 - `hub.html` — landing page; tiles render from `VBH.PAGES`
-- `meeting.html` — weekly production meeting agenda (build `meeting-v5`), Supabase-backed (`meetings` JSON snapshots, `project_updates` history). Keeps its own toolbar under the shared nav. State object `S` is the only source of truth; the DOM is a projection. Read its architecture comment before touching it.
+- `meeting.html` — weekly production meeting agenda (build `meeting-v6`), Supabase-backed (`meetings` JSON snapshots, `project_updates` history). Keeps its own toolbar under the shared nav. State object `S` is the only source of truth; the DOM is a projection. Read its architecture comment before touching it.
 - `projects.html` — project tracker (`projects`)
 - `leads.html` — pipeline with probability pills and archive (`leads`)
 - `weeklyupdate.html` — exec briefing for ownership (no hyphen in the filename); recipients/sender come from `VBH.EXEC_UPDATE`
