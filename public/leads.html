@@ -1,85 +1,28 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>VBH Leads Tracker</title>
+<title>Leads Tracker · VBH Ops Hub</title>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="VBH Dashboards"/>
+<meta name="apple-mobile-web-app-title" content="VBH Hub"/>
 <meta name="theme-color" content="#1B3564"/>
-<link rel="manifest" href="/manifest-dash.json"/>
-<link rel="apple-touch-icon" href="/icon-192.png"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-hub-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="vbh-config.js"></script>
+<script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --navy: #1B3564;
-  --navy-dark: #122548;
-  --steel: #6B8EB5;
-  --light: #EBF0F7;
-  --mid: #AEC0D6;
-  --white: #ffffff;
-  --border: #d0dded;
-  --gold: #C9A84C;
-  --gold-soft: #E5D08A;
-  --green: #22c55e;
-  --amber: #f59e0b;
-  --red: #ef4444;
-  --purple: #8b5cf6;
-}
-body { font-family: 'Lato', sans-serif; background: var(--light); color: var(--navy); min-height: 100vh; display: flex; flex-direction: column; }
+*, *::before, *::after { margin: 0; padding: 0; }
+body { color: var(--navy); min-height: 100vh; display: flex; flex-direction: column; }
 
-/* ── PASSWORD GATE ── */
-#gate { position: fixed; inset: 0; background: linear-gradient(160deg, var(--navy-dark) 0%, var(--navy) 100%); z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 24px; }
-.gate-logo { height: 80px; object-fit: contain; filter: brightness(0) invert(1); }
-.gate-box { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.18); border-radius: 14px; padding: 40px 48px; display: flex; flex-direction: column; align-items: center; gap: 16px; min-width: 340px; backdrop-filter: blur(8px); }
-.gate-box h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.7rem; font-weight: 700; color: #fff; letter-spacing: .03em; }
-.gate-box p { font-size: .85rem; color: var(--mid); }
-.gate-box input { width: 100%; padding: 11px 14px; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 1rem; outline: none; letter-spacing: .08em; }
-.gate-box input:focus { border-color: var(--steel); }
-.gate-box button { width: 100%; padding: 12px; background: var(--steel); color: #fff; border: none; border-radius: 8px; font-family: 'Lato', sans-serif; font-size: .95rem; font-weight: 700; cursor: pointer; letter-spacing: .06em; text-transform: uppercase; transition: background .2s; }
-.gate-box button:hover { background: #5a7aa3; }
-.gate-err { color: #fca5a5; font-size: .82rem; display: none; }
 
-/* ── NAV ── */
-.nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; flex-shrink: 0; overflow-x: auto; }
-.nav::-webkit-scrollbar { display: none; }
-.nav-logo { padding: 0 16px; font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: .95rem; color: #fff; border-right: 1px solid rgba(255,255,255,0.12); height: 100%; display: flex; align-items: center; white-space: nowrap; letter-spacing: .04em; flex-shrink: 0; }
-.nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); transition: all .2s; white-space: nowrap; flex-shrink: 0; }
-.nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
-.nav-space { flex: 1; }
-.nav-clock { padding: 0 16px; font-size: .72rem; color: var(--mid); font-weight: 700; letter-spacing: .06em; white-space: nowrap; }
-.nav-back { display: flex; align-items: center; height: 100%; padding: 0 16px; color: rgba(255,255,255,0.75); text-decoration: none; font-size: .74rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.12); transition: all .2s; white-space: nowrap; flex-shrink: 0; }
-.nav-back:hover { background: rgba(255,255,255,0.1); color: #fff; }
-
-/* ── HEADER ── */
-#app { display: none; flex-direction: column; min-height: 100vh; }
-header {
-  background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 60%, #1e4080 100%);
-  padding: 0 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 3px 18px rgba(18,36,72,0.35);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  flex-shrink: 0;
-  min-height: 72px;
-}
-header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, #C9A84C 20%, #E5D08A 50%, #C9A84C 80%, transparent 100%); }
-.header-left { display: flex; align-items: center; gap: 20px; }
-.header-logo { height: 52px; object-fit: contain; filter: brightness(0) invert(1); }
-.header-divider { width: 1px; height: 38px; background: rgba(255,255,255,0.2); }
-.header-title { color: #fff; }
-.header-title h1 { font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 700; letter-spacing: .03em; line-height: 1.1; }
-.header-title span { font-size: .72rem; color: var(--mid); letter-spacing: .1em; text-transform: uppercase; font-weight: 400; }
-.header-right { display: flex; align-items: center; gap: 10px; }
+#app { display: flex; flex-direction: column; flex: 1; }
+.hdr-clock { font-size: .72rem; color: var(--mid); font-weight: 700; letter-spacing: .06em; white-space: nowrap; margin-right: 8px; }
 .btn { padding: 8px 18px; border-radius: 7px; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; font-family: 'Lato', sans-serif; font-size: .78rem; font-weight: 700; cursor: pointer; letter-spacing: .06em; text-transform: uppercase; transition: all .2s; white-space: nowrap; }
 .btn:hover { background: rgba(255,255,255,0.2); }
 .btn-primary { background: var(--steel); border-color: var(--steel); }
@@ -216,51 +159,16 @@ header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; h
 .toast.show { transform: translateY(0); opacity: 1; }
 </style>
 </head>
-<body>
-
-<!-- GATE -->
-<div id="gate">
-  <img class="gate-logo" src="/img/vbh-logo.svg" alt="Van Buskirk Homes"/>
-  <div class="gate-box">
-    <h2>Leads Tracker</h2>
-    <p>Authorized personnel only</p>
-    <input type="password" id="pw" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()"/>
-    <button onclick="checkPw()">Unlock</button>
-    <div class="gate-err" id="pw-err">Incorrect password — try again</div>
-  </div>
-</div>
+<body data-vbh-page="leads" data-vbh-build="leads-v2">
 
 <!-- APP -->
 <div id="app">
-  <nav class="nav">
-    <a class="nav-back" href="/hub.html">← Hub</a>
-    <a href="/">Work Order</a>
-    <a href="/dashboard.html">Dashboard</a>
-    <a href="/leads.html" class="active">Leads</a>
-    <a href="/intake.html">Intake</a>
-    <a href="/projects.html">Projects</a>
-    <a href="/gantt.html">Timeline</a>
-    <a href="/meeting.html">Meeting</a>
-    <a href="/equipment.html">Assets</a>
-    <div class="nav-space"></div>
-    <div class="nav-clock" id="clock"></div>
-  </nav>
-
-  <header>
-    <div class="header-left">
-      <img class="header-logo" src="/img/vbh-logo.svg" alt="Van Buskirk Homes"/>
-      <div class="header-divider"></div>
-      <div class="header-title">
-        <h1>Leads Pipeline</h1>
-        <span>Van Buskirk Homes</span>
-      </div>
-    </div>
-    <div class="header-right">
-      <button class="btn" id="archive-toggle" onclick="toggleArchiveView()">📂 Archive</button>
-      <button class="btn" onclick="exportLeads()">Export JSON</button>
-      <button class="btn btn-primary" onclick="openModal(null)">+ New Lead</button>
-    </div>
-  </header>
+  <div data-vbh-header>
+    <span class="hdr-clock" id="clock"></span>
+    <button class="btn" id="archive-toggle" onclick="toggleArchiveView()">📂 Archive</button>
+    <button class="btn" onclick="exportLeads()">Export JSON</button>
+    <button class="btn btn-primary" onclick="openModal(null)">+ New Lead</button>
+  </div>
 
   <div class="pipeline-bar">
     <span>Pipeline:</span>
@@ -407,27 +315,9 @@ const ACCENT = ['#3b82f6','#22c55e','#f59e0b','#8b5cf6','#06b6d4','#10b981','#ef
 
 let leads = [], currentId = null, currentProb = 0, filterStatus = '', logEntries = [], viewArchived = false;
 
-// ── AUTH ──
-function checkPw() {
-  if (document.getElementById('pw').value === VBH.PASSWORD) {
-    sessionStorage.setItem('vbh','1');
-    document.getElementById('gate').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    init();
-  } else {
-    document.getElementById('pw-err').style.display = 'block';
-    document.getElementById('pw').value = '';
-  }
-}
 
-window.onload = () => {
-  if (sessionStorage.getItem('vbh') === '1') {
-    document.getElementById('gate').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    init();
-  }
-  document.getElementById('pw').focus();
-};
+/* The shared shell owns the gate; init runs once the page is unlocked. */
+VBH.auth.require(init);
 
 // ── INIT ──
 function init() {
@@ -871,5 +761,6 @@ function toast(msg, bg) {
   setTimeout(()=>t.classList.remove('show'),3000);
 }
 </script>
+<div data-vbh-foot></div>
 </body>
 </html>

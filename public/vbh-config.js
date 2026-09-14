@@ -11,8 +11,25 @@
      4. roles & rosters  → work-order requestors, crew, meeting team
      5. window.VBH_CONFIG (read by meeting.html) and legacy globals
    ═══════════════════════════════════════════════════════════════════════════ */
+/* Named roles. Pages reference roles, never people, so a personnel change is
+   a one-line edit here. */
+const VBH_ROLES = {
+  opsDirector: { title: 'Director of Operations', name: 'Jordan Hefner',      email: 'jordan.hefner@vanbuskirkco.com' },
+  ceo:         { title: 'CEO',                    name: 'Steve Van Buskirk',  email: 'Steve@vanbuskirkco.com' },
+  coo:         { title: 'COO',                    name: 'Kelly Boyd',         email: 'kelly.boyd@vanbuskirkco.com' }
+};
+
 const VBH = {
   BUILD: 'shell-v1',
+  ROLES: VBH_ROLES,
+
+  /* Weekly Executive Update (weeklyupdate.html): who it goes to and who signs it. */
+  EXEC_UPDATE: {
+    recipients: [VBH_ROLES.ceo, VBH_ROLES.coo],
+    sender: VBH_ROLES.opsDirector,
+    weekday: 3,          /* Wednesday */
+    time: '4:30 PM'
+  },
 
   /* ── 1 · connection ─────────────────────────────────────────────────────
      The anon key is public by design (it ships to every browser); row-level
@@ -120,9 +137,9 @@ const VBH = {
   WORK_ORDERS: {
     /* Role: who approves and dispatches work orders, is cc'd on completions,
        and signs the notification emails. */
-    approverName:  'Jordan Hefner',
-    approverTitle: 'Director of Operations',
-    approverEmail: 'jordan.hefner@vanbuskirkco.com',
+    approverName:  VBH_ROLES.opsDirector.name,
+    approverTitle: VBH_ROLES.opsDirector.title,
+    approverEmail: VBH_ROLES.opsDirector.email,
     /* People who may submit a request (dropdown on the public form). */
     requestors: [
       { name:'Brandt', email:'Brandt.williams@vanbuskirkco.com' },
