@@ -5,7 +5,7 @@
      1. design tokens  (colors, type, radii, shadows)
      2. site chrome    (.vbh-nav, .vbh-header, .vbh-foot) — injected by vbh-shell.js
      3. the gate       (.vbh-gate) — injected by vbh-shell.js on protected pages
-     4. a small set of shared components pages may opt into (.btn, .badge, .card)
+     4. a small set of shared components pages may opt into (.vbh-btn, .vbh-badge, .vbh-card)
    Page-specific layout stays in the page. Don't put page rules here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -161,8 +161,8 @@ body[data-vbh-pending] > :not(.vbh-gate) { visibility: hidden; }
 .vbh-gate-foot { font-size: .72rem; color: rgba(255,255,255,0.45); letter-spacing: .04em; }
 .vbh-gate-foot a { color: var(--gold-soft); text-decoration: none; }
 
-/* ─── 4 · SHARED COMPONENTS (opt-in) ────────────────────────────────────── */
-.btn {
+/* ─── 4 · SHARED COMPONENTS (opt-in, namespaced so legacy page classes like .btn/.card/.badge are untouched) ── */
+.vbh-btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 14px; border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: var(--surface); color: var(--navy);
@@ -170,28 +170,28 @@ body[data-vbh-pending] > :not(.vbh-gate) { visibility: hidden; }
   cursor: pointer; text-decoration: none; white-space: nowrap;
   transition: background .15s, border-color .15s, box-shadow .15s, transform .08s;
 }
-.btn:hover { background: var(--surface-2); border-color: var(--steel); }
-.btn:active { transform: translateY(1px); }
-.btn.btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
-.btn.btn-primary:hover { background: var(--navy-dark); }
-.btn.btn-gold { background: var(--gold); border-color: var(--gold); color: #fff; }
-.btn.btn-gold:hover { background: var(--gold-dk); border-color: var(--gold-dk); }
-.btn.btn-ghost { background: transparent; border-color: rgba(255,255,255,0.28); color: #fff; }
-.btn.btn-ghost:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.45); }
-.btn.btn-sm { padding: 5px 10px; font-size: .72rem; }
+.vbh-btn:hover { background: var(--surface-2); border-color: var(--steel); }
+.vbh-btn:active { transform: translateY(1px); }
+.vbh-btn.vbh-btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+.vbh-btn.vbh-btn-primary:hover { background: var(--navy-dark); }
+.vbh-btn.vbh-btn-gold { background: var(--gold); border-color: var(--gold); color: #fff; }
+.vbh-btn.vbh-btn-gold:hover { background: var(--gold-dk); border-color: var(--gold-dk); }
+.vbh-btn.vbh-btn-ghost { background: transparent; border-color: rgba(255,255,255,0.28); color: #fff; }
+.vbh-btn.vbh-btn-ghost:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.45); }
+.vbh-btn.vbh-btn-sm { padding: 5px 10px; font-size: .72rem; }
 
-.badge {
+.vbh-badge {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 2px 9px; border-radius: 999px;
   font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
   background: var(--light); color: var(--navy);
 }
-.badge.ok    { background: #dcfce7; color: var(--green-dk); }
-.badge.warn  { background: #fef3c7; color: var(--amber-dk); }
-.badge.bad   { background: #fee2e2; color: var(--red-dk); }
-.badge.info  { background: #dbeafe; color: var(--blue-dk); }
+.vbh-badge.ok    { background: #dcfce7; color: var(--green-dk); }
+.vbh-badge.warn  { background: #fef3c7; color: var(--amber-dk); }
+.vbh-badge.bad   { background: #fee2e2; color: var(--red-dk); }
+.vbh-badge.info  { background: #dbeafe; color: var(--blue-dk); }
 
-.card {
+.vbh-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--shadow-sm);
 }

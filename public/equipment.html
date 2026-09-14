@@ -1,36 +1,26 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Asset Tracker — Van Buskirk Homes</title>
+<meta name="theme-color" content="#1B3564">
+<title>Asset Tracker · VBH Ops Hub</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-hub-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <style>
   :root{
-    --navy:#1B3564; --steel:#6B8EB5; --gold:#C9A84C; --light:#EBF0F7;
     --ok:#2E7D5B; --warn:#C9861E; --bad:#B23A3A; --out:#7A6BB0;
-    --ink:#1c2733; --muted:#5b6b7d; --line:#d6e0ee; --card:#ffffff; --bg:#f4f7fc;
+    --card:#ffffff; --bg:#f4f7fc;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-    font-family:'Lato',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
-  h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;margin:0;}
+  body{background:var(--bg);}
+  h1,h2,h3{font-family:var(--font-head);font-weight:600;margin:0;}
 
-  header{background:var(--navy);color:#fff;padding:18px 26px;display:flex;
-    align-items:center;gap:18px;flex-wrap:wrap;}
-  header .brand{display:flex;align-items:center;gap:14px;}
-  header .logo{width:44px;height:44px;border-radius:6px;background:var(--gold);
-    display:flex;align-items:center;justify-content:center;color:var(--navy);
-    font-family:'Cormorant Garamond',serif;font-weight:700;font-size:22px;}
-  header h1{font-size:26px;letter-spacing:.3px;color:#fff;}
-  header .sub{color:var(--light);font-size:13px;opacity:.85;}
-  header nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;}
-  header nav a{color:var(--light);text-decoration:none;font-size:13px;
-    padding:7px 12px;border-radius:6px;}
-  header nav a:hover{background:rgba(255,255,255,.12);color:#fff;}
-  header nav a.active{background:var(--gold);color:var(--navy);font-weight:700;}
 
   .wrap{max-width:1240px;margin:0 auto;padding:22px 26px 60px;}
 
@@ -106,53 +96,14 @@
   .banner b{color:var(--navy);}
   @media(max-width:720px){
     .hide-sm{display:none;}
-    header nav{width:100%;margin-left:0;}
   }
 
-/* ===== VBH shared top nav (leads pattern + hub gold) ===== */
-.vbh-nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; overflow-x: auto; }
-.vbh-nav::-webkit-scrollbar { display: none; }
-.vbh-nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-family: 'Lato', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
-.vbh-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.vbh-nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
-.vbh-nav a.vbh-back { color: rgba(255,255,255,0.78); border-right: 1px solid rgba(255,255,255,0.14); }
-.vbh-band { background: linear-gradient(135deg, #122548 0%, #1B3564 60%, #1e4080 100%); padding: 10px 32px; min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: relative; }
-.vbh-band::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, #C9A84C 20%, #E5D08A 50%, #C9A84C 80%, transparent 100%); }
-.vbh-band .vb-left { display: flex; align-items: center; gap: 20px; }
-.vbh-band .vb-logo { height: 52px; object-fit: contain; filter: brightness(0) invert(1); }
-.vbh-band .vb-div { width: 1px; height: 38px; background: rgba(255,255,255,0.2); }
-.vbh-band .vb-title h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.5rem; font-weight: 700; color: #fff; letter-spacing: .03em; line-height: 1.1; margin: 0; }
-.vbh-band .vb-title span { font-size: .72rem; color: #AEC0D6; letter-spacing: .1em; text-transform: uppercase; font-weight: 400; }
-.vbh-band .vb-right { display: flex; align-items: center; gap: 10px; }
 </style>
 </head>
-<body>
-<nav class="vbh-nav">
-  <a class="vbh-back" href="/hub.html">← Hub</a>
-  <a href="/">Work Order</a>
-  <a href="/dashboard.html">Dashboard</a>
-  <a href="/leads.html">Leads</a>
-  <a href="/intake.html">Intake</a>
-  <a href="/projects.html">Projects</a>
-  <a href="/gantt.html">Timeline</a>
-  <a href="/meeting.html">Meeting</a>
-  <a href="/equipment.html" class="active">Assets</a>
-</nav>
-<header class="vbh-band">
-  <div class="vb-left">
-    <img class="vb-logo" src="/img/vbh-logo.svg" alt="Van Buskirk Homes"/>
-    <div class="vb-div"></div>
-    <div class="vb-title">
-      <h1>Asset Tracker</h1>
-      <span>Signage &middot; Cameras &middot; Equipment</span>
-    </div>
-  </div>
-</header>
+<body data-vbh-page="equipment" data-vbh-build="equipment-v2">
+<div data-vbh-header></div>
 
 <div class="wrap">
-  <div class="banner" id="connBanner">
-    <b>One-time setup:</b> Run the SQL in the header comment of this file's script to create the <b>assets</b> table in Supabase. Credentials are already wired. Until the table exists, saves will error and the tracker shows demo data.
-  </div>
 
   <div class="tabs">
     <button class="tab active" data-type="signage" onclick="switchTab('signage')">Signage <span class="count" id="c-signage">0</span></button>
@@ -270,8 +221,8 @@
      alter table assets add column if not exists location text;
    ===================================================================== */
 
-const SUPABASE_URL  = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseUrl)  || 'https://bppirsahciuxrqzitfxa.supabase.co';
-const SUPABASE_ANON = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseAnon) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwcGlyc2FoY2l1eHJxeml0ZnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTExMjcsImV4cCI6MjA5NTk4NzEyN30.Yy3en8gNoTPSVkztlGr6XbUq6ZU3-NHJ4TUIVnZQ4eE';
+const SUPABASE_URL  = VBH.SUPABASE_URL;
+const SUPABASE_ANON = VBH.SUPABASE_KEY;
 
 let sb = null;
 if (SUPABASE_URL && SUPABASE_ANON) {
@@ -567,11 +518,12 @@ document.getElementById('overlay').addEventListener('click',e=>{
 
 /* ---------------- init ---------------- */
 (async function init(){
-  if(sb) document.getElementById('connBanner').style.display='none';
+
   await loadProjects();
   await loadItems();
   render();
 })();
 </script>
+<div data-vbh-foot></div>
 </body>
 </html>

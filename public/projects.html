@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -8,159 +8,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="VBH Projects"/>
 <meta name="theme-color" content="#1B3564"/>
-<title>VBH Projects Tracker</title>
+<title>Projects Tracker · VBH Ops Hub</title>
 <link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-hub-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --navy:      #1B3564;
-  --navy-dark: #122548;
-  --navy-deep: #0B1A33;
-  --steel:     #6B8EB5;
-  --light:     #EBF0F7;
-  --mid:       #AEC0D6;
-  --border:    #d0dded;
-  --white:     #ffffff;
-  --gold:      #C9A84C;
-  --gold-soft: #E5D08A;
-  --green:     #22c55e;
-  --green-dk:  #15803d;
-  --amber:     #f59e0b;
-  --amber-dk:  #b45309;
-  --red:       #ef4444;
-  --purple:    #8b5cf6;
-  --purple-dk: #6d28d9;
-  --ink:       #1a1a1a;
-  --muted:     #6b7280;
-  --shadow-sm: 0 1px 2px rgba(11,26,51,.06), 0 2px 4px rgba(11,26,51,.04);
-  --shadow:    0 1px 3px rgba(11,26,51,.08), 0 8px 24px rgba(11,26,51,.06);
-  --shadow-lg: 0 4px 12px rgba(11,26,51,.12), 0 20px 48px rgba(11,26,51,.14);
-}
-html, body { height: 100%; }
-body {
-  font-family: 'Lato', system-ui, sans-serif;
-  background: var(--light);
-  color: var(--ink);
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+*, *::before, *::after { margin: 0; padding: 0; }
 
-/* ============ PASSWORD GATE ============ */
-#gate {
-  position: fixed; inset: 0; z-index: 1000;
-  background:
-    radial-gradient(1200px 800px at 20% 0%, rgba(107,142,181,0.25), transparent 60%),
-    radial-gradient(900px 700px at 100% 100%, rgba(201,168,76,0.10), transparent 50%),
-    linear-gradient(160deg, var(--navy-deep) 0%, var(--navy-dark) 60%, var(--navy) 100%);
-  display: flex; align-items: center; justify-content: center; flex-direction: column;
-  gap: 28px; padding: 24px;
-}
-.gate-logo { height: 92px; object-fit: contain; filter: brightness(0) invert(1); opacity: .95; }
-.gate-box {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.18);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-radius: 18px;
-  padding: 40px 48px;
-  display: flex; flex-direction: column; align-items: center; gap: 16px;
-  min-width: 360px; max-width: 92vw;
-  box-shadow: 0 30px 80px rgba(0,0,0,.4);
-}
-.gate-box h2 {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 1.85rem; font-weight: 700; color: #fff; letter-spacing: .03em;
-}
-.gate-box .sub { font-size: .85rem; color: var(--mid); letter-spacing: .02em; }
-.gate-box .accent-line { width: 60px; height: 2px; background: var(--gold); border-radius: 2px; margin: 4px 0 8px; }
-.gate-box input {
-  width: 100%; padding: 13px 16px;
-  border: 1.5px solid rgba(255,255,255,0.22);
-  border-radius: 10px; background: rgba(255,255,255,0.08);
-  color: #fff; font-family: inherit; font-size: 15px;
-  transition: border-color .15s, background .15s;
-}
-.gate-box input::placeholder { color: rgba(255,255,255,0.55); }
-.gate-box input:focus { outline: none; border-color: var(--gold); background: rgba(255,255,255,0.12); }
-.gate-box button {
-  width: 100%; padding: 13px 16px; border: 0; border-radius: 10px;
-  background: linear-gradient(180deg, var(--gold) 0%, #b89438 100%);
-  color: #fff; font-family: inherit; font-weight: 700; font-size: 14px;
-  letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
-  transition: transform .08s, box-shadow .15s;
-  box-shadow: 0 4px 14px rgba(201,168,76,.4);
-}
-.gate-box button:hover { box-shadow: 0 6px 20px rgba(201,168,76,.55); }
-.gate-box button:active { transform: translateY(1px); }
-.gate-err { color: #ffb4b4; font-size: 13px; min-height: 18px; }
-
-/* ============ HEADER ============ */
-header.topbar {
-  background:
-    radial-gradient(800px 300px at 50% -50%, rgba(255,255,255,0.06), transparent 70%),
-    linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%);
-  color: #fff; padding: 18px 28px 16px;
-  display: flex; align-items: center; gap: 24px;
-  position: sticky; top: 0; z-index: 50;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 4px 18px rgba(11,26,51,.18);
-}
-header.topbar::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent 0%, var(--gold) 25%, var(--gold-soft) 50%, var(--gold) 75%, transparent 100%);
-}
-.brand { display: flex; align-items: center; gap: 14px; }
-.brand img { height: 44px; filter: brightness(0) invert(1); opacity: .96; }
-.brand-text {
-  display: flex; flex-direction: column; line-height: 1;
-}
-.brand-text .name {
-  font-family: 'Cormorant Garamond', serif;
-  font-weight: 600; font-size: 22px; letter-spacing: .04em;
-}
-.brand-text .sub {
-  font-family: 'Lato', sans-serif; font-weight: 300;
-  font-size: 11px; letter-spacing: .25em; text-transform: uppercase;
-  color: var(--mid); margin-top: 4px;
-}
-nav.mainnav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
-nav.mainnav a {
-  color: rgba(255,255,255,0.75); text-decoration: none;
-  padding: 9px 16px; border-radius: 8px;
-  font-size: 13px; font-weight: 400; letter-spacing: .03em;
-  transition: background .15s, color .15s;
-}
-nav.mainnav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
-nav.mainnav a.active {
-  background: rgba(255,255,255,0.12); color: #fff; font-weight: 700;
-  box-shadow: inset 0 -2px 0 var(--gold);
-}
-
-/* ============ TITLE BAND ============ */
-.title-band {
-  background: linear-gradient(135deg, #122548 0%, #1B3564 60%, #1e4080 100%);
-  padding: 14px 28px;
-  display: flex; align-items: center; flex-wrap: wrap; gap: 20px;
-  position: relative;
-}
-.title-band::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, #C9A84C 20%, #E5D08A 50%, #C9A84C 80%, transparent 100%); }
-.title-band .tb-logo { height: 48px; object-fit: contain; filter: brightness(0) invert(1); }
-.title-band .tb-div { width: 1px; height: 38px; background: rgba(255,255,255,0.2); }
-.title-band h1 {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 30px; font-weight: 600; color: #fff;
-  letter-spacing: .02em; line-height: 1;
-}
-.title-band .subtitle {
-  font-size: 12px; letter-spacing: .22em; text-transform: uppercase;
-  color: #AEC0D6; font-weight: 700; margin-top: 4px;
-}
-.title-band .spacer { flex: 1; }
 
 /* ============ KPI STRIP ============ */
 .kpi-strip {
@@ -698,14 +556,11 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 880px) {
-  nav.mainnav { display: none; }
   .kpi-strip { grid-template-columns: repeat(2, 1fr); }
-  .title-band h1 { font-size: 24px; }
   .board { padding: 16px; }
 }
 @media (max-width: 560px) {
   .kpi-strip { grid-template-columns: 1fr 1fr; }
-  header.topbar { padding: 14px 18px; }
   .toolbar { padding: 12px 16px; }
   .chips { padding: 10px 16px; }
 }
@@ -713,53 +568,11 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .card, .kpi { animation: fadeIn .3s ease both; }
 
-/* ===== VBH shared top nav (leads pattern + hub gold) ===== */
-.vbh-nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; overflow-x: auto; }
-.vbh-nav::-webkit-scrollbar { display: none; }
-.vbh-nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-family: 'Lato', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
-.vbh-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.vbh-nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
-.vbh-nav a.vbh-back { color: rgba(255,255,255,0.78); border-right: 1px solid rgba(255,255,255,0.14); }
 </style>
 </head>
-<body>
+<body data-vbh-page="projects" data-vbh-build="projects-v2">
 
-<!-- ===== AUTH GATE ===== -->
-<div id="gate">
-  <img class="gate-logo" src="/img/vbh-logo.png" alt="Van Buskirk Homes"/>
-  <div class="gate-box">
-    <h2>Projects Tracker</h2>
-    <div class="accent-line"></div>
-    <div class="sub">Authorized personnel only</div>
-    <input id="gatePw" type="password" placeholder="Password" autocomplete="current-password"/>
-    <button id="gateBtn">Unlock</button>
-    <div id="gateErr" class="gate-err"></div>
-  </div>
-</div>
-
-<!-- ===== HEADER ===== -->
-<nav class="vbh-nav">
-  <a class="vbh-back" href="/hub.html">← Hub</a>
-  <a href="/">Work Order</a>
-  <a href="/dashboard.html">Dashboard</a>
-  <a href="/leads.html">Leads</a>
-  <a href="/intake.html">Intake</a>
-  <a href="/projects.html" class="active">Projects</a>
-  <a href="/gantt.html">Timeline</a>
-  <a href="/meeting.html">Meeting</a>
-  <a href="/equipment.html">Assets</a>
-</nav>
-
-<!-- ===== TITLE BAND ===== -->
-<div class="title-band">
-  <img class="tb-logo" src="/img/vbh-logo.svg" alt="Van Buskirk Homes"/>
-  <div class="tb-div"></div>
-  <div>
-    <h1>Projects Tracker</h1>
-    <div class="subtitle">Live Pipeline · Solds · Escrow · Models · Maintenance</div>
-  </div>
-  <div class="spacer"></div>
-</div>
+<div data-vbh-header></div>
 
 <!-- ===== KPI STRIP ===== -->
 <div class="kpi-strip">
@@ -1032,10 +845,8 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
 <div id="toast" class="toast"></div>
 
 <script>
-const SUPABASE_URL  = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseUrl)  || 'https://bppirsahciuxrqzitfxa.supabase.co';
-const SUPABASE_ANON = (window.VBH_CONFIG && window.VBH_CONFIG.supabaseAnon) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwcGlyc2FoY2l1eHJxeml0ZnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTExMjcsImV4cCI6MjA5NTk4NzEyN30.Yy3en8gNoTPSVkztlGr6XbUq6ZU3-NHJ4TUIVnZQ4eE';
-const SHARED_PW     = (window.VBH_CONFIG && window.VBH_CONFIG.password)     || 'VBHomes2026!';
-const AUTH_KEY      = 'vbh_auth_ok';
+const SUPABASE_URL  = VBH.SUPABASE_URL;
+const SUPABASE_ANON = VBH.SUPABASE_KEY;
 
 const STAGES = [
   { key: 'solds',     label: 'Solds',           icon: 'S' },
@@ -1060,29 +871,6 @@ let state = {
 // A schedule number older than this is shown with a warning pip. A stale
 // "on schedule" reads as good news when nobody has actually looked at it.
 const SCHEDULE_STALE_DAYS = 14;
-
-// ---------- Auth ----------
-function checkAuth() {
-  if (sessionStorage.getItem(AUTH_KEY) === '1') {
-    document.getElementById('gate').style.display = 'none';
-    init();
-  } else {
-    document.getElementById('gatePw').focus();
-  }
-}
-document.getElementById('gateBtn').onclick = doAuth;
-document.getElementById('gatePw').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
-function doAuth() {
-  if (document.getElementById('gatePw').value === SHARED_PW) {
-    sessionStorage.setItem(AUTH_KEY, '1');
-    document.getElementById('gate').style.display = 'none';
-    init();
-  } else {
-    document.getElementById('gateErr').textContent = 'Incorrect password.';
-    document.getElementById('gatePw').value = '';
-    document.getElementById('gatePw').focus();
-  }
-}
 
 async function init() {
   await loadProjects();
@@ -1736,7 +1524,9 @@ function toast(msg, isErr) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-checkAuth();
+/* The shared shell owns the gate; init runs once the page is unlocked. */
+VBH.auth.require(init);
 </script>
+<div data-vbh-foot></div>
 </body>
 </html>
