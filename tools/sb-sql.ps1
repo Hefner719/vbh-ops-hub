@@ -27,9 +27,11 @@ if (-not $pat) { throw "Token file is empty: $patPath" }
 
 if ($File) {
   if (-not (Test-Path $File)) { throw "File not found: $File" }
-  $sql = Get-Content $File -Raw -Encoding UTF8
+  # .NET read, not Get-Content -Raw: PS 5.1 attaches note properties to that string and
+  # ConvertTo-Json then serializes it as {"value":...} instead of a plain string.
+  $sql = [IO.File]::ReadAllText((Resolve-Path $File).Path, [Text.Encoding]::UTF8)
 } elseif ($Query) {
-  $sql = $Query
+  $sql = [string]$Query
 } else { throw "Pass -File or -Query." }
 
 $uri  = "https://api.supabase.com/v1/projects/$ProjectRef/database/query"
@@ -39,9 +41,12 @@ try {
   $resp = Invoke-RestMethod -Uri $uri -Method Post -Headers @{ Authorization = "Bearer $pat" } -ContentType 'application/json; charset=utf-8' -Body $bytes
 } catch {
   $detail = ''
-  if ($_.Exception.Response) {
-    $sr = New-Object IO.StreamReader($_.Exception.Response.GetResponseStream()); $detail = $sr.ReadToEnd()
+  if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $detail = $_.ErrorDetails.Message }
+  elseif ($_.Exception.Response) {
+    try { $sr = New-Object IO.StreamReader($_.Exception.Response.GetResponseStream()); $detail = $sr.ReadToEnd() } catch {}
   }
+  # The API returns Postgres errors as JSON {message, ...}; surface them readably.
+  try { $j = $detail | ConvertFrom-Json; if ($j.message) { $detail = "Postgres: $($j.message)" + $(if ($j.hint) { " (hint: $($j.hint))" }) } } catch {}
   throw "Supabase query failed: $($_.Exception.Message)`n$detail"
 }
 
