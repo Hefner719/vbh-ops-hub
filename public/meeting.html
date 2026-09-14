@@ -2594,16 +2594,22 @@ async function loadBuildertrendActivity() {
   const since = new Date(Date.now() - BT_WINDOW_DAYS * 86400000).toISOString();
   const cols = 'id,event_type,job_number,occurred_at,actor,title,amount,period_start,period_end,summary,link,fields';
   try {
-    const [recent, latest, unmatched] = await Promise.all([
+    /* Emails imported from an Outlook CSV carry no timestamp (occurred_at is
+       null), so a plain date filter would hide them. Fetch them separately and
+       list them after the dated items. Live (Graph) ingest always has a date. */
+    const [recent, undated, latest, unmatched] = await Promise.all([
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).gte('occurred_at', since).order('occurred_at', { ascending: false }) : { data: [] },
+      nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).is('occurred_at', null).neq('event_type', 'client_update').order('id', { ascending: false }) : { data: [] },
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).eq('event_type', 'client_update').order('occurred_at', { ascending: false }) : { data: [] },
       trackerSB.from('v_bt_unmatched_jobs').select('job_number,job_name,events,last_seen,event_types')
     ]);
     if (recent.error) throw recent.error;
+    if (undated.error) throw undated.error;
     if (latest.error) throw latest.error;
     const map = new Map();
     nums.forEach(n => map.set(n, { recent: [], latestUpdate: null }));
     (recent.data || []).forEach(e => { const b = map.get(e.job_number); if (b) b.recent.push(e); });
+    (undated.data || []).forEach(e => { const b = map.get(e.job_number); if (b) b.recent.push(Object.assign({}, e, { undated: true })); });
     (latest.data || []).forEach(e => { const b = map.get(e.job_number); if (b && !b.latestUpdate) b.latestUpdate = e; });
     btByJob = map;
     btUnmatched = unmatched.error ? [] : (unmatched.data || []);
@@ -2689,7 +2695,7 @@ function btStripHTML(j) {
     <div class="bt-strip">
       <div class="bt-head">
         <span class="bt-title">Buildertrend</span>
-        <span class="bt-meta">${count ? count + ' item' + (count === 1 ? '' : 's') + ' in the last ' + BT_WINDOW_DAYS + ' days' : 'read-only · from notification emails'}</span>
+        <span class="bt-meta">${count ? count + ' item' + (count === 1 ? '' : 's') + (feed.some(e => e.undated) ? ' reported' : ' in the last ' + BT_WINDOW_DAYS + ' days') : 'read-only · from notification emails'}</span>
       </div>
       ${updHTML}
       ${feed.length ? `<div class="bt-feed">${feed.map(btEventLine).join('')}</div>` : ''}
