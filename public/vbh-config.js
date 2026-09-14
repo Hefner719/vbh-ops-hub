@@ -51,7 +51,7 @@ window.VBH_CONFIG = {
   meetingTime: '9:00 – 10:00 AM',
 
   /* ── MEETING TEAM ────────────────────────────────────────────────────────
-     Who sits in the Monday production meeting. Deliberately separate from
+     Who sits in the Tuesday 9–10 AM (Central) production meeting. Deliberately separate from
      SALES_REPS above — that list includes "Outside Realtor" and people who
      aren't in this meeting.
 
