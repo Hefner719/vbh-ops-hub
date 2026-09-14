@@ -1,7 +1,7 @@
 {
   "name": "VBH Hub",
   "short_name": "Hub",
-  "start_url": "/hub.html",
+  "start_url": "/hub",
   "display": "standalone",
   "background_color": "#1B3564",
   "theme_color": "#1B3564",

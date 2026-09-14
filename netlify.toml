@@ -1,0 +1,29 @@
+# Netlify configuration for vbchomes.net · build shell-v1
+# No build step: public/ is served as-is.
+
+[build]
+  publish = "public"
+
+# /projects serves projects.html; /projects.html redirects to /projects.
+[build.processing.html]
+  pretty_urls = true
+
+# Shared assets change only when we deploy; browsers may cache them briefly
+# but must revalidate so a deploy shows up on the next load.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"
+
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(self), microphone=(), geolocation=()"

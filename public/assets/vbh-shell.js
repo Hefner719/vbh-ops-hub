@@ -208,9 +208,9 @@
     VBH.PAGES.filter((p) => p.tile).forEach((p) => {
       slot.appendChild(el('a', { class: 'hub-card', href: p.path, 'data-accent': p.tile.accent || 'steel' }, [
         el('div', { class: 'hub-icon', text: p.tile.icon }),
-        el('h3', { text: p.nav || p.title }),
+        el('h3', { text: p.tile.title || p.title }),
         el('p', { text: p.tile.blurb }),
-        el('div', { class: 'open-cta', text: 'Open' })
+        el('div', { class: 'open-cta', text: 'Open ' + (p.nav || '') })
       ]));
     });
   }
@@ -243,10 +243,13 @@
       const page = currentPage();
       VBH.page = page;
       if (page && page.title && !document.body.hasAttribute('data-vbh-keep-title')) {
-        document.title = page.title + ' · ' + VBH.COMPANY.short + ' Ops Hub';
+        document.title = page.title + ' · ' + (page.protected ? VBH.COMPANY.short + ' Ops Hub' : VBH.COMPANY.name);
       }
-      const chrome = document.body.hasAttribute('data-vbh-chrome') ? document.body.getAttribute('data-vbh-chrome') !== 'none' : true;
-      if (chrome) { renderNav(page); renderHeader(page); renderFooter(page); renderTiles(); }
+      /* data-vbh-chrome: "full" (default) nav + header + footer · "header" header + footer only
+         (public forms — no internal nav) · "none" nothing injected. */
+      const chrome = document.body.getAttribute('data-vbh-chrome') || 'full';
+      if (chrome === 'full') renderNav(page);
+      if (chrome !== 'none') { renderHeader(page); renderFooter(page); renderTiles(); }
       const askName = document.body.hasAttribute('data-vbh-ask-name');
       if (page && page.protected && !(auth.ok() && (!askName || auth.name()))) {
         renderGate(page, askName, () => {

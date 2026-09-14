@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -8,209 +8,95 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="VBH Hub"/>
 <meta name="theme-color" content="#1B3564"/>
-<title>VBH Dashboards Hub</title>
-<link rel="manifest" href="/manifest-hub.json"/>
+<title>Operations Hub · VBH Ops Hub</title>
+<link rel="manifest" href="/manifest.json"/>
 <link rel="apple-touch-icon" href="/icon-hub-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
 <script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --navy: #1B3564; --navy-dark: #122548; --navy-deep: #0B1A33;
-  --steel: #6B8EB5; --light: #EBF0F7; --mid: #AEC0D6; --border: #d0dded;
-  --gold: #C9A84C; --gold-soft: #E5D08A;
-  --green: #22c55e; --green-dk: #15803d;
-  --amber: #f59e0b; --amber-dk: #b45309;
-  --purple: #8b5cf6; --purple-dk: #6d28d9;
-  --blue:   #3b82f6; --blue-dk: #1d4ed8;
-}
-html, body { height: 100%; }
+/* The hub is the one dark page: the landing screen, not a work surface. */
+html, body { min-height: 100%; }
 body {
-  font-family: 'Lato', system-ui, sans-serif;
-  min-height: 100vh;
+  color: #fff;
   background:
     radial-gradient(1400px 900px at 15% -10%, rgba(107,142,181,0.22), transparent 60%),
     radial-gradient(1000px 800px at 110% 110%, rgba(201,168,76,0.10), transparent 50%),
     linear-gradient(160deg, var(--navy-deep) 0%, var(--navy-dark) 60%, var(--navy) 100%);
-  color: #fff;
-  -webkit-font-smoothing: antialiased;
   display: flex; flex-direction: column;
 }
+.vbh-nav { border-bottom-color: rgba(255,255,255,0.14); }
 
-/* ── GATE ── */
-#gate {
-  position: fixed; inset: 0; z-index: 1000;
-  background: inherit;
-  display: flex; align-items: center; justify-content: center; flex-direction: column;
-  gap: 28px; padding: 24px;
-}
-.gate-logo { height: 92px; object-fit: contain; filter: brightness(0) invert(1); opacity: .95; }
-.gate-box {
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border-radius: 18px; padding: 40px 48px;
-  display: flex; flex-direction: column; align-items: center; gap: 14px;
-  min-width: 360px; max-width: 92vw;
-  box-shadow: 0 30px 80px rgba(0,0,0,.4);
-}
-.gate-box h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.85rem; font-weight: 700; color: #fff; letter-spacing: .03em; }
-.gate-box .sub { font-size: .85rem; color: var(--mid); letter-spacing: .02em; }
-.gate-box .accent-line { width: 60px; height: 2px; background: var(--gold); border-radius: 2px; margin: 4px 0 8px; }
-.gate-box input {
-  width: 100%; padding: 13px 16px;
-  border: 1.5px solid rgba(255,255,255,0.22); border-radius: 10px;
-  background: rgba(255,255,255,0.08); color: #fff;
-  font-family: inherit; font-size: 15px; transition: border-color .15s, background .15s;
-}
-.gate-box input::placeholder { color: rgba(255,255,255,0.55); }
-.gate-box input:focus { outline: none; border-color: var(--gold); background: rgba(255,255,255,0.12); }
-.gate-box button {
-  width: 100%; padding: 13px 16px; border: 0; border-radius: 10px;
-  background: linear-gradient(180deg, var(--gold) 0%, #b89438 100%);
-  color: #fff; font-family: inherit; font-weight: 700; font-size: 14px;
-  letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
-  box-shadow: 0 4px 14px rgba(201,168,76,.4);
-  transition: box-shadow .15s, transform .08s;
-}
-.gate-box button:hover { box-shadow: 0 6px 20px rgba(201,168,76,.55); }
-.gate-box button:active { transform: translateY(1px); }
-.gate-err { color: #ffb4b4; font-size: 13px; min-height: 18px; }
-
-/* ── HUB ── */
-#hub { display: none; flex-direction: column; min-height: 100vh; padding: 48px 28px 32px; }
-#hub.show { display: flex; }
+#hub { flex: 1; display: flex; flex-direction: column; padding: 44px 28px 24px; }
 
 .hub-header { text-align: center; margin-bottom: 36px; }
-.hub-logo {
-  height: 84px; object-fit: contain;
-  filter: brightness(0) invert(1); opacity: .96;
-  margin-bottom: 18px;
-}
-.hub-header h1 {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 44px; font-weight: 600; color: #fff;
-  letter-spacing: .03em; line-height: 1;
-}
-.hub-header .accent {
-  width: 80px; height: 2px; background: var(--gold);
-  border-radius: 2px; margin: 14px auto 12px;
-}
-.hub-header .sub {
-  font-size: 12px; letter-spacing: .28em; text-transform: uppercase;
-  color: var(--mid); font-weight: 700;
-}
+.hub-logo { height: 84px; object-fit: contain; filter: brightness(0) invert(1); opacity: .96; margin-bottom: 18px; }
+.hub-header h1 { font-family: var(--font-head); font-size: 44px; font-weight: 600; color: #fff; letter-spacing: .03em; line-height: 1; margin: 0; }
+.hub-header .accent { width: 80px; height: 2px; background: var(--gold); border-radius: 2px; margin: 14px auto 12px; }
+.hub-header .sub { font-size: 12px; letter-spacing: .28em; text-transform: uppercase; color: var(--mid); font-weight: 700; }
 
 .hub-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(260px, 340px));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 340px));
   gap: 22px; justify-content: center;
   max-width: 1180px; margin: 0 auto; width: 100%;
 }
 .hub-card {
-  display: flex; flex-direction: column; gap: 16px;
+  display: flex; flex-direction: column; gap: 14px;
   text-decoration: none; color: inherit;
   background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.18);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border-radius: 18px;
-  padding: 28px 26px 24px;
+  border-radius: var(--radius-lg);
+  padding: 26px 26px 22px;
   transition: transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s;
   position: relative; overflow: hidden;
 }
-.hub-card::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
-  background: var(--steel);
-  transition: height .15s;
-}
-.hub-card[data-tile="work"]::before     { background: linear-gradient(90deg, var(--green) 0%, var(--green-dk) 100%); }
-.hub-card[data-tile="leads"]::before    { background: linear-gradient(90deg, var(--blue) 0%, var(--blue-dk) 100%); }
-.hub-card[data-tile="projects"]::before { background: linear-gradient(90deg, var(--gold) 0%, var(--amber-dk) 100%); }
-.hub-card[data-tile="timeline"]::before { background: linear-gradient(90deg, var(--blue) 0%, var(--navy) 100%); }
-.hub-card[data-tile="meeting"]::before  { background: linear-gradient(90deg, var(--steel) 0%, #4a6e9a 100%); }
-.hub-card[data-tile="standards"]::before { background: linear-gradient(90deg, var(--purple) 0%, var(--purple-dk) 100%); }
-.hub-card[data-tile="raci"]::before     { background: linear-gradient(90deg, var(--navy) 0%, var(--steel) 100%); }
-.hub-card[data-tile="assets"]::before   { background: linear-gradient(90deg, var(--amber) 0%, var(--amber-dk) 100%); }
-.hub-card[data-tile="exec"]::before      { background: linear-gradient(90deg, var(--navy) 0%, var(--gold) 100%); }
-.hub-card:hover {
-  transform: translateY(-3px);
-  background: rgba(255,255,255,0.10);
-  border-color: rgba(255,255,255,0.28);
-  box-shadow: 0 20px 50px rgba(0,0,0,.35);
-}
+.hub-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--accent, var(--steel)); transition: height .15s; }
+.hub-card:hover { transform: translateY(-3px); background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.28); box-shadow: 0 20px 50px rgba(0,0,0,.35); }
 .hub-card:hover::before { height: 5px; }
-
 .hub-icon {
-  width: 62px; height: 62px; border-radius: 14px;
+  width: 58px; height: 58px; border-radius: 14px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 30px; font-weight: 900; color: #fff;
-  font-family: 'Lato', sans-serif;
+  font-size: 28px; color: #fff; background: var(--accent, var(--steel));
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
 }
-.hub-card[data-tile="work"]     .hub-icon { background: linear-gradient(160deg, var(--green) 0%, var(--green-dk) 100%); }
-.hub-card[data-tile="leads"]    .hub-icon { background: linear-gradient(160deg, var(--blue) 0%, var(--blue-dk) 100%); }
-.hub-card[data-tile="projects"] .hub-icon { background: linear-gradient(160deg, var(--gold) 0%, var(--amber-dk) 100%); }
-.hub-card[data-tile="timeline"] .hub-icon { background: linear-gradient(160deg, var(--blue) 0%, var(--navy) 100%); }
-.hub-card[data-tile="meeting"]  .hub-icon { background: linear-gradient(160deg, var(--steel) 0%, #4a6e9a 100%); }
-.hub-card[data-tile="standards"] .hub-icon { background: linear-gradient(160deg, var(--purple) 0%, var(--purple-dk) 100%); }
-.hub-card[data-tile="raci"]     .hub-icon { background: linear-gradient(160deg, var(--navy) 0%, var(--steel) 100%); }
-.hub-card[data-tile="assets"]   .hub-icon { background: linear-gradient(160deg, var(--amber) 0%, var(--amber-dk) 100%); }
-.hub-card[data-tile="exec"]      .hub-icon { background: linear-gradient(160deg, var(--navy) 0%, var(--gold) 100%); }
-
-.hub-card h3 {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 26px; font-weight: 700; color: #fff;
-  letter-spacing: .02em; line-height: 1.15;
-}
-.hub-card p {
-  font-size: 13.5px; color: var(--mid); line-height: 1.5;
-  font-weight: 300;
-}
+.hub-card h3 { margin: 0; font-family: var(--font-head); font-size: 25px; font-weight: 700; color: #fff; letter-spacing: .02em; line-height: 1.15; }
+.hub-card p { margin: 0; font-size: 13.5px; color: var(--mid); line-height: 1.5; font-weight: 300; }
 .hub-card .open-cta {
   margin-top: auto; padding-top: 14px;
   display: flex; align-items: center; gap: 6px;
-  font-size: 11px; font-weight: 700; letter-spacing: .18em;
-  text-transform: uppercase; color: var(--gold-soft);
+  font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-soft);
   border-top: 1px solid rgba(255,255,255,0.12);
 }
 .hub-card .open-cta::after { content: '→'; font-size: 14px; transition: transform .15s; }
 .hub-card:hover .open-cta::after { transform: translateX(4px); }
 
-.hub-foot {
-  margin-top: 36px; text-align: center;
-  display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
-  font-size: 12.5px; color: var(--mid);
-}
-.hub-foot a {
-  color: var(--mid); text-decoration: none;
-  padding: 6px 14px; border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.14);
-  transition: background .15s, color .15s, border-color .15s;
-  letter-spacing: .04em;
-}
-.hub-foot a:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.28); }
+/* accent palette keyed by PAGES[].tile.accent */
+.hub-card[data-accent="steel"]     { --accent: linear-gradient(160deg, var(--steel) 0%, #4a6e9a 100%); }
+.hub-card[data-accent="gold"]      { --accent: linear-gradient(160deg, var(--gold) 0%, var(--amber-dk) 100%); }
+.hub-card[data-accent="blue"]      { --accent: linear-gradient(160deg, var(--blue) 0%, var(--blue-dk) 100%); }
+.hub-card[data-accent="green"]     { --accent: linear-gradient(160deg, var(--green) 0%, var(--green-dk) 100%); }
+.hub-card[data-accent="amber"]     { --accent: linear-gradient(160deg, var(--amber) 0%, var(--amber-dk) 100%); }
+.hub-card[data-accent="purple"]    { --accent: linear-gradient(160deg, var(--purple) 0%, var(--purple-dk) 100%); }
+.hub-card[data-accent="navy"]      { --accent: linear-gradient(160deg, var(--navy) 0%, var(--steel) 100%); }
+.hub-card[data-accent="navy-gold"] { --accent: linear-gradient(160deg, var(--navy) 0%, var(--gold) 100%); }
+
+/* dark footer variant for this page */
+.vbh-foot { border-top-color: rgba(255,255,255,0.14); color: var(--mid); margin-top: 36px; }
+.vbh-foot .vbh-foot-values { color: var(--gold-soft); }
+.vbh-foot a { color: var(--mid); } .vbh-foot a:hover { color: #fff; }
+.vbh-foot .vbh-foot-build { color: rgba(255,255,255,0.35); }
 
 @media (max-width: 900px) {
-  .hub-cards { grid-template-columns: 1fr; max-width: 380px; }
+  #hub { padding: 32px 18px 18px; }
   .hub-header h1 { font-size: 34px; }
 }
 </style>
 </head>
-<body>
+<body data-vbh-page="hub" data-vbh-build="hub-v2">
 
-<!-- ── GATE ── -->
-<div id="gate">
-  <img class="gate-logo" src="/img/vbh-logo.png" alt="Van Buskirk Homes"/>
-  <div class="gate-box">
-    <h2>Dashboards</h2>
-    <div class="accent-line"></div>
-    <div class="sub">Authorized personnel only</div>
-    <input id="pw" type="password" placeholder="Password" autocomplete="current-password"/>
-    <button id="pwBtn">Unlock</button>
-    <div id="pwErr" class="gate-err"></div>
-  </div>
-</div>
-
-<!-- ── HUB ── -->
 <div id="hub">
   <div class="hub-header">
     <img class="hub-logo" src="/img/vbh-logo.png" alt="Van Buskirk Homes"/>
@@ -219,107 +105,10 @@ body {
     <div class="sub">Van Buskirk Homes · Sioux Falls, SD</div>
   </div>
 
-  <div class="hub-cards">
-
-    <a class="hub-card" href="/weeklyupdate.html" data-tile="exec">
-      <div class="hub-icon">📈</div>
-      <h3>Weekly Executive Update</h3>
-      <p>Ownership briefing — active builds, closings, and top prospects on one page. Live from the tracker, one-click PDF to send.</p>
-      <div class="open-cta">Open Update</div>
-    </a>
-
-    <a class="hub-card" href="/dashboard.html" data-tile="work">
-      <div class="hub-icon">🔧</div>
-      <h3>Work Orders</h3>
-      <p>Submit, approve, and track maintenance and warranty work orders. Crew view for field assignments.</p>
-      <div class="open-cta">Open Dashboard</div>
-    </a>
-
-    <a class="hub-card" href="/equipment.html" data-tile="assets">
-      <div class="hub-icon">📷</div>
-      <h3>Asset Tracker</h3>
-      <p>Signage, cameras, and equipment — location, check-in/out, who's holding it, and service status across every job site.</p>
-      <div class="open-cta">Open Tracker</div>
-    </a>
-
-    <a class="hub-card" href="/leads.html" data-tile="leads">
-      <div class="hub-icon">📊</div>
-      <h3>Leads Tracker</h3>
-      <p>Pipeline overview, lead cards, contact history, follow-ups, and sales data for prospective buyers.</p>
-      <div class="open-cta">Open Tracker</div>
-    </a>
-
-    <a class="hub-card" href="/projects.html" data-tile="projects">
-      <div class="hub-icon">🏠</div>
-      <h3>Projects Tracker</h3>
-      <p>Live pipeline of Solds, Escrow, Models, and Dev Maint Jobs. Weekly status, % complete, contract details.</p>
-      <div class="open-cta">Open Tracker</div>
-    </a>
-
-    <a class="hub-card" href="/gantt.html" data-tile="timeline">
-      <div class="hub-icon">📅</div>
-      <h3>Build Timeline</h3>
-      <p>Running Gantt of new starts — Solds, Models, and prospective builds on one timeline. Spot the gaps in the schedule.</p>
-      <div class="open-cta">Open Timeline</div>
-    </a>
-
-    <a class="hub-card" href="/meeting.html" data-tile="meeting">
-      <div class="hub-icon">📋</div>
-      <h3>Weekly Meeting</h3>
-      <p>Timed production agenda — active jobs, starts, action items, warranty. Update live then upload for next week.</p>
-      <div class="open-cta">Open Agenda</div>
-    </a>
-
-    <a class="hub-card" href="/standards.html" data-tile="standards">
-      <div class="hub-icon">📐</div>
-      <h3>Accountability Standards</h3>
-      <p>Field reporting, bid procurement, client communication, and service &amp; warranty response — what's expected, who owns it, when it's due.</p>
-      <div class="open-cta">Open Standards</div>
-    </a>
-
-    <a class="hub-card" href="/raci.html" data-tile="raci">
-      <div class="hub-icon">🗂️</div>
-      <h3>RACI Matrix</h3>
-      <p>Role-based responsibility matrix across the full project lifecycle, financials, admin, and standing meetings. Who's R, A, C, and I.</p>
-      <div class="open-cta">Open Matrix</div>
-    </a>
-
-  </div>
-
-  <div class="hub-foot">
-    <a href="/">Work Order Request Form</a>
-    <a href="/intake.html">Client Intake Form</a>
-  </div>
+  <!-- Tiles render from VBH.PAGES (entries with a `tile`). Add a page there and it shows up here. -->
+  <div class="hub-cards" data-vbh-tiles></div>
 </div>
 
-<script>
-const SHARED_PW = (window.VBH_CONFIG && window.VBH_CONFIG.password) || 'VBHomes2026!';
-const AUTH_KEY = 'vbh_auth_ok';
-
-function unlock() {
-  document.getElementById('gate').style.display = 'none';
-  document.getElementById('hub').classList.add('show');
-}
-
-function checkPw() {
-  const v = document.getElementById('pw').value;
-  if (v === SHARED_PW) {
-    sessionStorage.setItem(AUTH_KEY, '1');
-    unlock();
-  } else {
-    document.getElementById('pwErr').textContent = 'Incorrect password.';
-    document.getElementById('pw').value = '';
-    document.getElementById('pw').focus();
-  }
-}
-
-document.getElementById('pwBtn').onclick = checkPw;
-document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') checkPw(); });
-
-window.onload = () => {
-  if (sessionStorage.getItem(AUTH_KEY) === '1') unlock();
-  else document.getElementById('pw').focus();
-};
-</script>
+<div data-vbh-foot></div>
 </body>
 </html>

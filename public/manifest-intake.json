@@ -1,7 +1,7 @@
 {
   "name": "VBH New Clients",
   "short_name": "New Clients",
-  "start_url": "/intake.html",
+  "start_url": "/intake",
   "display": "standalone",
   "background_color": "#1B3564",
   "theme_color": "#1B3564",

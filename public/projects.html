@@ -875,7 +875,7 @@ const SCHEDULE_STALE_DAYS = 14;
 async function init() {
   await loadProjects();
   bindUI();
-  // Deep link from the meeting page: /projects.html?q=R26022 prefills search.
+  // Deep link from the meeting page: /projects?q=R26022 prefills search.
   const q = new URLSearchParams(location.search).get('q');
   if (q) { state.search = q.toLowerCase(); document.getElementById('search').value = q; }
   render();

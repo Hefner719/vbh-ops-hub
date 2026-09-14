@@ -55,6 +55,7 @@ body[data-vbh-pending] > :not(.vbh-gate) { visibility: hidden; }
 .vbh-nav {
   display: flex; align-items: stretch;
   height: var(--nav-h);
+  flex: 0 0 var(--nav-h);   /* several pages make <body> a column flex box; never let the nav be squeezed */
   background: var(--nav-bg);
   border-bottom: 1px solid rgba(255,255,255,0.10);
   position: sticky; top: 0; z-index: 900;
@@ -86,7 +87,7 @@ body[data-vbh-pending] > :not(.vbh-gate) { visibility: hidden; }
   color: #fff;
   padding: 16px 24px 14px;
   display: flex; align-items: center; gap: 20px;
-  position: relative;
+  position: relative; flex-shrink: 0;
   box-shadow: 0 4px 18px rgba(11,26,51,.18);
 }
 .vbh-header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--gold-rule); }
@@ -106,7 +107,7 @@ body[data-vbh-pending] > :not(.vbh-gate) { visibility: hidden; }
 
 /* ─── 2 · FOOTER ────────────────────────────────────────────────────────── */
 .vbh-foot {
-  margin-top: 40px; padding: 18px 24px 26px;
+  margin-top: 40px; padding: 18px 24px 26px; flex-shrink: 0;
   border-top: 1px solid var(--border);
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px;
   font-size: .76rem; color: var(--muted); letter-spacing: .03em;

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -8,12 +8,16 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="VBH Meeting"/>
 <meta name="theme-color" content="#1B3564"/>
-<title>VBH Weekly Production Meeting</title>
+<title>Production Meeting · VBH Ops Hub</title>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-hub-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
 <script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { margin: 0; padding: 0; }
 
 :root {
   --navy:#1B3564; --navy-dk:#122548; --navy-deep:#0B1A33;
@@ -41,45 +45,12 @@ body {
   min-height:100vh; display:flex; flex-direction:column;
 }
 
-/* ─────────────── GATE ─────────────── */
-#gate {
-  position:fixed; inset:0; z-index:1000;
-  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:26px; padding:24px;
-  background:
-    radial-gradient(1200px 800px at 15% -10%, rgba(90,125,166,.30), transparent 60%),
-    radial-gradient(900px 700px at 110% 110%, rgba(201,168,76,.12), transparent 50%),
-    linear-gradient(160deg, var(--navy-deep) 0%, var(--navy-dk) 60%, var(--navy) 100%);
-}
-.gate-box {
-  background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.18);
-  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
-  border-radius:18px; padding:38px 44px;
-  display:flex; flex-direction:column; align-items:center; gap:13px;
-  min-width:340px; max-width:92vw; box-shadow:var(--shadow-lg);
-}
-.gate-box h2 { font-family:'Cormorant Garamond',serif; font-size:1.8rem; font-weight:700; color:#fff; letter-spacing:.03em; }
-.gate-box .sub { font-size:.82rem; color:#AEC0D6; letter-spacing:.02em; }
-.gate-box .accent-line { width:56px; height:2px; background:var(--gold); border-radius:2px; margin:3px 0 7px; }
-.gate-box input {
-  width:100%; padding:12px 15px; border:1.5px solid rgba(255,255,255,.22); border-radius:10px;
-  background:rgba(255,255,255,.10); color:#fff; font-size:.95rem; font-family:inherit; outline:none;
-}
-.gate-box input::placeholder { color:rgba(255,255,255,.5); }
-.gate-box input:focus { border-color:var(--gold); background:rgba(255,255,255,.16); }
-.gate-box button {
-  width:100%; padding:12px; border:none; border-radius:10px; cursor:pointer;
-  background:linear-gradient(180deg,var(--gold) 0%,#b89438 100%); color:#fff;
-  font-family:inherit; font-size:.9rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
-}
-.gate-box button:hover { filter:brightness(1.06); }
-.gate-err { color:#ffb4ae; font-size:.8rem; min-height:1em; }
 
 /* ─────────────── APP ─────────────── */
-#app { display:none; flex-direction:column; flex:1; min-height:100vh; }
-#app.show { display:flex; }
+#app { display:flex; flex-direction:column; flex:1; min-height:100vh; }
 
 .topbar {
-  position:sticky; top:0; z-index:60; height:var(--topbar-h);
+  position:sticky; top:var(--nav-h); z-index:60; height:var(--topbar-h);
   display:flex; align-items:center; justify-content:space-between; gap:16px;
   padding:0 20px; background:var(--navy); color:#fff; box-shadow:0 2px 10px rgba(11,26,51,.22);
   /* body and #app are column flex containers, so a fixed-height bar would be
@@ -768,20 +739,8 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 }
 </style>
 </head>
-<body>
+<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v5">
 
-<!-- ══════════ GATE ══════════ -->
-<div id="gate">
-  <div class="gate-box">
-    <h2>Weekly Meeting</h2>
-    <div class="accent-line"></div>
-    <div class="sub">Authorized personnel only</div>
-    <input id="editorName" type="text" placeholder="Your name" autocomplete="name"/>
-    <input id="pw" type="password" placeholder="Password" autocomplete="current-password"/>
-    <button id="pwBtn">Unlock</button>
-    <div id="pwErr" class="gate-err"></div>
-  </div>
-</div>
 
 <!-- ══════════ APP ══════════ -->
 <div id="app">
@@ -789,7 +748,6 @@ body.read-only [contenteditable] { background:var(--surface-2); }
   <!-- ── TOP BAR ── -->
   <div class="topbar">
     <div class="tb-left">
-      <a href="/hub.html" class="back-link">← Hub</a>
       <div>
         <div class="tb-title">Production Meeting</div>
         <div class="tb-meta" id="meetingDateDisplay">—</div>
@@ -1042,13 +1000,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 
   </div><!-- /page-body -->
 
-  <div class="page-foot">
-    Integrity &nbsp;·&nbsp; Teamwork &nbsp;·&nbsp; Innovation &nbsp;·&nbsp; Excellence &nbsp;·&nbsp; Community
-    &emsp;|&emsp;
-    <a href="/hub.html">← Back to Hub</a>
-    <a href="/dashboard.html">Work Orders</a>
-    <a href="/projects.html">Projects</a>
-  </div>
+  <div data-vbh-foot></div>
 
 </div><!-- /app -->
 
@@ -1250,10 +1202,6 @@ function sectionSchedule() {
    object, config.js exports loose consts. Read VBH_CONFIG first, then fall back
    to either, then to a baked-in default — so the page works with whichever file
    happens to be deployed and never silently loses its password. */
-const SHARED_PW   = (window.VBH_CONFIG && window.VBH_CONFIG.password)
-                 || (typeof VBH !== 'undefined' && VBH && VBH.PASSWORD)
-                 || 'VBHomes2026!';
-const AUTH_KEY    = 'vbh_auth_ok';
 /* v4 · renamed from SUPABASE_URL / SUPABASE_ANON.
    The hub's config.js already declares `const SUPABASE_URL` at global scope.
    Two classic scripts declaring the same const is a SyntaxError, and it kills
@@ -1695,7 +1643,7 @@ function jobCardHTML(j) {
       </div>
       ${p ? `<div class="tracker-proj-info">
         <span title="Address & client come from the Projects tracker — edit them there.">${escHtml([p.address,p.buyer_realtor].filter(Boolean).join(' · ') || p.job_number || '')}</span>
-        <a class="tpi-open" target="_blank" rel="noopener" href="/projects.html?q=${encodeURIComponent(p.job_number || p.address || '')}">Open in Projects ↗</a>
+        <a class="tpi-open" target="_blank" rel="noopener" href="/projects?q=${encodeURIComponent(p.job_number || p.address || '')}">Open in Projects ↗</a>
       </div>` : ''}
     </div>
 
@@ -3291,25 +3239,9 @@ function resetTimer() { clearInterval(timerInterval); timerRunning = false; time
 /* ─────────────────────────────────────────────────────────────────────
    ⑭ GATE
    ───────────────────────────────────────────────────────────────────── */
-function unlock() {
-  if ($('#pw').value === SHARED_PW) {
-    /* v4: remember who is editing. EDITOR_KEY was read by editorLabel() but
-       never written, so every updated_by / created_by said "Meeting Page" and
-       the conflict banner could only say "Meeting Page saved this meeting". */
-    const nm = ($('#editorName') && $('#editorName').value || '').trim();
-    if (nm) { try { localStorage.setItem(EDITOR_KEY, nm); } catch (e) {} }
-    sessionStorage.setItem(AUTH_KEY, '1');
-    $('#gate').style.display = 'none';
-    $('#app').classList.add('show');
-  } else {
-    $('#pwErr').textContent = 'Incorrect password.';
-  }
-}
-/* prefill the name box from last time */
-try {
-  const prev = localStorage.getItem(EDITOR_KEY);
-  if (prev && $('#editorName')) $('#editorName').value = prev;
-} catch (e) {}
+/* The shared shell (vbh-shell.js) owns the gate. It asks for the editor's
+   name (data-vbh-ask-name on <body>) and stores it under the same
+   vbh_editor_name key editorLabel() reads. */
 
 /* v4: paint the agenda clock from SECTIONS so section headers follow MEETING_TIME */
 function paintSectionTimes() {
@@ -3335,12 +3267,6 @@ function enableEditing() {
   setReadOnly(false);
   setSaveState(mtg.offline ? 'Offline' : 'Saved', mtg.offline ? 'err' : '');
   toast('✏️ Editing unlocked — changes to this meeting will be saved', 3200);
-}
-$('#pwBtn').addEventListener('click', unlock);
-$('#pw').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
-if (sessionStorage.getItem(AUTH_KEY) === '1') {
-  $('#gate').style.display = 'none';
-  $('#app').classList.add('show');
 }
 
 /* Esc closes whatever is open */

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>VBH Work Order Request</title>
+<title>Work Order Request · Van Buskirk Homes</title>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Work Orders"/>
@@ -13,18 +13,14 @@
 <link rel="apple-touch-icon" href="/icon-wo-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-:root{--navy:#1B3564;--navy-deep:#111f3e;--navy-mid:#243f72;--steel:#6B8EB5;--steel-light:#8aadd0;--light:#edf2f8;--light2:#f5f8fc;--border:#cddaec;--gold:#c9a84c;--muted:#5a7699;}
-body{font-family:Lato,sans-serif;background:var(--light2);color:var(--navy);min-height:100vh;}
-header{background:linear-gradient(135deg,var(--navy-deep) 0%,var(--navy) 60%,var(--navy-mid) 100%);padding:0 40px;height:80px;display:flex;align-items:center;justify-content:space-between;position:relative;box-shadow:0 4px 24px rgba(10,20,50,0.3);}
-header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--steel),var(--gold),var(--steel),transparent);opacity:0.6;}
-.logo-wrap{display:flex;align-items:center;gap:18px;}
-.logo-img{height:50px;width:auto;filter:brightness(0) invert(1);opacity:.95;}
-.logo-div{width:1px;height:34px;background:rgba(107,142,181,0.4);}
-.logo-title{font-family:'Cormorant Garamond',Georgia,serif;color:white;font-size:20px;font-weight:600;letter-spacing:.1em;line-height:1;}
-.logo-sub{color:var(--steel-light);font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-top:3px;}
-.hdr-date{color:rgba(255,255,255,0.4);font-size:12px;}
+*,*::before,*::after{margin:0;padding:0;}
+:root{--navy-mid:#243f72;--steel-light:#8aadd0;--light2:#f5f8fc;}
+body{background:var(--light2);color:var(--navy);min-height:100vh;}
+.hdr-date{color:rgba(255,255,255,0.55);font-size:12px;}
 .page-wrap{max-width:700px;margin:36px auto;padding:0 20px 60px;}
 .intro{background:white;border-radius:12px;border:1px solid var(--border);padding:22px 28px;margin-bottom:22px;box-shadow:0 2px 12px rgba(27,53,100,0.07);}
 .intro h1{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;font-weight:600;color:var(--navy);margin-bottom:6px;}
@@ -84,18 +80,10 @@ footer span{color:var(--steel-light);}
 .upload-bar-fill{height:100%;background:linear-gradient(90deg,var(--steel),var(--navy));width:0;transition:width .25s;}
 </style>
 </head>
-<body>
-<header>
-  <div class="logo-wrap">
-    <img class="logo-img" src="/img/vbh-logo.png" alt="VBH"/>
-    <div class="logo-div"></div>
-    <div>
-      <div class="logo-title">WORK ORDER REQUEST</div>
-      <div class="logo-sub">Van Buskirk Homes -- Maintenance</div>
-    </div>
-  </div>
+<body data-vbh-page="workorder" data-vbh-chrome="header" data-vbh-build="workorder-v2">
+<div data-vbh-header>
   <div class="hdr-date" id="hdr-date"></div>
-</header>
+</div>
 
 <div class="page-wrap">
   <div id="form-wrap">
@@ -266,8 +254,7 @@ footer span{color:var(--steel-light);}
 <div id="toast"></div>
 <footer>Van Buskirk Homes &nbsp;--&nbsp; <span>vanbuskirkco.com</span></footer>
 
-<script src="config.js"></script>
-<script src="db.js"></script>
+<script src="/db.js"></script>
 <script>
 var selectedPri = '';
 var photoQueue = []; // [{ id, file, blob, dataUrl, status: 'pending'|'uploading'|'done'|'err', url }]
@@ -587,5 +574,6 @@ function resetForm() {
   window.scrollTo({top:0,behavior:'smooth'});
 }
 </script>
+<div data-vbh-foot></div>
 </body>
 </html>

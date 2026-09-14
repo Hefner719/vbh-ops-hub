@@ -15,27 +15,36 @@ Internal operations hub for Van Buskirk Homes (VBH), a custom home builder in Si
 ## Stack
 
 - Vanilla HTML/CSS/JS. No frameworks, no bundler, no TypeScript in `public/`. Edge Functions are plain JS on Deno.
-- Hosted on Netlify at vbchomes.net. PWA manifests per page. Pretty URLs are on (`/hub` serves `hub.html`).
-- Backend is Supabase, project ref `bppirsahciuxrqzitfxa`. The anon key is public by design and lives in `public/vbh-config.js` (`VBH.SUPABASE_KEY`) and `public/config.js` (`SUPABASE_ANON_KEY`). **Never** put a service-role key, a Graph client secret, or any other secret in this repo. Secrets go in Supabase Edge Function secrets or Netlify env vars.
+- Hosted on Netlify at vbchomes.net; `netlify.toml` declares publish dir, pretty URLs (`/projects` serves `projects.html` — always link extensionless), and headers. PWA manifests: `manifest.json` (hub) plus per-app ones for the work-order form, dashboard, and intake.
+- Backend is Supabase, project ref `bppirsahciuxrqzitfxa`. The anon key is public by design and lives only in `public/vbh-config.js` (`VBH.SUPABASE_KEY`). **Never** put a service-role key, a Graph client secret, or any other secret in this repo. Secrets go in Supabase Edge Function secrets or Netlify env vars.
 - Supabase tables in use: `projects` (+ view `v_active_projects`), `project_updates`, `leads`, `meetings`, `work_orders`, `assets`, and the `bt_*` bridge tables below.
+
+## The shell (build `shell-v1`) — how every page is put together
+
+Three shared files, loaded in this order in `<head>`: `/vbh-config.js` → `/assets/vbh.css` → `/assets/vbh-shell.js`. Then the page's own `<style>` and script.
+
+- **`vbh-config.js`** is the one config file. `VBH.PAGES` is the page registry: id, path, nav label, group, title/subtitle, hub tile, `protected`. Adding a page = one entry here + a body attribute on the page. Also holds `VBH.ROLES` (opsDirector, ceo, coo), `VBH.WORK_ORDERS`, `VBH.MEETING`, `VBH.EXEC_UPDATE`, the option lists, and `window.VBH_CONFIG` for `meeting.html`.
+- **`assets/vbh.css`** owns design tokens and the chrome (`.vbh-nav`, `.vbh-header`, `.vbh-foot`, `.vbh-gate`) plus opt-in components namespaced `vbh-btn` / `vbh-badge` / `vbh-card`. Pages keep their own layout CSS and may still define their own `.btn`/`.card` — no collision.
+- **`assets/vbh-shell.js`** reads `<body data-vbh-page="id">`, injects the nav (active page marked, Lock button), fills `<div data-vbh-header>` (children become header actions; `data-title`/`data-sub` override), fills `<div data-vbh-foot>`, renders hub tiles into `[data-vbh-tiles]`, sets `document.title`, and shows the gate on protected pages. `data-vbh-chrome="header"` = header + footer only (public forms); `data-vbh-ask-name` also asks the editor's name (meeting). Exposes `VBH.auth.require(cb)`, `VBH.sb()`, `VBH.toast()`, `VBH.esc()`, and fires `vbh:ready`. Fails open: content is never left hidden if the script errors.
+- Page-specific init that must wait for the gate: `VBH.auth.require(init)`.
 
 ## Auth (current state — interim)
 
-One shared password, `VBH.PASSWORD` in `public/vbh-config.js`, checked client-side and remembered in `sessionStorage` (`vbh_auth_ok`). It is also hardcoded as a fallback literal in `hub.html`, `meeting.html`, `projects.html`. There is **no** Netlify Identity, no role matrix, no `vbh-auth.js`, no `_headers`. Real login is on the roadmap (see below). `index.html` (work-order request form) and `intake.html` (client intake) are public on purpose.
+One shared password, `VBH.PASSWORD`, checked by the shell gate and remembered in `localStorage` (`vbh_auth`, 12-hour TTL, cleared by the nav Lock button). One key for the whole hub — unlocking any page unlocks all. Legacy `sessionStorage` flags are migrated on first load. There is **no** Netlify Identity, no role matrix. Real login is on the roadmap. `index.html` (work-order request form) and `intake.html` (client intake) are public on purpose (`protected:false` in the registry).
 
 ## Pages (all in `public/`)
 
-- `hub.html` — landing page / navigation
-- `meeting.html` — weekly production meeting agenda (build `meeting-v4`), Supabase-backed (`meetings` JSON snapshots, `project_updates` history). State object `S` is the only source of truth; the DOM is a projection. Read its architecture comment before touching it.
-- `projects.html` — Kanban project tracker (`projects`)
+- `hub.html` — landing page; tiles render from `VBH.PAGES`
+- `meeting.html` — weekly production meeting agenda (build `meeting-v5`), Supabase-backed (`meetings` JSON snapshots, `project_updates` history). Keeps its own toolbar under the shared nav. State object `S` is the only source of truth; the DOM is a projection. Read its architecture comment before touching it.
+- `projects.html` — project tracker (`projects`)
 - `leads.html` — pipeline with probability pills and archive (`leads`)
-- `weeklyupdate.html` — exec briefing for ownership (no hyphen in the filename)
+- `weeklyupdate.html` — exec briefing for ownership (no hyphen in the filename); recipients/sender come from `VBH.EXEC_UPDATE`
 - `gantt.html`, `equipment.html` (`assets`), `raci.html`, `standards.html`
-- `index.html` + `dashboard.html` — development-maintenance work-order request form and dispatch board (`work_orders`)
+- `index.html` + `dashboard.html` — development-maintenance work-order request form and dispatch board (`work_orders`, helper `db.js`)
 - `intake.html` — client intake form (writes to `leads`)
-- `migrate.html`, `migrate-projects.html` — one-time data migration tools. Slated for removal.
+- `archive/` (repo root, not deployed) — retired one-time migration tools.
 
-Don't restructure existing pages unless the task says so.
+Don't restructure a page's working area unless the task says so; chrome changes go in the shell, not in pages.
 
 ## Meeting cadence
 
@@ -94,5 +103,5 @@ Microsoft Graph poll of Jordan's Outlook **Buildertrend** folder from a Supabase
 1. Bridge live: IT approves Graph app → Edge Function deployed → `pg_cron` every 15 min → parser tuned on live mail.
 2. `meeting.html` job cards show a read-only "since last meeting" strip from `v_bt_job_activity`; auto-rollover on first open of a new meeting week; auto-add cards for active projects with Buildertrend activity.
 3. `digest.html` in the hub + Friday/Monday email.
-4. Real login: Supabase Auth (magic link) + `profiles.role` with roles Owner, Ops Admin, Manager, Field, Labor; RLS on every table; retire the shared password.
-5. Hub cleanup: one shared logo file instead of base64 in four pages, remove migration pages, single config file, build stamps everywhere.
+4. Real login: Supabase Auth (magic link) + `profiles.role` with roles Owner, Ops Admin, Manager, Field, Labor; RLS on every table; retire the shared password. The shell gate is the single swap point.
+5. ~~Hub cleanup~~ — done in `cleanup-v1` / `shell-v1` (shared logo, migration pages archived, one config, shared chrome, build stamps).

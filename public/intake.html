@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-<title>VBH Client Intake</title>
+<title>Client Intake · Van Buskirk Homes</title>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="VBH New Clients"/>
@@ -13,34 +13,14 @@
 <link rel="apple-touch-icon" href="/icon-intake-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="vbh-config.js"></script>
+<script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-:root {
-  --navy: #1B3564; --navy-dark: #122548; --steel: #6B8EB5;
-  --light: #EBF0F7; --mid: #AEC0D6; --white: #fff;
-  --border: #d0dded; --green: #22c55e; --text: #1a2540;
-}
-body { font-family: 'Lato', sans-serif; background: var(--light); color: var(--text); min-height: 100vh; }
+*, *::before, *::after { margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root { --text: #1a2540; }
+body { color: var(--text); min-height: 100vh; }
 
-/* NAV */
-.nav { display: flex; align-items: center; background: var(--navy-dark); height: 44px; overflow-x: auto; flex-shrink: 0; border-bottom: 2px solid var(--steel); }
-.nav::-webkit-scrollbar { display: none; }
-.nav-logo { padding: 0 16px; font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: .95rem; color: #fff; border-right: 1px solid rgba(255,255,255,0.12); height: 100%; display: flex; align-items: center; white-space: nowrap; flex-shrink: 0; letter-spacing: .04em; }
-.nav a { display: flex; align-items: center; height: 100%; padding: 0 14px; color: rgba(255,255,255,0.55); text-decoration: none; font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
-.nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.nav a.active { background: rgba(255,255,255,0.12); color: #fff; }
-
-/* GATE */
-#gate { position: fixed; inset: 0; background: linear-gradient(160deg, var(--navy-dark) 0%, var(--navy) 100%); z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 24px; padding: 30px; }
-.gate-logo { height: 80px; object-fit: contain; filter: brightness(0) invert(1); }
-.gate-box { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.18); border-radius: 14px; padding: 36px 44px; display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 340px; backdrop-filter: blur(8px); }
-.gate-box h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 700; color: #fff; }
-.gate-box p { font-size: .83rem; color: var(--mid); text-align: center; }
-.gate-box input { width: 100%; padding: 11px 14px; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 1rem; outline: none; letter-spacing: .08em; }
-.gate-box input:focus { border-color: var(--steel); }
-.gate-box button { width: 100%; padding: 12px; background: var(--steel); color: #fff; border: none; border-radius: 8px; font-size: .95rem; font-weight: 700; cursor: pointer; letter-spacing: .06em; text-transform: uppercase; touch-action: manipulation; }
-.gate-err { color: #fca5a5; font-size: .82rem; display: none; }
 
 /* SUCCESS */
 #success { display: none; position: fixed; inset: 0; background: linear-gradient(160deg, var(--navy-dark) 0%, var(--navy) 100%); z-index: 2000; align-items: center; justify-content: center; flex-direction: column; gap: 20px; padding: 40px; text-align: center; color: #fff; }
@@ -52,17 +32,6 @@ body { font-family: 'Lato', sans-serif; background: var(--light); color: var(--t
 /* APP */
 #app { display: flex; flex-direction: column; min-height: 100vh; }
 
-/* FORM HEADER */
-.form-header {
-  background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 60%, #1e4080 100%);
-  border-bottom: 3px solid var(--steel);
-  padding: 22px 24px 20px;
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  text-align: center;
-}
-.form-header img { height: 58px; object-fit: contain; filter: brightness(0) invert(1); }
-.form-header h1 { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 700; color: #fff; letter-spacing: .03em; }
-.form-header p { font-size: .8rem; color: var(--mid); letter-spacing: .08em; text-transform: uppercase; }
 
 /* BODY */
 .form-body { padding: 22px 16px 16px; max-width: 680px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 14px; }
@@ -120,19 +89,8 @@ body { font-family: 'Lato', sans-serif; background: var(--light); color: var(--t
 .submit-btn:disabled { opacity: .5; cursor: not-allowed; }
 </style>
 </head>
-<body>
+<body data-vbh-page="intake" data-vbh-chrome="header" data-vbh-build="intake-v2">
 
-<!-- GATE -->
-<div id="gate" style="display:none">
-  <img class="gate-logo" src="/img/vbh-logo.svg" alt="Van Buskirk Homes"/>
-  <div class="gate-box">
-    <h2>Client Intake</h2>
-    <p>Authorized personnel only</p>
-    <input type="password" id="pw" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()"/>
-    <button onclick="checkPw()">Continue</button>
-    <div class="gate-err" id="pw-err">Incorrect password</div>
-  </div>
-</div>
 
 <!-- SUCCESS -->
 <div id="success">
@@ -144,11 +102,7 @@ body { font-family: 'Lato', sans-serif; background: var(--light); color: var(--t
 
 <!-- APP -->
 <div id="app">
-  <div class="form-header">
-    <img src="/img/vbh-logo.svg" alt="Van Buskirk Homes"/>
-    <h1>Client Intake Form</h1>
-    <p>New Build Inquiry — Van Buskirk Homes</p>
-  </div>
+  <div data-vbh-header data-title="Client Intake Form" data-sub="New Build Inquiry · Van Buskirk Homes"></div>
 
   <div class="form-body">
 
@@ -268,17 +222,6 @@ body { font-family: 'Lato', sans-serif; background: var(--light); color: var(--t
 const sb = supabase.createClient(VBH.SUPABASE_URL, VBH.SUPABASE_KEY);
 let selectedRep = '', selectedStar = 0;
 
-function checkPw() {
-  if (document.getElementById('pw').value === VBH.PASSWORD) {
-    sessionStorage.setItem('vbh','1');
-    document.getElementById('gate').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    init();
-  } else {
-    document.getElementById('pw-err').style.display = 'block';
-    document.getElementById('pw').value = '';
-  }
-}
 
 window.onload = () => {
   init();
@@ -370,5 +313,6 @@ function resetForm() {
   window.scrollTo({top:0,behavior:'smooth'});
 }
 </script>
+<div data-vbh-foot></div>
 </body>
 </html>

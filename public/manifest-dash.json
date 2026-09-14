@@ -1,7 +1,7 @@
 {
   "name": "VBH Dashboards",
   "short_name": "Dashboards",
-  "start_url": "/dashboard.html",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#1B3564",
   "theme_color": "#1B3564",
