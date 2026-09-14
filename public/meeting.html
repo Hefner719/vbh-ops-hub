@@ -399,8 +399,47 @@ select.tracker-link:focus { outline:none; border-color:var(--steel); }
 .nsr-info span { color:var(--ink-soft); }
 .nsr-add {
   padding:4px 11px; border:1px solid var(--green); border-radius:6px; background:var(--green); color:#fff;
-  font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer; white-space:nowrap;
+  font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer; white-space:nowrap; text-decoration:none;
 }
+.nsb-note { padding:6px 13px 9px; font-size:.72rem; color:var(--ink-soft); font-style:italic; border-top:1px solid var(--green-line); }
+#btUnmatched { border-color:var(--amber-line); background:var(--amber-bg); }
+#btUnmatched .nsb-head { color:var(--amber); }
+#btUnmatched .new-starts-row, #btUnmatched .nsb-note { border-top-color:var(--amber-line); }
+#btUnmatched .nsr-add { background:var(--amber); border-color:var(--amber); }
+
+/* ─────────────── v6 · BUILDERTREND STRIP (read-only, from bt_events) ─────────────── */
+.bt-strip {
+  padding:9px 13px 10px; border-bottom:1px solid var(--line-soft);
+  background:linear-gradient(180deg, #fbfcfe 0%, var(--surface) 100%);
+  font-size:.78rem; color:var(--ink);
+}
+.bt-head { display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
+.bt-title { font-size:.68rem; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:var(--steel); }
+.bt-title::before { content:'⟲ '; color:var(--gold-dk); }
+.bt-meta { font-size:.7rem; color:var(--ink-faint); }
+.bt-tag {
+  display:inline-block; padding:1px 7px; border-radius:999px; margin-right:4px;
+  font-size:.64rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+  background:var(--surface-3); color:var(--ink-soft); vertical-align:middle;
+}
+.bt-update { padding:7px 10px; border-left:3px solid var(--steel); background:var(--surface-2); border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
+.bt-update.stale { border-left-color:var(--amber); background:var(--amber-bg); }
+.bt-update.none { border-left-color:var(--line); color:var(--ink-faint); font-style:italic; }
+.bt-update-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-bottom:4px; }
+.bt-when { font-weight:700; color:var(--navy); }
+.bt-who { color:var(--ink-soft); }
+.bt-stale { font-size:.66rem; font-weight:800; color:var(--amber); text-transform:uppercase; letter-spacing:.05em; }
+.bt-link { margin-left:auto; color:var(--steel); text-decoration:none; font-weight:700; font-size:.72rem; white-space:nowrap; }
+.bt-link:hover { color:var(--navy); text-decoration:underline; }
+.bt-teaser { color:var(--ink); line-height:1.45; }
+.bt-feed { margin-top:6px; display:flex; flex-direction:column; gap:3px; }
+.bt-ev { display:flex; align-items:baseline; gap:6px; line-height:1.4; }
+.bt-ev b { color:var(--navy); }
+.bt-ev i { color:var(--ink-soft); }
+.bt-ev .bt-link { margin-left:2px; }
+.bt-ico { width:14px; text-align:center; color:var(--ink-faint); flex-shrink:0; }
+.bt-ico.ok { color:var(--green); font-weight:900; }
+.job-card.collapsed .bt-strip { display:none; }
 
 /* ─────────────── ACTION ITEMS ─────────────── */
 .quick-add {
@@ -681,6 +720,9 @@ body.read-only [contenteditable] { background:var(--surface-2); }
   .job-card { break-inside:avoid; box-shadow:none !important; border:1px solid #d0dded !important; margin-bottom:6px; }
   .job-card.collapsed .job-body, .job-card.collapsed .job-foot { display:grid !important; }
   .job-card.collapsed .job-foot { display:block !important; }
+  .job-card.collapsed .bt-strip { display:block !important; }
+  .bt-strip { padding:5px 11px !important; font-size:8pt !important; background:#fff !important; }
+  .bt-link { display:none !important; }
   .job-head { background:#1B3564 !important; padding:6px 11px !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .job-name { color:#fff !important; font-size:10pt !important; }
   .job-date, .job-sub { color:#EBF0F7 !important; font-size:8pt !important; }
@@ -739,7 +781,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 }
 </style>
 </head>
-<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v5">
+<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v6">
 
 
 <!-- ══════════ APP ══════════ -->
@@ -828,6 +870,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
         </div>
 
         <div id="newStartsBanner" class="new-starts-banner" style="display:none"></div>
+        <div id="btUnmatched" class="new-starts-banner" style="display:none"></div>
         <div class="job-grid" id="jobGrid"></div>
 
         <div class="btn-row" style="margin-top:12px">
@@ -1075,7 +1118,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 </div>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   VBH WEEKLY PRODUCTION MEETING · build meeting-v3
+   VBH WEEKLY PRODUCTION MEETING · build meeting-v6
    ───────────────────────────────────────────────────────────────────────
    ARCHITECTURE NOTE (this is the change that fixes the old bugs):
 
@@ -1223,7 +1266,7 @@ const DRAFT_KEY   = 'vbh_meeting_draft';
 const EDITOR_KEY  = 'vbh_editor_name';
 const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
 const STATE_VERSION = 3;
-const BUILD = 'meeting-v4';
+const BUILD = 'meeting-v6';
 
 /* ─────────────────────────────────────────────────────────────────────
    ③ SMALL UTILITIES
@@ -1647,6 +1690,8 @@ function jobCardHTML(j) {
       </div>` : ''}
     </div>
 
+    ${btStripHTML(j)}
+
     <div class="job-body">
       <div>
         <div class="job-col-label">2-Week Goals <span class="goal-hint">(check = done)</span></div>
@@ -1985,6 +2030,7 @@ function addJobCard(seed) {
   }, seed || {});
   (S.jobs = S.jobs || []).push(j);
   renderJobs(); renderNav(); markDirty();
+  if (j.projectId || /\b[RM]\d{4,6}\b/i.test(j.name||'')) loadBuildertrendActivity();   // v6
   setTimeout(() => {
     const el = $(`.job-card[data-job="${j.id}"]`);
     if (el) { el.scrollIntoView({ block:'center', behavior:'smooth' }); const n = $('.job-name', el); if (n && !j.name) n.focus(); }
@@ -2093,14 +2139,14 @@ async function loadTrackerProjects() {
   if (!trackerSB) return;
   try {
     const { data, error } = await trackerSB.from('projects')
-      .select('id, job_number, address, buyer_realtor, stage, status, phase_note, pct_complete, schedule_days, schedule_updated_at')
+      .select('id, job_number, address, buyer_realtor, stage, status, phase_note, pct_complete, schedule_days, schedule_updated_at, start_date')
       .order('job_number', { ascending: true });
     if (error) { console.warn('Tracker load failed:', error.message); return; }
     trackerProjects = (data||[]).map(p => ({
       id:p.id, job_number:p.job_number||'', stage:p.stage||'', address:p.address||'',
       buyer_realtor:p.buyer_realtor||'', status:p.status||'', phase_note:p.phase_note||'',
       pct_complete:p.pct_complete, schedule_days:p.schedule_days,
-      schedule_updated_at:p.schedule_updated_at, label:vbhProjectLabel(p)
+      schedule_updated_at:p.schedule_updated_at, start_date:p.start_date||null, label:vbhProjectLabel(p)
     }));
   } catch (e) { console.warn('Tracker load error:', e); }
 }
@@ -2112,6 +2158,7 @@ function onTrackerLinkChange(sel) {
   j.projectId = sel.value || null;
   pullTrackerValues(j, true);
   renderJobs(); markDirty();
+  loadBuildertrendActivity();   // v6
 }
 
 /* Copy the tracker's live values onto a job.
@@ -2488,6 +2535,183 @@ function syncCardsFromTracker(opts) {
     alert(msg);
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   ⑧b  v6 · AGENDA ⇄ TRACKER ⇄ BUILDERTREND
+   Every active tracker project is on the agenda, and every card shows what
+   Buildertrend reported since last meeting. Buildertrend data is read live
+   from bt_events (one home) — it is never copied into the meeting state.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Tracker stages that belong in the production meeting. dev_maint (the
+   neighbourhood maintenance jobs) and closed do not. */
+const AGENDA_STAGES = ['solds', 'escrow', 'model'];
+
+/* Add a card for every active tracker project that isn't on the agenda yet.
+   Returns how many were added. Silent: the caller decides how to announce it. */
+function ensureActiveProjectCards() {
+  if (!trackerProjects.length) return 0;
+  const linked   = new Set((S.jobs||[]).map(j => j.projectId).filter(Boolean));
+  const onAgenda = jobNumbersOnAgenda();
+  const missing = trackerProjects
+    .filter(p => AGENDA_STAGES.includes((p.stage||'').toLowerCase())
+              && !linked.has(p.id)
+              && !(p.job_number && onAgenda.has(p.job_number.toUpperCase())))
+    .sort((a, b) => String(a.job_number||'').localeCompare(String(b.job_number||'')));
+  missing.forEach(p => {
+    (S.jobs = S.jobs || []).push({
+      id: uid('j'), projectId: p.id, name: vbhProjectLabel(p),
+      date: p.start_date ? 'Started ' + fmtStartDate(p.start_date) : '',
+      goals: [{ id: uid('g'), text: '', done: false }],
+      blockers: '', next: '', notes: '',
+      phase: p.phase_note || '', status: p.status || '',
+      pct: p.pct_complete != null ? String(Math.round(p.pct_complete * 100)) : '',
+      sched: p.schedule_days != null ? String(p.schedule_days) : '',
+      collapsed: false
+    });
+  });
+  if (missing.length) { renderJobs(); renderNav(); markDirty(); }
+  return missing.length;
+}
+
+/* ── Buildertrend activity ── */
+const BT_WINDOW_DAYS = 21;            // covers a skipped week with margin
+const BT_STALE_DAYS  = 14;            // no client update in this long → flag it
+let btByJob = new Map();              // job_number → { recent:[], latestUpdate }
+let btUnmatched = [];
+let btLoaded = false;
+
+function jobNumberOf(j) {
+  const p = j.projectId && trackerProjects.find(tp => tp.id === j.projectId);
+  if (p && p.job_number) return p.job_number.toUpperCase();
+  const m = String(j.name||'').match(/\b([RM]\d{4,6})\b/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
+async function loadBuildertrendActivity() {
+  if (!trackerSB) return;
+  const nums = [...jobNumbersOnAgenda()];
+  const since = new Date(Date.now() - BT_WINDOW_DAYS * 86400000).toISOString();
+  const cols = 'id,event_type,job_number,occurred_at,actor,title,amount,period_start,period_end,summary,link,fields';
+  try {
+    const [recent, latest, unmatched] = await Promise.all([
+      nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).gte('occurred_at', since).order('occurred_at', { ascending: false }) : { data: [] },
+      nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).eq('event_type', 'client_update').order('occurred_at', { ascending: false }) : { data: [] },
+      trackerSB.from('v_bt_unmatched_jobs').select('job_number,job_name,events,last_seen,event_types')
+    ]);
+    if (recent.error) throw recent.error;
+    if (latest.error) throw latest.error;
+    const map = new Map();
+    nums.forEach(n => map.set(n, { recent: [], latestUpdate: null }));
+    (recent.data || []).forEach(e => { const b = map.get(e.job_number); if (b) b.recent.push(e); });
+    (latest.data || []).forEach(e => { const b = map.get(e.job_number); if (b && !b.latestUpdate) b.latestUpdate = e; });
+    btByJob = map;
+    btUnmatched = unmatched.error ? [] : (unmatched.data || []);
+    btLoaded = true;
+  } catch (e) {
+    console.warn('[buildertrend] load failed:', e.message || e);
+    btLoaded = true;
+  }
+  renderJobs();
+  renderBtUnmatched();
+}
+
+function fmtBtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : (d.getMonth()+1) + '/' + d.getDate();
+}
+function fmtMoney(n) {
+  if (n == null || isNaN(Number(n))) return '';
+  const v = Number(n), abs = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return v < 0 ? '($' + abs + ')' : '$' + abs;
+}
+function fmtPeriod(e) {
+  if (!e.period_start || !e.period_end) return fmtBtDate(e.occurred_at);
+  const a = new Date(e.period_start + 'T12:00:00'), b = new Date(e.period_end + 'T12:00:00');
+  const mo = d => d.toLocaleDateString('en-US', { month: 'short' });
+  return a.getMonth() === b.getMonth()
+    ? `${mo(a)} ${a.getDate()}–${b.getDate()}`
+    : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}`;
+}
+
+function btEventLine(e) {
+  const who = e.actor ? escHtml(e.actor.split(' ')[0]) : '';
+  const link = e.link ? ` <a class="bt-link" href="${escHtml(e.link)}" target="_blank" rel="noopener">↗</a>` : '';
+  switch (e.event_type) {
+    case 'change_order_added':
+      return `<div class="bt-ev"><span class="bt-ico">＋</span><span class="bt-tag">CO added</span> ${escHtml(e.title||'')} <b>${fmtMoney(e.amount)}</b>${who ? ' · ' + who : ''}${link}</div>`;
+    case 'change_order_approved': {
+      const co = e.fields && e.fields.co_number ? `#${escHtml(e.fields.co_number)} ` : '';
+      return `<div class="bt-ev"><span class="bt-ico ok">✓</span><span class="bt-tag">CO approved</span> ${co}${escHtml(e.title||'')} <b>${fmtMoney(e.amount)}</b>${link}</div>`;
+    }
+    case 'change_order_file':
+      return `<div class="bt-ev"><span class="bt-ico">📎</span><span class="bt-tag">CO file</span> ${escHtml(e.title||'')} ${e.amount != null ? '<b>' + fmtMoney(e.amount) + '</b>' : ''}${who ? ' · ' + who : ''}${link}</div>`;
+    case 'document_comment':
+      return `<div class="bt-ev"><span class="bt-ico">💬</span><span class="bt-tag">Comment</span> ${who} on <i>${escHtml(e.title||'document')}</i>${e.summary ? ': “' + escHtml(e.summary) + '”' : ''}${link}</div>`;
+    case 'client_update':
+      return '';   // shown once, as the latest update, not as a feed item
+    default:
+      return `<div class="bt-ev"><span class="bt-ico">•</span><span class="bt-tag">${escHtml(e.event_type)}</span> ${escHtml(e.title||e.summary||'')}${link}</div>`;
+  }
+}
+
+/* The read-only Buildertrend block on a job card. */
+function btStripHTML(j) {
+  const num = jobNumberOf(j);
+  if (!num) return '';
+  if (!btLoaded) return `<div class="bt-strip"><div class="bt-head"><span class="bt-title">Buildertrend</span><span class="bt-meta">loading…</span></div></div>`;
+  const b = btByJob.get(num);
+  const recent = (b && b.recent) || [];
+  const upd = b && b.latestUpdate;
+  const feed = recent.filter(e => e.event_type !== 'client_update');
+
+  let updHTML;
+  if (upd) {
+    const ageDays = Math.round((startOfDay(new Date()) - startOfDay(new Date(upd.occurred_at))) / 86400000);
+    const stale = ageDays > BT_STALE_DAYS;
+    updHTML = `
+      <div class="bt-update${stale ? ' stale' : ''}">
+        <div class="bt-update-head">
+          <span class="bt-tag">Client update</span>
+          <span class="bt-when">${escHtml(fmtPeriod(upd))}</span>
+          ${upd.actor ? `<span class="bt-who">${escHtml(upd.actor)}</span>` : ''}
+          ${stale ? `<span class="bt-stale">no update in ${Math.floor(ageDays/7)} wk</span>` : ''}
+          ${upd.link ? `<a class="bt-link" href="${escHtml(upd.link)}" target="_blank" rel="noopener">Open in Buildertrend ↗</a>` : ''}
+        </div>
+        <div class="bt-teaser">${escHtml(upd.summary||'')}${upd.fields && upd.fields.truncated ? '…' : ''}</div>
+      </div>`;
+  } else {
+    updHTML = `<div class="bt-update none">No client update on record for ${escHtml(num)}.</div>`;
+  }
+  const count = feed.length;
+  return `
+    <div class="bt-strip">
+      <div class="bt-head">
+        <span class="bt-title">Buildertrend</span>
+        <span class="bt-meta">${count ? count + ' item' + (count === 1 ? '' : 's') + ' in the last ' + BT_WINDOW_DAYS + ' days' : 'read-only · from notification emails'}</span>
+      </div>
+      ${updHTML}
+      ${feed.length ? `<div class="bt-feed">${feed.map(btEventLine).join('')}</div>` : ''}
+    </div>`;
+}
+
+/* Buildertrend jobs with activity but no tracker row — the tracker is the
+   agenda's source of truth, so these need a human to add them there. */
+function renderBtUnmatched() {
+  const box = $('#btUnmatched');
+  if (!box) return;
+  if (!btUnmatched.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.innerHTML =
+    `<div class="nsb-head">🔗 In Buildertrend, not in the Projects tracker (${btUnmatched.length})</div>` +
+    btUnmatched.map(u => `<div class="new-starts-row">
+      <div class="nsr-info"><b>${escHtml(u.job_number)}</b> <span>${escHtml(String(u.job_name||'').replace(/^[RM]\d+\s*-\s*/i, ''))}</span> · ${u.events} notification${u.events === 1 ? '' : 's'}${u.last_seen ? ', last ' + escHtml(fmtBtDate(u.last_seen)) : ''}</div>
+      <a class="nsr-add" href="/projects?q=${encodeURIComponent(u.job_number)}" target="_blank" rel="noopener">Add in Projects ↗</a>
+    </div>`).join('') +
+    `<div class="nsb-note">Add the project in the tracker and it joins the agenda automatically.</div>`;
+  box.style.display = 'block';
+}
+
 /* ─────────────────────────────────────────────────────────────────────
    ⑨ PERSISTENCE — Supabase `meetings`, one row per meeting day.
    `state` is the v3 snapshot. Saving is JSON.stringify(S): the DOM is
@@ -2691,9 +2915,23 @@ function saveMeeting() {
    Nothing here touches the DOM, so nothing can be lost in translation.
    ───────────────────────────────────────────────────────────────────── */
 
+/* v6: the meeting weekday (0 = Sunday … 2 = Tuesday) comes from config. */
+const MEETING_WEEKDAY = (window.VBH_CONFIG && Number.isInteger(window.VBH_CONFIG.meetingWeekday))
+  ? window.VBH_CONFIG.meetingWeekday : 2;
+
+/* The next occurrence of the meeting weekday on or after `from` (midnight). */
+function upcomingMeetingDay(from) {
+  const d = startOfDay(from || new Date());
+  const delta = (MEETING_WEEKDAY - d.getDay() + 7) % 7;
+  d.setDate(d.getDate() + delta);
+  return d;
+}
+
 function nextMeetingDates(state) {
   /* The header for next week = whatever "Next Meeting" says, if it parses;
-     otherwise this meeting's date + 7. Never silently fails. */
+     otherwise this meeting's date + 7. v6: if that lands in the past (the page
+     sat for several weeks), jump to the coming meeting day instead of staging
+     a week that has already happened. Never silently fails. */
   const timeOf = txt => {
     const parts = String(txt||'').replace(/ /g,' ').split('|');
     return parts.length > 1 ? parts.slice(1).join('|').trim() : MEETING_TIME;
@@ -2709,6 +2947,7 @@ function nextMeetingDates(state) {
     const cur = parse(state.meetingDate) || new Date();
     nextD = new Date(cur); nextD.setDate(nextD.getDate() + 7);
   }
+  if (startOfDay(nextD) < startOfDay(new Date())) nextD = upcomingMeetingDay(new Date());
   const afterD = new Date(nextD); afterD.setDate(afterD.getDate() + 7);
   return {
     meetingDate: fmtLongDate(nextD) + '  |  ' + time,
@@ -3395,6 +3634,21 @@ window.addEventListener('load', async () => {
   try { from = await loadCurrentMeeting(); }
   catch (e) { console.warn('[meetings] load error:', e); }
 
+  /* v6: the agenda stages itself. If the newest saved meeting is in the past,
+     roll it forward to the coming meeting day right now — last week is
+     archived exactly as saved (nothing is deleted; Archives has it), open
+     items carry, completed ones drop. Someone opening the page Monday morning
+     finds this week's agenda waiting instead of a read-only banner.
+     Offline: fall back to the v4 read-only view rather than roll a copy the
+     server never sees. */
+  let rolledFrom = null, cardsAdded = 0;
+  if (from === 'past' && trackerSB && !mtg.offline) {
+    rolledFrom = String(S.meetingDate||'').split('|')[0].trim();
+    rollPreviewState = null;
+    await confirmRollForward();
+    from = 'rolled';
+  }
+
   /* v4: an archived meeting is opened for reference only. None of the
      housekeeping below runs against it, because every one of those calls used to
      markDirty() and the autosave then rewrote the archived row 2.5s later. */
@@ -3405,21 +3659,26 @@ window.addEventListener('load', async () => {
     removeClosedProjectJobs();
     syncCardsFromTracker({ silent:true });
     refreshJobsFromTracker();
+    cardsAdded = ensureActiveProjectCards();     // v6: every active tracker project has a card
   }
   renderAll();
 
   detectNewStarts();
   refreshStartList();
   refreshPipeline();
+  loadBuildertrendActivity();                     // v6: read-only strip on each card
 
   if (!readOnly) setSaveState(mtg.offline ? 'Offline' : 'Saved', mtg.offline ? 'err' : '');
 
-  if (from === 'past') {
+  if (from === 'rolled') {
+    toast(`⟳ Staged ${String(S.meetingDate||'').split('|')[0].trim()} from ${rolledFrom}` +
+          (cardsAdded ? ` · ${cardsAdded} job card${cardsAdded === 1 ? '' : 's'} added from the tracker` : ''), 7000);
+  } else if (from === 'past') {
     toast('📅 ' + meetingLabel() + ' is read-only — roll it forward to start this week', 6000);
   } else if (from === 'buffer') {
-    toast('↩ Recovered unsaved work');
+    toast('↩ Recovered unsaved work' + (cardsAdded ? ` · ${cardsAdded} card(s) added from the tracker` : ''));
   } else if (from === 'server') {
-    toast('↩ Loaded from server');
+    toast('↩ Loaded from server' + (cardsAdded ? ` · ${cardsAdded} card(s) added from the tracker` : ''));
   }
 });
 </script>
