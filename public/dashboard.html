@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>VBH Work Order Dashboard</title>
+<title>Work Order Dashboard Â· VBH Ops Hub</title>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Dashboards"/>
@@ -13,19 +13,14 @@
 <link rel="apple-touch-icon" href="/icon-dash-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-:root{--navy:#1B3564;--navy-deep:#111f3e;--navy-mid:#243f72;--steel:#6B8EB5;--steel-light:#8aadd0;--light:#edf2f8;--light2:#f5f8fc;--border:#cddaec;--gold:#c9a84c;--muted:#5a7699;}
-body{font-family:Lato,sans-serif;background:var(--light2);color:var(--navy);min-height:100vh;}
-header{background:linear-gradient(135deg,var(--navy-deep) 0%,var(--navy) 60%,var(--navy-mid) 100%);padding:0 36px;height:80px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 4px 24px rgba(10,20,50,0.3);position:relative;}
-header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--steel),var(--gold),var(--steel),transparent);opacity:0.6;}
-.logo-wrap{display:flex;align-items:center;gap:18px;}
-.logo-img{height:50px;width:auto;filter:brightness(0) invert(1);opacity:.95;}
-.logo-div{width:1px;height:34px;background:rgba(107,142,181,0.4);}
-.logo-title{font-family:'Cormorant Garamond',Georgia,serif;color:white;font-size:20px;font-weight:600;letter-spacing:.1em;line-height:1;}
-.logo-sub{color:var(--steel-light);font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-top:3px;}
-.hdr-right{display:flex;align-items:center;gap:10px;}
-.hdr-date{color:rgba(255,255,255,0.4);font-size:12px;margin-right:4px;}
+*,*::before,*::after{margin:0;padding:0;}
+:root{--navy-mid:#243f72;--steel-light:#8aadd0;--light2:#f5f8fc;}
+body{background:var(--light2);color:var(--navy);min-height:100vh;}
+.hdr-date{color:rgba(255,255,255,0.55);font-size:12px;margin-right:4px;}
 .sync-label{color:rgba(255,255,255,0.45);font-size:11px;letter-spacing:.04em;display:flex;align-items:center;gap:5px;}
 .sync-label::before{content:'';width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulse 2s infinite;}
 .sync-label.error::before{background:#dc2626;animation:none;}
@@ -155,51 +150,14 @@ main{padding:22px 36px;max-width:1600px;margin:0 auto;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
 </style>
 
-<style id="vbh-stdnav-css">
-/* ===== VBH shared top nav (leads pattern + hub gold) ===== */
-.vbh-nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; overflow-x: auto; }
-.vbh-nav::-webkit-scrollbar { display: none; }
-.vbh-nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-family: 'Lato', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
-.vbh-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.vbh-nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
-.vbh-nav a.vbh-back { color: rgba(255,255,255,0.78); border-right: 1px solid rgba(255,255,255,0.14); }
-.vbh-band { background: linear-gradient(135deg, #122548 0%, #1B3564 60%, #1e4080 100%); padding: 10px 32px; min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: relative; }
-.vbh-band::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, #C9A84C 20%, #E5D08A 50%, #C9A84C 80%, transparent 100%); }
-.vbh-band .vb-left { display: flex; align-items: center; gap: 20px; }
-.vbh-band .vb-logo { height: 52px; object-fit: contain; filter: brightness(0) invert(1); }
-.vbh-band .vb-div { width: 1px; height: 38px; background: rgba(255,255,255,0.2); }
-.vbh-band .vb-title h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.5rem; font-weight: 700; color: #fff; letter-spacing: .03em; line-height: 1.1; margin: 0; }
-.vbh-band .vb-title span { font-size: .72rem; color: #AEC0D6; letter-spacing: .1em; text-transform: uppercase; font-weight: 400; }
-.vbh-band .vb-right { display: flex; align-items: center; gap: 10px; }
-</style>
+
 
 </head>
-<body>
-<nav class="vbh-nav">
-  <a class="vbh-back" href="/hub.html">← Hub</a>
-  <a href="/">Work Order</a>
-  <a href="/dashboard.html" class="active">Dashboard</a>
-  <a href="/leads.html">Leads</a>
-  <a href="/intake.html">Intake</a>
-  <a href="/projects.html">Projects</a>
-  <a href="/gantt.html">Timeline</a>
-  <a href="/meeting.html">Meeting</a>
-  <a href="/equipment.html">Assets</a>
-</nav>
-<header class="vbh-band">
-  <div class="vb-left">
-    <img class="vb-logo" src="/img/vbh-logo.svg" alt="Van Buskirk Homes"/>
-    <div class="vb-div"></div>
-    <div class="vb-title">
-      <h1>Work Order Dashboard</h1>
-      <span>Van Buskirk Homes &middot; Maintenance Operations</span>
-    </div>
-  </div>
-  <div class="vb-right">
-    <span class="hdr-date" id="hdr-date"></span>
-    <span class="sync-label" id="sync-label">Live</span>
-  </div>
-</header>
+<body data-vbh-page="dashboard" data-vbh-build="dashboard-v2">
+<div data-vbh-header>
+  <span class="hdr-date" id="hdr-date"></span>
+  <span class="sync-label" id="sync-label">Live</span>
+</div>
 
 
 
@@ -267,8 +225,7 @@ main{padding:22px 36px;max-width:1600px;margin:0 auto;}
   <div class="lb-info" id="lb-info"></div>
 </div>
 
-<script src="config.js"></script>
-<script src="db.js"></script>
+<script src="/db.js"></script>
 <script>
 var STATUSES = ['Pending Approval','Approved','In Progress','Complete','Rejected'];
 var SC = {'Pending Approval':'bp','Approved':'ba','In Progress':'bi','Complete':'bc','Rejected':'br'};
@@ -277,7 +234,7 @@ var PC = {'High':'chip chi','Medium':'chip chm','Low':'chip chl'};
 
 var orders = [];
 var filterStatus = 'All';
-var currentView = 'jordan';
+var currentView = 'manager';
 var showArchive = false;
 var pendingDelId = null;
 
@@ -320,7 +277,7 @@ function render() {
       '<span class="pct">' + counts[s] + '</span>' + s + '</div>';
   }).join('') +
   '<div class="vtoggle">' +
-  '<button class="vbtn' + (currentView==='jordan'?' active':'') + '" onclick="setView(\'jordan\')">Jordan View</button>' +
+  '<button class="vbtn' + (currentView==='manager'?' active':'') + '" onclick="setView(\'manager\')">Manager View</button>' +
   '<button class="vbtn' + (currentView==='crew'?' active':'') + '" onclick="setView(\'crew\')">Crew View</button>' +
   '<button class="vbtn' + (showArchive?' active':'') + '" onclick="toggleArchive()">' + (showArchive ? '\u2190 Active' : '\ud83d\udcc2 Archive') + '</button>' +
   '</div>';
@@ -431,7 +388,7 @@ function openDet(id) {
     '</div></div>' +
     '<div class="ds2"><div class="dsl">Work Description</div><div class="nb">' + (o.description||'') + '</div></div>' +
     ((o.photo_urls && o.photo_urls.length) ? '<div class="ds2"><div class="dsl">Photos (' + o.photo_urls.length + ')</div><div class="ph-grid">' + o.photo_urls.map(function(u, i){ return '<img src="' + u + '" loading="lazy" onclick="openLB(' + id + ',' + i + ')" alt="photo"/>'; }).join('') + '</div></div>' : '') +
-    (o.notes ? '<div class="ds2"><div class="dsl">Notes for Jordan</div><div class="nb gold">' + o.notes + '</div></div>' : '') +
+    (o.notes ? '<div class="ds2"><div class="dsl">Requestor Notes</div><div class="nb gold">' + o.notes + '</div></div>' : '') +
     (o.approval_notes ? '<div class="ds2"><div class="dsl">Approval Notes</div><div class="nb green">' + o.approval_notes + '</div></div>' : '') +
     (o.assigned_to ? '<div class="ds2"><div class="dsl">Assigned To</div><div class="nb">' + o.assigned_to + (o.assigned_to_email ? ' &nbsp;<span style="color:var(--muted);font-size:13px">(' + o.assigned_to_email + ')</span>' : '') + '</div></div>' : '') +
     (o.completion_notes ? '<div class="ds2"><div class="dsl">Completion Notes</div><div class="nb purple">' + o.completion_notes + '</div></div>' : '') +
@@ -546,7 +503,7 @@ function sendApprovalEmail(o) {
     (o.approval_notes ? 'APPROVAL NOTES FROM JORDAN:\n' + o.approval_notes + '\n' : ''),
     (o.notes ? 'NOTES FROM REQUESTOR (' + o.requestor + '):\n' + o.notes + '\n' : ''),
     'Please mark this work order as "In Progress" when you begin, and "Complete" when finished, on the VBH Work Order Dashboard.',
-    '', 'Thank you,', 'Jordan Hefner', 'Director of Operations', 'Van Buskirk Homes'
+    '', 'Thank you,', VBH.WORK_ORDERS.approverName, VBH.WORK_ORDERS.approverTitle, VBH.COMPANY.name
   ];
   var body = lines.join('\n');
   var reqEmail = requestorEmail(o.requestor);
@@ -579,7 +536,7 @@ function sendCompletionEmail(o) {
   if (to) {
     window.location.href = 'mailto:' + encodeURIComponent(to) + '?cc=' + encodeURIComponent(JORDAN_EMAIL) + '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
   } else {
-    // No email on file for this requestor -- fall back to Jordan only
+    // No email on file for this requestor -- fall back to the approver only
     window.location.href = 'mailto:' + encodeURIComponent(JORDAN_EMAIL) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
   }
 }
@@ -682,5 +639,6 @@ setupRealtime();
 updateClock();
 setInterval(updateClock, 30000);
 </script>
+<div data-vbh-foot></div>
 </body>
 </html>

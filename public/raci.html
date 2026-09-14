@@ -1,44 +1,31 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Responsibility Assignment Matrix (RACI) — VBH</title>
+<meta name="theme-color" content="#1B3564">
+<title>Responsibility Assignment Matrix · VBH Ops Hub</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-hub-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
+<script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <style>
-/* ===== VBH shared top nav (leads pattern + hub gold) ===== */
-.vbh-nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; overflow-x: auto; }
-.vbh-nav::-webkit-scrollbar { display: none; }
-.vbh-nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-family: 'Lato', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
-.vbh-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.vbh-nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
-.vbh-nav a.vbh-back { color: rgba(255,255,255,0.78); border-right: 1px solid rgba(255,255,255,0.14); }
- h1, h2, h3 { font-family:'Cormorant Garamond', Georgia, serif; }
+ :root {--r:#2E7D32;--a:#1B3564;--ar:#6A1B9A;--c:#B8860B;--i:#777;}
+ h1, h2, h3 { font-family: var(--font-head); }
+ body{line-height:1.45;}
+ .wrap{max-width:1240px;margin:0 auto;padding:22px 20px 0;}
+ .hint{font-size:12px;color:var(--muted);margin:0 0 10px;font-style:italic;}
 
- :root {--navy:#1B3564;--steel:#6B8EB5;--light:#EBF0F7;--gold:#C9A84C;--ink:#222;--gray:#555;--line:#D7E0EC;--bg:#F4F6FA;--white:#fff;
-  --r:#2E7D32;--a:#1B3564;--ar:#6A1B9A;--c:#B8860B;--i:#777;}
- *{box-sizing:border-box;}
- body{margin:0;background:var(--bg);color:var(--ink);font-family:'Lato',-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.45;-webkit-text-size-adjust:100%;}
- .topbar{background:var(--navy);color:#fff;}
- .topbar-inner{max-width:1240px;margin:0 auto;padding:18px 20px;display:flex;align-items:center;gap:18px;}
- .topbar img{height:54px;display:block;}
- .titles{margin-left:auto;text-align:right;}
- .topbar h1{font-size:19px;margin:0;font-weight:700;}
- .topbar .tag{font-size:12px;color:#C3D2E6;margin-top:2px;}
- .rule{height:4px;background:var(--gold);}
- .wrap{max-width:1240px;margin:0 auto;padding:0 20px 64px;}
- .back{display:inline-block;margin:20px 0 10px;font-size:13px;color:var(--steel);text-decoration:none;font-weight:600;}
- .back:hover{text-decoration:underline;}
- .hint{font-size:12px;color:var(--gray);margin:0 0 10px;font-style:italic;}
-
- .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff;-webkit-overflow-scrolling:touch;box-shadow:0 1px 3px rgba(27,53,100,.06);}
+ .scroll{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:#fff;-webkit-overflow-scrolling:touch;box-shadow:var(--shadow-sm);}
  table.raci{border-collapse:collapse;width:100%;min-width:920px;font-size:12.5px;}
  table.raci th, table.raci td{border:1px solid var(--line);padding:8px 10px;text-align:center;vertical-align:middle;}
  table.raci thead th{background:var(--steel);color:#fff;position:sticky;top:0;z-index:3;font-weight:700;}
  .rh-name{display:block;font-size:11px;line-height:1.15;}
  .rh-desc{display:block;font-size:8.5px;opacity:.85;margin-top:2px;font-weight:400;line-height:1.1;}
- .task-col{text-align:left;font-weight:600;color:var(--navy);background:var(--light);position:sticky;left:0;z-index:2;min-width:230px;}
- thead .task-col{background:var(--navy);color:#fff;z-index:4;}
- .sec-row td{text-align:left;background:var(--navy);color:#fff;font-weight:700;font-size:12.5px;position:sticky;left:0;}
+ table.raci .task-col{text-align:left;font-weight:600;color:var(--navy);background:var(--light);position:sticky;left:0;z-index:2;min-width:230px;}
+ table.raci thead .task-col{background:var(--navy);color:#fff;z-index:4;}
+ table.raci .sec-row td{text-align:left;background:var(--navy);color:#fff;font-weight:700;font-size:12.5px;position:sticky;left:0;}
  .sec-num{display:inline-block;font-size:11px;font-weight:700;color:var(--gold);border:1px solid rgba(201,168,76,.55);border-radius:5px;padding:2px 7px;letter-spacing:1px;margin-right:10px;}
  .code{font-weight:700;}
  .c-r{color:var(--r);background:rgba(46,125,50,.10);}
@@ -47,47 +34,29 @@
  .c-c{color:var(--c);background:rgba(184,134,11,.10);}
  .c-i{color:var(--i);background:rgba(120,120,120,.08);}
 
- .legend{margin-top:26px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:14px 26px;}
+ .legend{margin-top:26px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:14px 26px;}
  .lg{display:flex;align-items:center;gap:8px;}
- .lg-t{display:flex;flex-direction:column;font-size:12px;color:var(--gray);}
+ .lg-t{display:flex;flex-direction:column;font-size:12px;color:var(--muted);}
  .lg-t b{color:var(--navy);font-size:12.5px;}
  .pill{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;border-radius:6px;font-size:11px;font-weight:700;color:#fff;padding:0 6px;}
  .pill.c-r{background:var(--r);} .pill.c-a{background:var(--a);} .pill.c-ar{background:var(--ar);} .pill.c-c{background:var(--c);} .pill.c-i{background:var(--i);}
  .notes{margin-top:24px;}
  .notes h3{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--navy);border-bottom:2px solid var(--steel);padding-bottom:6px;}
  .notes ul{margin:10px 0 0;padding-left:18px;}
- .notes li{font-size:12.5px;color:var(--gray);margin-bottom:9px;}
- .footer{margin-top:34px;text-align:center;font-size:11.5px;color:var(--gray);}
- .footer b{color:var(--navy);}
- @media(max-width:860px){
-   .topbar-inner{flex-direction:column;align-items:flex-start;gap:10px;}
-   .titles{text-align:left;margin-left:0;}
- }
+ .notes li{font-size:12.5px;color:var(--muted);margin-bottom:9px;}
+ .matrix-note{margin-top:22px;font-size:11.5px;color:var(--muted);text-align:center;}
  @media print{
-   body{background:#fff;} .back,.hint{display:none;}
+   body{background:#fff;} .hint{display:none;}
    .scroll{overflow:visible;border:none;box-shadow:none;}
    table.raci{min-width:0;font-size:9px;}
-   .topbar,thead th,.sec-row td,.task-col,.pill,.rule,.code{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+   thead th,.sec-row td,.task-col,.pill,.code{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
  }
-</style></head><body>
- <nav class="vbh-nav">
-  <a class="vbh-back" href="/hub.html">← Hub</a>
-  <a href="/">Work Order</a>
-  <a href="/dashboard.html">Dashboard</a>
-  <a href="/leads.html">Leads</a>
-  <a href="/intake.html">Intake</a>
-  <a href="/projects.html">Projects</a>
-  <a href="/gantt.html">Timeline</a>
-  <a href="/meeting.html">Meeting</a>
-  <a href="/equipment.html">Assets</a>
-</nav>
-<div class="topbar"><div class="topbar-inner">
-   <img src="/img/vbh-logo.svg" alt="Van Buskirk Homes" style="filter:brightness(0) invert(1);"/>
-   <div class="titles"><h1>Responsibility Assignment Matrix (RACI)</h1>
-   <div class="tag">Operations · Project Lifecycle · Administration · Role-Based</div></div>
- </div></div><div class="rule"></div>
+</style></head>
+<body data-vbh-page="raci" data-vbh-build="raci-v2">
+ <div data-vbh-header>
+   <button class="btn btn-ghost btn-sm" type="button" onclick="window.print()">🖨 Print</button>
+ </div>
  <div class="wrap">
-   <a class="back" href="/hub.html">&larr; Back to Hub</a>
    <p class="hint">Scroll sideways to see all roles &rarr;</p>
    <div class="scroll">
      <table class="raci">
@@ -97,7 +66,7 @@
    </div>
    <div class="legend"><div class="lg"><span class="pill c-r">R</span><span class="lg-t"><b>Responsible</b>Performs the work</span></div><div class="lg"><span class="pill c-a">A</span><span class="lg-t"><b>Accountable</b>Owns the outcome / final sign-off</span></div><div class="lg"><span class="pill c-ar">A/R</span><span class="lg-t"><b>Accountable &amp; Responsible</b>Owns and performs</span></div><div class="lg"><span class="pill c-c">C</span><span class="lg-t"><b>Consulted</b>Two-way input before action</span></div><div class="lg"><span class="pill c-i">I</span><span class="lg-t"><b>Informed</b>Kept in the loop; no action required</span></div></div>
    <div class="notes"><h3>Governing Notes</h3><ul><li>PM on Job — the role column for the lead PM assigned to a given project (Sydney for custom homes; Justin for twinhomes, townhomes &amp; Hitchcock Park). A 3rd PM, or reassignment of design or warranty, fills the corresponding role column without restructuring the matrix. The named PM columns carry only cross-job duties performed regardless of whose job it is.</li><li>Approval Thresholds — PMs are A/R for buyouts, POs, change orders, and allowance overages at or under the estimated / customer-approved amount. Any amount exceeding estimate, or any allowance overage not already approved by the customer, requires Director of Operations approval.</li><li>Plan Development — R may be delegated to an external design / drafting vendor; the Director of Operations remains Accountable and coordinates plans not drawn in-house.</li><li>Marketing Coordination — execution performed by the external marketing team (R); the Director of Operations coordinates and remains Accountable.</li><li>Change Orders — routed PM → Dallas (front half) or PM → Quentin (back half). PM on Job is Accountable for the change-order process; dollar escalations follow the Approval Threshold note above.</li><li>Lien Waivers — Kara issues waivers via Buildertrend prior to payment; if a sub is unresponsive, the PM on Job is Accountable for resolution before funds are released.</li><li>Final Walkthrough — Justin conducts the walkthrough as a cross-job function with Quentin on site to facilitate pre-closing completion; Brandt attends as client advocate and reports notes to the Director, who gives final approval.</li><li>Business Development &amp; Leadership Meeting — Accountability for these standing meetings rests with the Chief Operating Officer, a role not represented as a column on this matrix.</li></ul></div>
-   <div class="footer"><b>Van Buskirk Homes</b> · 2571 S Westlake Dr, Sioux Falls, SD 57106 · (605) 951-5220<br>
-   Role-based matrix — named PM columns carry cross-job duties only; lead-PM duties live under "PM on Job."</div>
+   <div class="matrix-note">Role-based matrix — named PM columns carry cross-job duties only; lead-PM duties live under "PM on Job."</div>
  </div>
+ <div data-vbh-foot></div>
 </body></html>

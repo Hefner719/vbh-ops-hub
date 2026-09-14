@@ -1,53 +1,27 @@
 <!DOCTYPE html>
-<!-- build:cleanup-v1 -->
+<!-- build:shell-v1 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Accountability &amp; Communication Standards — VBH</title>
+<meta name="theme-color" content="#1B3564">
+<title>Accountability &amp; Communication Standards · VBH Ops Hub</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-hub-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
+<script src="/vbh-config.js"></script>
+<link rel="stylesheet" href="/assets/vbh.css">
+<script src="/assets/vbh-shell.js"></script>
 <style>
-/* ===== VBH shared top nav (leads pattern + hub gold) ===== */
-.vbh-nav { display: flex; align-items: center; background: #122548; border-bottom: 1px solid rgba(255,255,255,0.1); height: 42px; overflow-x: auto; }
-.vbh-nav::-webkit-scrollbar { display: none; }
-.vbh-nav a { display: flex; align-items: center; height: 100%; padding: 0 15px; color: rgba(255,255,255,0.55); text-decoration: none; font-family: 'Lato', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; transition: all .2s; }
-.vbh-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.vbh-nav a.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: inset 0 -3px 0 #C9A84C; }
-.vbh-nav a.vbh-back { color: rgba(255,255,255,0.78); border-right: 1px solid rgba(255,255,255,0.14); }
- h1, h2, h3 { font-family:'Cormorant Garamond', Georgia, serif; }
-
-  :root {
-    --navy:#1B3564; --steel:#6B8EB5; --light:#EBF0F7; --gold:#C9A84C;
-    --ink:#222; --gray:#555; --line:#D7E0EC; --bg:#F4F6FA; --white:#fff;
-  }
-  * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--bg); color:var(--ink);
-    font-family:'Lato',-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-    line-height:1.5; -webkit-text-size-adjust:100%;
-  }
+  h1, h2, h3 { font-family: var(--font-head); }
+  :root { --gray: var(--muted); }
+  body { line-height:1.5; }
   a { color:inherit; }
-  .wrap { max-width:960px; margin:0 auto; padding:0 20px 64px; }
-
-  /* Header band */
-  .topbar { background:var(--navy); color:var(--white); }
-  .topbar-inner {
-    max-width:960px; margin:0 auto; padding:18px 20px;
-    display:flex; align-items:center; gap:18px;
-  }
-  .topbar img { height:54px; width:auto; display:block; }
-  .topbar .titles { margin-left:auto; text-align:right; }
-  .topbar h1 { font-size:19px; margin:0; font-weight:700; letter-spacing:.2px; }
-  .topbar .tag { font-size:12px; color:#C3D2E6; margin-top:2px; }
-  .rule { height:4px; background:var(--gold); }
-
-  .back { display:inline-block; margin:20px 0 4px; font-size:13px;
-    color:var(--steel); text-decoration:none; font-weight:600; }
-  .back:hover { text-decoration:underline; }
+  .wrap { max-width:960px; margin:0 auto; padding:22px 20px 0; }
 
   .intro {
     background:var(--light); border-left:4px solid var(--navy);
-    border-radius:6px; padding:16px 18px; margin:14px 0 8px;
+    border-radius:6px; padding:16px 18px; margin:0 0 8px;
     font-style:italic; color:var(--navy); font-size:14.5px;
   }
 
@@ -106,52 +80,27 @@
   .notes ul { margin:0; padding-left:18px; }
   .notes li { font-size:12.5px; color:var(--gray); margin-bottom:8px; }
 
-  .footer {
-    margin-top:36px; text-align:center; font-size:11.5px; color:var(--gray);
-  }
-  .footer b { color:var(--navy); }
+  .companion { margin-top:22px; text-align:center; font-size:11.5px; color:var(--gray); }
+  .companion a { color:var(--navy); font-weight:700; text-decoration:none; }
 
   @media (max-width:560px) {
-    .topbar-inner { flex-direction:column; align-items:flex-start; gap:10px; }
-    .topbar .titles { text-align:left; margin-left:0; }
     .std-meta { gap:12px; }
   }
 
   @media print {
     body { background:#fff; }
-    .secnav, .back { display:none; }
+    .secnav { display:none; }
     .card { break-inside:avoid; box-shadow:none; }
-    .topbar { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .card-head, .badge, .rule, .intro { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .card-head, .badge, .intro { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
 </style>
 </head>
-<body>
-  <nav class="vbh-nav">
-  <a class="vbh-back" href="/hub.html">← Hub</a>
-  <a href="/">Work Order</a>
-  <a href="/dashboard.html">Dashboard</a>
-  <a href="/leads.html">Leads</a>
-  <a href="/intake.html">Intake</a>
-  <a href="/projects.html">Projects</a>
-  <a href="/gantt.html">Timeline</a>
-  <a href="/meeting.html">Meeting</a>
-  <a href="/equipment.html">Assets</a>
-</nav>
-<div class="topbar">
-    <div class="topbar-inner">
-   <img src="/img/vbh-logo.svg" alt="Van Buskirk Homes" style="filter:brightness(0) invert(1);"/>
-      <div class="titles">
-        <h1>Accountability &amp; Communication Standards</h1>
-        <div class="tag">Field Reporting · Client Communication · Bids · Service &amp; Warranty</div>
-      </div>
-    </div>
+<body data-vbh-page="standards" data-vbh-build="standards-v2">
+  <div data-vbh-header>
+    <button class="btn btn-ghost btn-sm" type="button" onclick="window.print()">🖨 Print</button>
   </div>
-  <div class="rule"></div>
 
   <div class="wrap">
-    <a class="back" href="/hub.html">&larr; Back to Hub</a>
-
     <div class="intro">
       Communication is the single most important function in our business. Deadlines are commitments, not targets. The standards below define what is expected, who owns it, and when it is due — every week, on time, without reminder.
     </div>
@@ -329,10 +278,8 @@
       <ul><li>Bid procurement — the two milestones are the governing commitments: bids returned within 10 business days of the plan being sent, and coded/organized within 3 business days of bids being returned. Each cost code carries 2–3 bids where applicable.</li><li>Project update groups — jobs are divided equally into Group A and Group B; the groups alternate Fridays so every project is updated on a two-week cycle. Distribution list per update: client, investor, realtor, Director (CC), plus any additional interested parties on internal projects.</li><li>Friday deadlines — “before they leave” means submitted by 5:00 PM Friday. The 2-week look-ahead is completed in the office on Fridays going forward.</li><li>Warranty timeline — language is quoted directly from the Van Buskirk Homes warranty agreement: claims acknowledged within three (3) business days, inspection/repair date provided within ten (10) business days, except emergencies per Section 5.5.</li><li>Business days — exclude weekends and recognized company holidays. The clock starts on receipt of the written claim.</li><li>Accountability — these standards are the reference for responsibilities assigned in the RACI Matrix. “Owner” is the role accountable for the standard being met on time.</li></ul>
     </div>
 
-    <div class="footer">
-      <b>Van Buskirk Homes</b> · 2571 S Westlake Dr, Sioux Falls, SD 57106 · (605) 951-5220<br>
-      Standards reference companion to the VBH RACI Matrix.
-    </div>
+    <div class="companion">Standards reference companion to the <a href="/raci">VBH RACI Matrix</a>.</div>
   </div>
+  <div data-vbh-foot></div>
 </body>
 </html>
