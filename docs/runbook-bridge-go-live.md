@@ -48,3 +48,21 @@ Set `GRAPH_MAILBOX` to that address in the env file, push secrets, and re-point 
 
 ## Rotating the client secret
 IT issues a new secret → update `GRAPH_CLIENT_SECRET` in the env file → `tools\sb-fn-secrets.ps1 -Only GRAPH_CLIENT_SECRET`. No redeploy needed.
+
+## Preflight (added 2026-09-23)
+
+Before touching the ingest function, verify IT's setup:
+
+```
+tools\bt-test-graph.ps1                      # uses the saved env file
+tools\bt-test-graph.ps1 -Secret '<candidate>'  # try a value without saving it
+```
+
+It checks, in order: token issuance, that the token carries the Mail.Read
+application role (admin consent), that the mailbox is readable through the
+application access policy, and that the Buildertrend folder exists — printing
+the specific remedy for whichever step fails. Never prints the secret or token.
+
+Confirmed 2026-09-23: tenant `5fa69489-…` and client `84474b2d-…` are valid
+(Microsoft resolved the app); the first secret IT sent was the Secret ID, which
+fails with AADSTS7000215. Awaiting a replacement secret Value.
