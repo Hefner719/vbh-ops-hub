@@ -35,7 +35,7 @@ One shared password, `VBH.PASSWORD`, checked by the shell gate and remembered in
 ## Pages (all in `public/`)
 
 - `hub.html` — landing page; tiles render from `VBH.PAGES`
-- `meeting.html` — weekly production meeting agenda (build `meeting-v6`), Supabase-backed (`meetings` JSON snapshots, `project_updates` history). Keeps its own toolbar under the shared nav. State object `S` is the only source of truth; the DOM is a projection. Read its architecture comment before touching it.
+- `meeting.html` — weekly production meeting agenda (build `meeting-v7`), Supabase-backed (`meetings` JSON snapshots, `project_updates` history). Keeps its own toolbar under the shared nav. State object `S` is the only source of truth; the DOM is a projection. Read its architecture comment before touching it.
 - `projects.html` — project tracker (`projects`)
 - `leads.html` — pipeline with probability pills and archive (`leads`)
 - `weeklyupdate.html` — exec briefing for ownership (no hyphen in the filename); recipients/sender come from `VBH.EXEC_UPDATE`
@@ -71,24 +71,30 @@ Production meeting: **Tuesdays, 9:00–10:00 AM Central.** `VBH_CONFIG.meetingTi
 
 Buildertrend has no public API. Its notification emails are templated, so they're a reliable data source we control. The goal: Buildertrend feeds Supabase automatically, `meeting.html` job cards and a digest render themselves, and the Tuesday meeting spends its time on what's ahead instead of recapping last week.
 
-### What exists (migration `001_bt_bridge.sql`, build `bt-bridge-v1`)
+### What exists (migrations 001-005, build `bt-bridge-v2`)
 
 - `bt_emails` — every message raw, unique on `message_id`. Never dropped.
 - `bt_events` — one parsed record per email: `event_type`, `job_number` (e.g. `R26009`), `actor`, `title`, `amount`, `period_start/end`, `summary`, `link`, `fields` jsonb, `parser_version`.
 - `bt_ingest_runs` — audit log per run. `bt_settings` — ingest secret (RLS, no anon policy).
 - Parser is plpgsql (`bt_parse_email`) fired by an insert trigger; per-email error isolation; `bt_reparse_all()` re-runs the current parser over all raw mail.
 - Entry point `bt_ingest_email(...)` — idempotent, returns `inserted`/`duplicate`.
-- Read views: `v_bt_events`, `v_bt_job_activity` (14-day per-job roll-up for job cards), `v_bt_unclassified`.
+- Read views: `v_bt_events`, `v_bt_job_activity`, `v_bt_unclassified`, `v_bt_unmatched_jobs`, `v_bt_job_finance`.
 
-### Notification types (from real samples, 2026-09-14)
+### Notification types (parser v2, from live mail 2026-09-24)
 
-Present and parsed: `client_update` (weekly PM update — **body is a ~170-char teaser ending in `..."`, full text is behind the login link**), `change_order_added`, `change_order_approved` (credits arrive as `($102,500.00)` → negative), `change_order_file`, `document_comment`. Not present in samples (all notifications were turned on 2026-09-14, so they'll start arriving): schedule changes, selections, daily logs, client messages. Add a parser only once a real sample is in `samples/`; until then they land as `unclassified`.
+Schedule and scope: `client_update` (weekly PM update - **body is a ~170-char teaser ending in `..."`, full text is behind the login link**), `change_order_added`, `change_order_approved` (credits arrive as `(,500.00)` -> negative), `change_order_file`, `document_comment`.
 
-Notification sender is `vanbuskirkhomes@buildertrend.com`. Other `@buildertrend.com` senders are sales/marketing and stay `unclassified`.
+Accounts payable (~90% of folder volume): `bill_paid`, `bill_ready`, `lien_waiver_signed`, `bills_overdue` and `bills_upcoming` (digests; individual bills in `fields.bills[]`), `invoice_overdue`, `insurance_expiring` (vendor-level, no job number; `fields.vendors[]`).
+
+Still unseen: schedule changes, selections, daily logs, client messages. Add a parser only once a real sample is in the mailbox; until then they land as `unclassified`.
+
+~67 emails stay unclassified on purpose: human correspondence in the folder plus Buildertrend marketing. Notification sender is `vanbuskirkhomes@buildertrend.com`; other `@buildertrend.com` senders are sales and marketing.
 
 ### Ingest path
 
-Microsoft Graph poll of Jordan's Outlook **Buildertrend** folder from a Supabase Edge Function on a `pg_cron` schedule. Requires an Azure app registration (application permission `Mail.Read`, restricted to Jordan's mailbox by an application access policy) — IT request in `docs/`. Until IT grants it, the manual bridge is: export the Outlook folder to CSV → `tools/build-bt-sample-seed.ps1` → run the seed SQL.
+**Live since 2026-09-24.** A Supabase Edge Function (`bt-ingest`) polls the Outlook folder `**Buildertrend` (note the two asterisks; it sits under Inbox / *VB Homes / #8 OFFICE) through Microsoft Graph, driven by `pg_cron` every 15 minutes (migration 002, `bt_trigger_ingest`). Credentials live in `%USERPROFILE%.vbht-graph.env` and are pushed with `tools/sb-fn-secrets.ps1`; `tools/bt-test-graph.ps1` preflights token, consent, mailbox policy and folder. Deploy with `tools/sb-fn-deploy.ps1 -Name bt-ingest`. Modes: `poll` (default, 6h overlap), `backfill&days=N`, `rerender`.
+
+The client secret expires 2028-09-21 - rotate with `tools/sb-fn-secrets.ps1 -Only GRAPH_CLIENT_SECRET`.
 
 ### Constraints
 
@@ -100,7 +106,7 @@ Microsoft Graph poll of Jordan's Outlook **Buildertrend** folder from a Supabase
 
 ## Roadmap (in order)
 
-1. Bridge live: IT approves Graph app → Edge Function deployed → `pg_cron` every 15 min → parser tuned on live mail.
+1. ~~Bridge live~~ - done 2026-09-24: Graph app registered, Edge Function deployed, `pg_cron` polling every 15 min, 343 emails backfilled to Jun 2025, CSV import retired, parser v2 tuned on live mail (unclassified 307 -> 67).
 2. ~~meeting.html integration~~ — done in `meeting-v6`: auto roll-forward to the coming meeting day on open; every solds/escrow/model tracker project gets a card (`ensureActiveProjectCards`); read-only Buildertrend strip per card from `v_bt_events`; unmatched-jobs banner from `v_bt_unmatched_jobs`. Buildertrend data is read live, never stored in the meeting JSON.
 3. `digest.html` — page shipped (`digest-v1`): activity by job for a 7/14/30-day window, stale and unmatched lists, unclassified emails, bridge health; Copy + "Email team" (Outlook draft to `VBH.MEETING.team`). Still open: the *scheduled* Friday/Monday send, which needs a mail sender once live ingest exists.
 4. Real login: Supabase Auth (magic link) + `profiles.role` with roles Owner, Ops Admin, Manager, Field, Labor; RLS on every table; retire the shared password. The shell gate is the single swap point.

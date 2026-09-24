@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:digest-v1 -->
+<!-- build:digest-v2 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -81,6 +81,19 @@ h2, h3 { font-family: var(--font-head); color: var(--navy); margin: 0; }
 .ev .when { color: var(--faint); font-size: .74rem; margin-left: auto; white-space: nowrap; }
 .quiet { color: var(--muted); font-style: italic; font-size: .82rem; }
 
+/* finance roll-up */
+.money { display: grid; gap: 3px; }
+.money-alert {
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  background: #fee2e2; border: 1px solid #f4b5b2; color: var(--red-dk);
+  font-size: .82rem; line-height: 1.4; display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline;
+}
+.money-alert b { color: var(--red-dk); }
+.money-alert a { color: var(--red-dk); font-weight: 700; text-decoration: none; }
+.money-alert .when { margin-left: auto; color: var(--muted); font-size: .74rem; white-space: nowrap; }
+.money-routine { font-size: .76rem; color: var(--muted); }
+.money-routine .tag { font-size: .64rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; margin-right: 6px; }
+
 /* simple lists */
 .plain { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
 .plain .row { display: flex; gap: 12px; align-items: baseline; padding: 9px 14px; border-top: 1px solid var(--line); font-size: .84rem; }
@@ -102,7 +115,7 @@ h2, h3 { font-family: var(--font-head); color: var(--navy); margin: 0; }
 }
 </style>
 </head>
-<body data-vbh-page="digest" data-vbh-build="digest-v1">
+<body data-vbh-page="digest" data-vbh-build="digest-v2">
 
 <div data-vbh-header>
   <div class="range" id="range" role="group" aria-label="Window">
@@ -285,8 +298,51 @@ function tile(lbl, val, sub, tone) {
   return `<div class="tile ${tone || ''}"><div class="lbl">${esc(lbl)}</div><div class="val">${esc(String(val))}</div><div class="sub">${esc(sub || '')}</div></div>`;
 }
 
+/* Accounts-payable traffic outnumbers everything else roughly ten to one, so it
+   is summarised per job rather than listed: overdue stated plainly, routine flow
+   as counts. Same treatment as the meeting job cards, for consistency. */
+const FINANCE_TYPES = new Set(['bill_paid', 'bill_ready', 'lien_waiver_signed',
+                               'bills_overdue', 'bills_upcoming', 'invoice_overdue']);
+
+function financeBlock(money) {
+  if (!money.length) return '';
+  const paid  = money.filter(e => e.event_type === 'bill_paid');
+  const ready = money.filter(e => e.event_type === 'bill_ready');
+  const liens = money.filter(e => e.event_type === 'lien_waiver_signed');
+  const paidTotal = paid.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  /* Overdue digests restate the same debt each time — newest only. */
+  const digest = money.filter(e => e.event_type === 'bills_overdue')
+                      .sort((a, b) => String(b.occurred_at || '').localeCompare(String(a.occurred_at || '')))[0];
+  const invoices = money.filter(e => e.event_type === 'invoice_overdue');
+
+  const out = [];
+  if (digest) {
+    const bills = (digest.fields && digest.fields.bills) || [];
+    const worst = bills.slice().sort((a, b) => (b.days_overdue || 0) - (a.days_overdue || 0))[0];
+    const n = bills.length || (digest.fields && digest.fields.count) || 0;
+    out.push(`<div class="money-alert">⚠ <b>${n} bill${n === 1 ? '' : 's'} overdue</b>`
+      + (digest.amount != null ? ` — ${fmtMoney(digest.amount)}` : '')
+      + (worst && worst.title ? ` · oldest: ${esc(worst.title)}${worst.days_overdue ? ` (${worst.days_overdue}d)` : ''}` : '')
+      + `<span class="when">as of ${esc(fmtDate(digest.occurred_at))}</span></div>`);
+  }
+  invoices.forEach(e => {
+    const f = e.fields || {};
+    out.push(`<div class="money-alert">⚠ <b>Invoice overdue</b> ${f.invoice_id ? esc(f.invoice_id) + ' · ' : ''}${fmtMoney(e.amount)}`
+      + (f.days_overdue ? ` · ${f.days_overdue} day${f.days_overdue === 1 ? '' : 's'} past due` : '')
+      + (e.link ? ` <a href="${esc(e.link)}" target="_blank" rel="noopener">↗</a>` : '')
+      + `<span class="when">${esc(fmtDate(e.occurred_at))}</span></div>`);
+  });
+  const routine = [];
+  if (paid.length)  routine.push(`${paid.length} bill${paid.length === 1 ? '' : 's'} paid${paidTotal ? ' · ' + fmtMoney(paidTotal) : ''}`);
+  if (ready.length) routine.push(`${ready.length} ready for payment`);
+  if (liens.length) routine.push(`${liens.length} lien waiver${liens.length === 1 ? '' : 's'} signed`);
+  if (routine.length) out.push(`<div class="money-routine"><span class="tag">AP</span>${esc(routine.join(' · '))}</div>`);
+  return `<div class="money">${out.join('')}</div>`;
+}
+
 function jobBlock(num, title, p, evs, upd) {
-  const feed = evs.filter(e => e.event_type !== 'client_update');
+  const feed  = evs.filter(e => e.event_type !== 'client_update' && !FINANCE_TYPES.has(e.event_type));
+  const money = evs.filter(e => FINANCE_TYPES.has(e.event_type));
   const age = upd ? daysAgo(upd.occurred_at) : null;
   const chips = [];
   if (p && p.phase_note) chips.push(`<span class="chip">${esc(p.phase_note)}</span>`);
@@ -303,7 +359,9 @@ function jobBlock(num, title, p, evs, upd) {
       ${esc(upd.summary || '')}${upd.fields && upd.fields.truncated ? '…' : ''}
     </div>` : '';
   const feedHTML = feed.length ? `<div class="evs">${feed.map(evLine).join('')}</div>` : '';
-  const quiet = !upd && !feed.length ? '<div class="quiet">Nothing from Buildertrend for this job.</div>' : (!feed.length && upd && age > model.days ? `<div class="quiet">No new items in the last ${model.days} days — latest update shown for context.</div>` : '');
+  const moneyHTML = financeBlock(money);
+  const nothing = !upd && !feed.length && !money.length;
+  const quiet = nothing ? '<div class="quiet">Nothing from Buildertrend for this job.</div>' : (!feed.length && !money.length && upd && age > model.days ? `<div class="quiet">No new items in the last ${model.days} days — latest update shown for context.</div>` : '');
 
   return `
   <div class="job">
@@ -313,7 +371,7 @@ function jobBlock(num, title, p, evs, upd) {
       ${parts[2] ? `<span class="job-client">${esc(parts.slice(2).join(' - '))}</span>` : ''}
       <span class="job-meta">${chips.join('')}</span>
     </div>
-    <div class="job-body">${updHTML}${feedHTML}${quiet}</div>
+    <div class="job-body">${updHTML}${feedHTML}${moneyHTML}${quiet}</div>
   </div>`;
 }
 
@@ -339,7 +397,10 @@ function digestText() {
   L.push('');
   m.active.forEach(p => {
     const num = (p.job_number || '').toUpperCase();
-    const upd = m.latestByJob.get(num), evs = (m.byJob.get(num) || []).filter(e => e.event_type !== 'client_update');
+    const all = m.byJob.get(num) || [];
+    const upd = m.latestByJob.get(num);
+    const evs = all.filter(e => e.event_type !== 'client_update' && !FINANCE_TYPES.has(e.event_type));
+    const money = all.filter(e => FINANCE_TYPES.has(e.event_type));
     L.push(`${label(p)}${p.phase_note ? ` — ${p.phase_note}` : ''}${p.pct_complete != null ? ` ${Math.round(p.pct_complete * 100)}%` : ''}`);
     if (upd) {
       const age = daysAgo(upd.occurred_at);
@@ -352,6 +413,28 @@ function digestText() {
       else if (e.event_type === 'document_comment') L.push(`  💬 ${(e.actor || '').split(' ')[0]} on ${e.title}: “${e.summary || ''}”`);
       else L.push(`  • ${e.event_type}: ${e.title || e.summary || ''}`);
     });
+    /* Finance summarised, matching the page: overdue spelled out, routine as counts. */
+    if (money.length) {
+      const digest = money.filter(e => e.event_type === 'bills_overdue')
+                          .sort((a, b) => String(b.occurred_at || '').localeCompare(String(a.occurred_at || '')))[0];
+      if (digest) {
+        const bills = (digest.fields && digest.fields.bills) || [];
+        const n = bills.length || (digest.fields && digest.fields.count) || 0;
+        L.push(`  ! ${n} bill${n === 1 ? '' : 's'} overdue${digest.amount != null ? ` — ${fmtMoney(digest.amount)}` : ''} (as of ${fmtDate(digest.occurred_at)})`);
+      }
+      money.filter(e => e.event_type === 'invoice_overdue').forEach(e => {
+        const f = e.fields || {};
+        L.push(`  ! Invoice overdue ${f.invoice_id || ''} ${fmtMoney(e.amount)}${f.days_overdue ? ` — ${f.days_overdue} day(s) past due` : ''}`);
+      });
+      const paid  = money.filter(e => e.event_type === 'bill_paid');
+      const ready = money.filter(e => e.event_type === 'bill_ready').length;
+      const liens = money.filter(e => e.event_type === 'lien_waiver_signed').length;
+      const bits = [];
+      if (paid.length) bits.push(`${paid.length} bill(s) paid ${fmtMoney(paid.reduce((s, e) => s + (Number(e.amount) || 0), 0))}`);
+      if (ready) bits.push(`${ready} ready for payment`);
+      if (liens) bits.push(`${liens} lien waiver(s) signed`);
+      if (bits.length) L.push(`  AP: ${bits.join(' · ')}`);
+    }
     L.push('');
   });
   if (m.stale.length) { L.push('NEEDS A CLIENT UPDATE'); m.stale.forEach(x => L.push(`  ${x.p.job_number} ${x.p.address || ''}${x.u ? ` — last ${fmtDate(x.u.occurred_at)} (${x.age} days)` : ' — none on record'}`)); L.push(''); }
