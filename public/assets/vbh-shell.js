@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   vbh-shell.js — shared site chrome for every hub page · build shell-v1
+   vbh-shell.js — shared site chrome for every hub page · build shell-v2
    ───────────────────────────────────────────────────────────────────────────
    Load order in <head>:  vbh-config.js → assets/vbh.css → assets/vbh-shell.js
 
@@ -17,12 +17,14 @@
      · site nav (from VBH.PAGES) with the active page marked, plus a Lock button
      · page header (title/sub from VBH.PAGES, overridable with data-title / data-sub)
      · footer (values, address, public-form links, build stamp)
-     · the gate on protected pages — one password, one key, 12-hour session
+     · the gate on protected pages — Supabase magic-link sign-in, with the shared
+       password still accepted during the Phase A transition
      · document.title
      · VBH.sb()      shared Supabase client (singleton)
      · VBH.toast(msg [, ms])
      · VBH.esc(str)
-     · VBH.auth      { ok(), name(), lock(), require(cb) }
+     · VBH.auth      { ok(), name(), user(), profile(), role(), canWrite(),
+                       canDelete(), signIn(email), lock(), require(cb) }
      · VBH.page      the current PAGES record
      · 'vbh:ready' event on document once the page is unlocked (immediately if already)
 
@@ -35,6 +37,7 @@
   const AUTH_KEY = 'vbh_auth';            // localStorage: {"t":<ms>,"name":"…"}
   const LEGACY_KEYS = ['vbh_auth_ok', 'vbh'];  // old sessionStorage flags — honoured once, then migrated
   const NAME_KEY = 'vbh_editor_name';     // meeting.html has always stored the editor name here
+  const EMAIL_KEY = 'vbh_signin_email';   // remembered so the gate pre-fills next time
   const html = document.documentElement;
 
   /* Hide content until we know whether to show the gate. Cleared in finish(). */
@@ -94,39 +97,132 @@
       LEGACY_KEYS.forEach((k) => sessionStorage.setItem(k, '1'));
     } catch (e) { /* ignore */ }
   }
-  function lock() {
+  /* ── real accounts ─────────────────────────────────────────────────────
+     Supabase Auth with magic links. The shared password still works during
+     the transition (see PHASE A in migration 006) so nobody is locked out
+     mid-week, but a real session is what the database will trust once the
+     anon policies come off.
+
+     Security note: this gate is convenience, not protection. Row-level
+     security is what actually guards the data — a broken gate should reveal
+     an empty page, never someone else's records. */
+  let sbUser = null, sbProfile = null;
+
+  /* supabase-js is on most pages but not all; load it on demand so auth works
+     everywhere without touching every file. */
+  function ensureSupabase() {
+    if (window.supabase && window.supabase.createClient) return Promise.resolve(true);
+    if (ensureSupabase._p) return ensureSupabase._p;
+    ensureSupabase._p = new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      s.onload = () => resolve(!!(window.supabase && window.supabase.createClient));
+      s.onerror = () => resolve(false);
+      document.head.appendChild(s);
+    });
+    return ensureSupabase._p;
+  }
+
+  async function loadSession() {
+    if (!(await ensureSupabase())) return null;
+    try {
+      const { data } = await VBH.sb().auth.getSession();
+      sbUser = (data && data.session && data.session.user) || null;
+      if (!sbUser) { sbProfile = null; return null; }
+      const { data: prof } = await VBH.sb()
+        .from('profiles').select('id,email,full_name,role,active').eq('id', sbUser.id).maybeSingle();
+      sbProfile = prof || null;
+      return sbProfile;
+    } catch (e) { console.warn('[vbh-shell] session load failed:', e); return null; }
+  }
+
+  async function lock() {
     try {
       localStorage.removeItem(AUTH_KEY);
       LEGACY_KEYS.forEach((k) => sessionStorage.removeItem(k));
+      if (window.supabase && window.supabase.createClient) await VBH.sb().auth.signOut();
     } catch (e) { /* ignore */ }
     location.href = VBH.PAGES.find((p) => p.id === 'hub').path;
   }
 
   const auth = {
-    ok: () => !!readAuth(),
-    name: () => { const a = readAuth(); return (a && a.name) || (localStorage.getItem(NAME_KEY) || ''); },
+    /* Signed in for real, or holding a valid shared-password session. */
+    ok: () => !!(sbProfile && sbProfile.active) || !!readAuth(),
+    name: () => (sbProfile && (sbProfile.full_name || sbProfile.email))
+             || (readAuth() || {}).name
+             || localStorage.getItem(NAME_KEY) || '',
+    user: () => sbUser,
+    profile: () => sbProfile,
+    role: () => (sbProfile && sbProfile.active) ? sbProfile.role : null,
+    /* Coarse capability checks, mirroring the SQL helpers in migration 006.
+       Convenience for hiding controls — the database enforces the real rule. */
+    canWrite:  () => ['owner', 'ops_admin', 'manager', 'field'].indexOf(auth.role()) >= 0 || (!sbProfile && !!readAuth()),
+    canDelete: () => ['owner', 'ops_admin'].indexOf(auth.role()) >= 0 || (!sbProfile && !!readAuth()),
+    signIn: async (email) => {
+      if (!(await ensureSupabase())) throw new Error('Could not load the sign-in library.');
+      const { error } = await VBH.sb().auth.signInWithOtp({
+        email: String(email || '').trim().toLowerCase(),
+        options: { emailRedirectTo: location.origin + location.pathname }
+      });
+      if (error) throw error;
+    },
     lock,
     /* Run cb now if unlocked, otherwise as soon as the gate clears. */
     require: (cb) => { if (auth.ok() || !(VBH.page && VBH.page.protected)) cb(); else document.addEventListener('vbh:ready', cb, { once: true }); }
   };
 
-  /* ── gate ────────────────────────────────────────────────────────────── */
+  /* ── gate ──────────────────────────────────────────────────────────────
+     Two ways in: a sign-in link to a work address (the real one), or the
+     shared password (kept working until everyone has signed in once). */
   function renderGate(page, askName, onDone) {
+    const err  = el('div', { class: 'vbh-gate-err', id: 'vbhGateErr' });
+    const note = el('div', { class: 'vbh-gate-note', id: 'vbhGateNote' });
+
+    /* — sign-in link — */
+    const mailIn  = el('input', { id: 'vbhGateEmail', type: 'email', placeholder: 'you@vanbuskirkco.com',
+                                  autocomplete: 'email', value: (localStorage.getItem(EMAIL_KEY) || '') });
+    const mailBtn = el('button', { type: 'button', text: 'Email me a sign-in link' });
+
+    /* — shared password (transition) — */
     const nameIn = askName ? el('input', { id: 'vbhGateName', type: 'text', placeholder: 'Your name', autocomplete: 'name', value: auth.name() }) : null;
-    const pwIn = el('input', { id: 'vbhGatePw', type: 'password', placeholder: 'Password', autocomplete: 'current-password' });
-    const err = el('div', { class: 'vbh-gate-err', id: 'vbhGateErr' });
-    const btn = el('button', { type: 'button', text: 'Unlock' });
+    const pwIn   = el('input', { id: 'vbhGatePw', type: 'password', placeholder: 'Shared password', autocomplete: 'current-password' });
+    const pwBtn  = el('button', { class: 'vbh-gate-alt-btn', type: 'button', text: 'Unlock' });
+    const pwBox  = el('div', { class: 'vbh-gate-alt', hidden: 'hidden' }, [nameIn, pwIn, pwBtn]);
+    const pwToggle = el('button', { class: 'vbh-gate-link', type: 'button', text: 'Use the shared password instead' });
+    pwToggle.addEventListener('click', () => {
+      pwBox.hidden = !pwBox.hidden;
+      pwToggle.textContent = pwBox.hidden ? 'Use the shared password instead' : 'Use a sign-in link instead';
+      if (!pwBox.hidden) setTimeout(() => (nameIn && !nameIn.value ? nameIn : pwIn).focus(), 20);
+    });
+
     const gate = el('div', { class: 'vbh-gate', role: 'dialog', 'aria-label': 'Sign in' }, [
       el('img', { class: 'vbh-gate-logo', src: '/img/vbh-logo.png', alt: VBH.COMPANY.name }),
       el('div', { class: 'vbh-gate-box' }, [
         el('h2', { text: 'Operations Hub' }),
         el('div', { class: 'vbh-gate-rule' }),
-        el('div', { class: 'vbh-gate-sub', text: (page.id === 'hub' ? '' : (page.title || '') + ' · ') + 'Authorized personnel only' }),
-        nameIn, pwIn, btn, err
+        el('div', { class: 'vbh-gate-sub', text: (page.id === 'hub' ? '' : (page.title || '') + ' · ') + 'Van Buskirk Homes staff' }),
+        mailIn, mailBtn, err, note, pwToggle, pwBox
       ]),
       el('div', { class: 'vbh-gate-foot', html: esc(VBH.COMPANY.name) + ' · <a href="/">Work order request</a> · <a href="/intake">Client intake</a>' })
     ]);
-    const attempt = () => {
+
+    const sendLink = async () => {
+      const email = mailIn.value.trim().toLowerCase();
+      err.textContent = ''; note.textContent = '';
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = 'Enter your work email address.'; mailIn.focus(); return; }
+      mailBtn.disabled = true; mailBtn.textContent = 'Sending…';
+      try {
+        await auth.signIn(email);
+        try { localStorage.setItem(EMAIL_KEY, email); } catch (e) {}
+        note.textContent = 'Check ' + email + ' — the link signs you in on this device. It expires in an hour.';
+        mailBtn.textContent = 'Sent · send again';
+      } catch (e) {
+        err.textContent = (e && e.message) || 'Could not send the link. Try the shared password below.';
+        mailBtn.textContent = 'Email me a sign-in link';
+      } finally { mailBtn.disabled = false; }
+    };
+
+    const attemptPw = () => {
       const name = nameIn ? nameIn.value.trim() : auth.name();
       if (askName && !name) { err.textContent = 'Enter your name.'; nameIn.focus(); return; }
       if (pwIn.value === VBH.PASSWORD) {
@@ -138,10 +234,31 @@
         pwIn.value = ''; pwIn.focus();
       }
     };
-    btn.addEventListener('click', attempt);
-    gate.addEventListener('keydown', (e) => { if (e.key === 'Enter') attempt(); });
+
+    mailBtn.addEventListener('click', sendLink);
+    pwBtn.addEventListener('click', attemptPw);
+    gate.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      if (!pwBox.hidden && (e.target === pwIn || e.target === nameIn)) attemptPw();
+      else if (e.target === mailIn) sendLink();
+    });
     document.body.prepend(gate);
-    setTimeout(() => (nameIn && !nameIn.value ? nameIn : pwIn).focus(), 30);
+    setTimeout(() => mailIn.focus(), 30);
+  }
+
+  /* Signed in, but not on the roster (or deactivated). */
+  function renderNoAccess(email) {
+    const gate = el('div', { class: 'vbh-gate', role: 'dialog' }, [
+      el('img', { class: 'vbh-gate-logo', src: '/img/vbh-logo.png', alt: VBH.COMPANY.name }),
+      el('div', { class: 'vbh-gate-box' }, [
+        el('h2', { text: 'No access' }),
+        el('div', { class: 'vbh-gate-rule' }),
+        el('div', { class: 'vbh-gate-sub', text: esc(email || '') + ' is signed in but not set up for the hub.' }),
+        el('div', { class: 'vbh-gate-note', text: 'Ask the Director of Operations to add you, then sign in again.' }),
+        el('button', { type: 'button', text: 'Sign out', onclick: lock })
+      ])
+    ]);
+    document.body.prepend(gate);
   }
 
   /* ── nav ─────────────────────────────────────────────────────────────── */
@@ -161,8 +278,8 @@
     nav.appendChild(el('span', { class: 'vbh-nav-spacer' }));
     if (page && page.protected) {
       const who = auth.name();
-      nav.appendChild(el('button', { class: 'vbh-nav-lock', type: 'button', title: 'Lock the hub on this device', onclick: lock,
-        text: (who ? who + ' · ' : '') + 'Lock' }));
+      nav.appendChild(el('button', { class: 'vbh-nav-lock', type: 'button', title: 'Sign out on this device', onclick: lock,
+        text: (who ? who.split(' ')[0] + ' · ' : '') + 'Sign out' }));
     }
     document.body.prepend(nav);
   }
@@ -238,9 +355,20 @@
     document.dispatchEvent(new CustomEvent('vbh:ready', { detail: { page, name: auth.name() } }));
   }
 
-  function boot() {
+  function refreshLockLabel() {
+    const btn = document.querySelector('.vbh-nav-lock');
+    if (!btn) return;
+    const who = auth.name();
+    const r = auth.role();
+    btn.textContent = (who ? who.split(' ')[0] + ' · ' : '') + 'Sign out';
+    btn.title = r ? 'Signed in as ' + who + ' (' + r.replace('_', ' ') + ') — sign out'
+                  : 'Signed in with the shared password — sign out';
+  }
+
+  async function boot() {
+    let page = null;
     try {
-      const page = currentPage();
+      page = currentPage();
       VBH.page = page;
       if (page && page.title && !document.body.hasAttribute('data-vbh-keep-title')) {
         document.title = page.title + ' · ' + (page.protected ? VBH.COMPANY.short + ' Ops Hub' : VBH.COMPANY.name);
@@ -250,21 +378,37 @@
       const chrome = document.body.getAttribute('data-vbh-chrome') || 'full';
       if (chrome === 'full') renderNav(page);
       if (chrome !== 'none') { renderHeader(page); renderFooter(page); renderTiles(); }
-      const askName = document.body.hasAttribute('data-vbh-ask-name');
-      if (page && page.protected && !(auth.ok() && (!askName || auth.name()))) {
-        renderGate(page, askName, () => {
-          const lockBtn = document.querySelector('.vbh-nav-lock');
-          if (lockBtn) lockBtn.textContent = (auth.name() ? auth.name() + ' · ' : '') + 'Lock';
-          finish(page);
-        });
-        html.removeAttribute('data-vbh-pending');   // gate is visible; content stays behind it
-        html.setAttribute('data-vbh-gated', '');
-      } else {
-        finish(page);
+
+      if (!page || !page.protected) { finish(page); return; }
+
+      /* A magic-link return arrives as a URL fragment; creating the client
+         consumes it. Tidy the address bar afterwards so the token is not left
+         sitting in history or copied into a shared link. */
+      const hadAuthHash = /access_token=|type=magiclink|error_code=/.test(location.hash || '');
+      await loadSession();
+      if (hadAuthHash) {
+        try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
       }
+
+      const askName = document.body.hasAttribute('data-vbh-ask-name');
+      if (sbUser && !(sbProfile && sbProfile.active)) {
+        /* Signed in, but not on the roster or deactivated. */
+        renderNoAccess(sbUser.email);
+        html.removeAttribute('data-vbh-pending');
+        html.setAttribute('data-vbh-gated', '');
+        return;
+      }
+      if (auth.ok() && (!askName || auth.name())) { refreshLockLabel(); finish(page); return; }
+
+      renderGate(page, askName, () => { refreshLockLabel(); finish(page); });
+      html.removeAttribute('data-vbh-pending');   // gate is visible; content stays behind it
+      html.setAttribute('data-vbh-gated', '');
     } catch (e) {
       console.error('[vbh-shell]', e);
+      /* Fail open on chrome only. With row-level security in force a stray
+         page shows nothing rather than someone else's data. */
       html.removeAttribute('data-vbh-pending');
+      finish(page);
     }
   }
 

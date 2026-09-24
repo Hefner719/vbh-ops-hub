@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   VBH Ops Hub · shared stylesheet · build shell-v1
+   VBH Ops Hub · shared stylesheet · build shell-v2
    ───────────────────────────────────────────────────────────────────────────
    Loaded by every page BEFORE its own <style>. Owns:
      1. design tokens  (colors, type, radii, shadows)
@@ -218,3 +218,23 @@ body[data-vbh-pending] > :not(.vbh-gate) { visibility: hidden; }
   .vbh-header { box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body[data-vbh-pending] > :not(.vbh-gate) { visibility: visible; }
 }
+
+/* ─── 3b · GATE: sign-in link + transition password (auth-phase-a) ──────── */
+.vbh-gate-box input[type="email"] { text-align: left; }
+.vbh-gate-note { font-size: .78rem; color: var(--gold-soft); line-height: 1.45; text-align: center; min-height: 1em; }
+/* Outrank `.vbh-gate-box button`, which is the gold primary treatment. */
+.vbh-gate-box button.vbh-gate-link {
+  background: none; border: 0; padding: 4px; margin-top: 2px;
+  color: var(--mid); font-family: inherit; font-size: .76rem; font-weight: 400;
+  letter-spacing: .02em; text-transform: none; text-decoration: underline;
+  cursor: pointer; width: auto; box-shadow: none;
+}
+.vbh-gate-box button.vbh-gate-link:hover { color: #fff; box-shadow: none; }
+.vbh-gate-alt {
+  width: 100%; display: flex; flex-direction: column; gap: 10px;
+  padding-top: 12px; margin-top: 2px; border-top: 1px solid rgba(255,255,255,0.14);
+}
+/* A class selector beats the browser default for [hidden], so restate it. */
+.vbh-gate-alt[hidden] { display: none; }
+.vbh-gate-alt-btn { background: rgba(255,255,255,0.14) !important; box-shadow: none !important; }
+.vbh-gate-alt-btn:hover { background: rgba(255,255,255,0.22) !important; }

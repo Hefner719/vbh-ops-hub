@@ -20,7 +20,7 @@ const VBH_ROLES = {
 };
 
 const VBH = {
-  BUILD: 'shell-v1.1',
+  BUILD: 'shell-v2',
   ROLES: VBH_ROLES,
 
   /* Weekly Executive Update (weeklyupdate.html): who it goes to and who signs it. */
