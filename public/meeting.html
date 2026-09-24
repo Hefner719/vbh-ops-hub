@@ -439,6 +439,17 @@ select.tracker-link:focus { outline:none; border-color:var(--steel); }
 .bt-ev .bt-link { margin-left:2px; }
 .bt-ico { width:14px; text-align:center; color:var(--ink-faint); flex-shrink:0; }
 .bt-ico.ok { color:var(--green); font-weight:900; }
+/* v7 · finance roll-up: overdue stated plainly, routine AP flow reduced to counts */
+.bt-money { margin-top:6px; }
+.bt-money-alert {
+  padding:5px 9px; margin-bottom:3px; border-radius:var(--radius-sm);
+  background:var(--red-bg); border:1px solid var(--red-line); color:var(--red);
+  font-size:.77rem; line-height:1.4;
+}
+.bt-money-alert b { color:var(--red); }
+.bt-money-alert .bt-when { color:var(--ink-faint); font-weight:400; }
+.bt-money-alert .bt-link { margin-left:4px; }
+.bt-money-routine { font-size:.73rem; color:var(--ink-faint); padding:2px 0; }
 .job-card.collapsed .bt-strip { display:none; }
 
 /* ─────────────── ACTION ITEMS ─────────────── */
@@ -781,7 +792,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 }
 </style>
 </head>
-<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v6">
+<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v7">
 
 
 <!-- ══════════ APP ══════════ -->
@@ -1266,7 +1277,7 @@ const DRAFT_KEY   = 'vbh_meeting_draft';
 const EDITOR_KEY  = 'vbh_editor_name';
 const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
 const STATE_VERSION = 3;
-const BUILD = 'meeting-v6';
+const BUILD = 'meeting-v7';
 
 /* ─────────────────────────────────────────────────────────────────────
    ③ SMALL UTILITIES
@@ -2598,7 +2609,7 @@ async function loadBuildertrendActivity() {
        null), so a plain date filter would hide them. Fetch them separately and
        list them after the dated items. Live (Graph) ingest always has a date. */
     const [recent, undated, latest, unmatched] = await Promise.all([
-      nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).gte('occurred_at', since).order('occurred_at', { ascending: false }) : { data: [] },
+      nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).gte('occurred_at', since).order('occurred_at', { ascending: false }).limit(2000) : { data: [] },
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).is('occurred_at', null).neq('event_type', 'client_update').order('id', { ascending: false }) : { data: [] },
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).eq('event_type', 'client_update').order('occurred_at', { ascending: false }) : { data: [] },
       trackerSB.from('v_bt_unmatched_jobs').select('job_number,job_name,events,last_seen,event_types')
@@ -2662,6 +2673,54 @@ function btEventLine(e) {
   }
 }
 
+/* v7: accounts-payable traffic dwarfs everything else — one job ran 45 bill
+   notifications in three weeks. Listing those per card would bury the schedule
+   news the meeting actually runs on, so finance is rolled into a single line:
+   anything overdue stated plainly, the routine flow reduced to counts. */
+const BT_FINANCE = new Set(['bill_paid', 'bill_ready', 'lien_waiver_signed',
+                            'bills_overdue', 'bills_upcoming', 'invoice_overdue']);
+
+function btFinanceHTML(money) {
+  if (!money.length) return '';
+  const paid  = money.filter(e => e.event_type === 'bill_paid');
+  const ready = money.filter(e => e.event_type === 'bill_ready');
+  const liens = money.filter(e => e.event_type === 'lien_waiver_signed');
+  const paidTotal = paid.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+  /* Overdue digests are snapshots of the same debt, so only the newest counts —
+     summing them would report the same bill several times over. */
+  const digest = money.filter(e => e.event_type === 'bills_overdue')
+                      .sort((a, b) => String(b.occurred_at||'').localeCompare(String(a.occurred_at||'')))[0];
+  const invoices = money.filter(e => e.event_type === 'invoice_overdue');
+
+  const alerts = [];
+  if (digest) {
+    const bills = (digest.fields && digest.fields.bills) || [];
+    const worst = bills.slice().sort((a, b) => (b.days_overdue||0) - (a.days_overdue||0))[0];
+    const nBills = bills.length || (digest.fields && digest.fields.count) || 0;
+    alerts.push(`<div class="bt-money-alert">⚠ <b>${nBills} bill${nBills === 1 ? '' : 's'} overdue</b>`
+      + (digest.amount != null ? ` — ${fmtMoney(digest.amount)}` : '')
+      + (worst && worst.title ? ` · oldest: ${escHtml(worst.title)}${worst.days_overdue ? ` (${worst.days_overdue}d)` : ''}` : '')
+      + ` <span class="bt-when">as of ${escHtml(fmtBtDate(digest.occurred_at))}</span></div>`);
+  }
+  invoices.forEach(e => {
+    const f = e.fields || {};
+    alerts.push(`<div class="bt-money-alert">⚠ <b>Invoice overdue</b> ${f.invoice_id ? escHtml(f.invoice_id) + ' · ' : ''}${fmtMoney(e.amount)}`
+      + (f.days_overdue ? ` · ${f.days_overdue} day${f.days_overdue === 1 ? '' : 's'} past due` : '')
+      + (e.link ? ` <a class="bt-link" href="${escHtml(e.link)}" target="_blank" rel="noopener">↗</a>` : '')
+      + `</div>`);
+  });
+
+  const routine = [];
+  if (paid.length)  routine.push(`${paid.length} bill${paid.length === 1 ? '' : 's'} paid${paidTotal ? ' · ' + fmtMoney(paidTotal) : ''}`);
+  if (ready.length) routine.push(`${ready.length} ready for payment`);
+  if (liens.length) routine.push(`${liens.length} lien waiver${liens.length === 1 ? '' : 's'} signed`);
+
+  return `<div class="bt-money">${alerts.join('')}` +
+         (routine.length ? `<div class="bt-money-routine"><span class="bt-tag">AP</span>${escHtml(routine.join(' · '))}</div>` : '') +
+         `</div>`;
+}
+
 /* The read-only Buildertrend block on a job card. */
 function btStripHTML(j) {
   const num = jobNumberOf(j);
@@ -2670,7 +2729,8 @@ function btStripHTML(j) {
   const b = btByJob.get(num);
   const recent = (b && b.recent) || [];
   const upd = b && b.latestUpdate;
-  const feed = recent.filter(e => e.event_type !== 'client_update');
+  const feed  = recent.filter(e => e.event_type !== 'client_update' && !BT_FINANCE.has(e.event_type));
+  const money = recent.filter(e => BT_FINANCE.has(e.event_type));
 
   let updHTML;
   if (upd) {
@@ -2690,15 +2750,16 @@ function btStripHTML(j) {
   } else {
     updHTML = `<div class="bt-update none">No client update on record for ${escHtml(num)}.</div>`;
   }
-  const count = feed.length;
+  const count = feed.length + money.length;
   return `
     <div class="bt-strip">
       <div class="bt-head">
         <span class="bt-title">Buildertrend</span>
-        <span class="bt-meta">${count ? count + ' item' + (count === 1 ? '' : 's') + (feed.some(e => e.undated) ? ' reported' : ' in the last ' + BT_WINDOW_DAYS + ' days') : 'read-only · from notification emails'}</span>
+        <span class="bt-meta">${count ? count + ' item' + (count === 1 ? '' : 's') + (recent.some(e => e.undated) ? ' reported' : ' in the last ' + BT_WINDOW_DAYS + ' days') : 'read-only · from notification emails'}</span>
       </div>
       ${updHTML}
       ${feed.length ? `<div class="bt-feed">${feed.map(btEventLine).join('')}</div>` : ''}
+      ${btFinanceHTML(money)}
     </div>`;
 }
 
