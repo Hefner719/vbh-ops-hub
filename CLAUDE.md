@@ -82,7 +82,7 @@ Buildertrend has no public API. Its notification emails are templated, so they'r
 
 ### Notification types (parser v2, from live mail 2026-09-24)
 
-Schedule and scope: `client_update` (weekly PM update - **body is a ~170-char teaser ending in `..."`, full text is behind the login link**), `change_order_added`, `change_order_approved` (credits arrive as `(,500.00)` -> negative), `change_order_file`, `document_comment`.
+Schedule and scope: `client_update` (weekly PM update - **body is a ~170-char teaser ending in `..."`, full text is behind the login link**), `change_order_added`, `change_order_approved` (credits arrive parenthesised, e.g. `($102,500.00)`, and are stored negative), `change_order_file`, `document_comment`.
 
 Accounts payable (~90% of folder volume): `bill_paid`, `bill_ready`, `lien_waiver_signed`, `bills_overdue` and `bills_upcoming` (digests; individual bills in `fields.bills[]`), `invoice_overdue`, `insurance_expiring` (vendor-level, no job number; `fields.vendors[]`).
 
@@ -92,7 +92,7 @@ Still unseen: schedule changes, selections, daily logs, client messages. Add a p
 
 ### Ingest path
 
-**Live since 2026-09-24.** A Supabase Edge Function (`bt-ingest`) polls the Outlook folder `**Buildertrend` (note the two asterisks; it sits under Inbox / *VB Homes / #8 OFFICE) through Microsoft Graph, driven by `pg_cron` every 15 minutes (migration 002, `bt_trigger_ingest`). Credentials live in `%USERPROFILE%.vbht-graph.env` and are pushed with `tools/sb-fn-secrets.ps1`; `tools/bt-test-graph.ps1` preflights token, consent, mailbox policy and folder. Deploy with `tools/sb-fn-deploy.ps1 -Name bt-ingest`. Modes: `poll` (default, 6h overlap), `backfill&days=N`, `rerender`.
+**Live since 2026-09-24.** A Supabase Edge Function (`bt-ingest`) polls the Outlook folder `**Buildertrend` (note the two asterisks; it sits under Inbox / *VB Homes / #8 OFFICE) through Microsoft Graph, driven by `pg_cron` every 15 minutes (migration 002, `bt_trigger_ingest`). Credentials live in `%USERPROFILE%\.vbh\bt-graph.env` and are pushed with `tools/sb-fn-secrets.ps1`; `tools/bt-test-graph.ps1` preflights token, consent, mailbox policy and folder. Deploy with `tools/sb-fn-deploy.ps1 -Name bt-ingest`. Modes: `poll` (default, 6h overlap), `backfill&days=N`, `rerender`.
 
 The client secret expires 2028-09-21 - rotate with `tools/sb-fn-secrets.ps1 -Only GRAPH_CLIENT_SECRET`.
 
