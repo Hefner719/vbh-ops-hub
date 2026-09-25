@@ -21,3 +21,6 @@ supabase/.branches/
 
 # Scratch
 tmp/
+
+# Local data backups live in OneDrive, never in the repo
+VBH-Hub-Backups/
