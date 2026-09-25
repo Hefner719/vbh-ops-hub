@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   vbh-shell.js — shared site chrome for every hub page · build shell-v2
+   vbh-shell.js — shared site chrome for every hub page · build shell-v3
    ───────────────────────────────────────────────────────────────────────────
    Load order in <head>:  vbh-config.js → assets/vbh.css → assets/vbh-shell.js
 
@@ -350,9 +350,34 @@
   VBH.auth = auth;
 
   /* ── boot ────────────────────────────────────────────────────────────── */
+  /* ── bridge health banner ──────────────────────────────────────────────
+     The Buildertrend ingest fails quietly: if the Graph secret expires or the
+     mailbox folder is renamed, polling just stops and the agenda goes stale
+     without anyone being told. Rather than wait for a mail sender, say so on
+     every page. Silent when healthy. */
+  async function renderHealth(page) {
+    if (!page || !page.protected || page.id === 'digest') return;   // digest has its own section
+    try {
+      if (!(await ensureSupabase())) return;
+      const { data, error } = await VBH.sb()
+        .from('v_bt_health').select('status,message,minutes_since_run').maybeSingle();
+      if (error || !data || data.status === 'ok') return;
+      const bad = data.status === 'down' || data.status === 'never_run' || data.status === 'erroring';
+      const bar = el('div', { class: 'vbh-alert' + (bad ? ' bad' : ''), role: 'status' }, [
+        el('span', { class: 'vbh-alert-tag', text: bad ? 'Buildertrend feed down' : 'Buildertrend feed lagging' }),
+        el('span', { text: data.message || '' }),
+        el('a', { class: 'vbh-alert-link', href: '/digest', text: 'Bridge health →' })
+      ]);
+      const nav = document.querySelector('.vbh-nav');
+      if (nav && nav.nextSibling) nav.parentNode.insertBefore(bar, nav.nextSibling);
+      else document.body.prepend(bar);
+    } catch (e) { /* never let a health check break a page */ }
+  }
+
   function finish(page) {
     html.removeAttribute('data-vbh-pending');
     document.dispatchEvent(new CustomEvent('vbh:ready', { detail: { page, name: auth.name() } }));
+    renderHealth(page);
   }
 
   function refreshLockLabel() {

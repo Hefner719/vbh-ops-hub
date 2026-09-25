@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   VBH Ops Hub · shared stylesheet · build shell-v2
+   VBH Ops Hub · shared stylesheet · build shell-v3
    ───────────────────────────────────────────────────────────────────────────
    Loaded by every page BEFORE its own <style>. Owns:
      1. design tokens  (colors, type, radii, shadows)
@@ -238,3 +238,16 @@ body[data-vbh-pending] > :not(.vbh-gate) { visibility: hidden; }
 .vbh-gate-alt[hidden] { display: none; }
 .vbh-gate-alt-btn { background: rgba(255,255,255,0.14) !important; box-shadow: none !important; }
 .vbh-gate-alt-btn:hover { background: rgba(255,255,255,0.22) !important; }
+
+/* ─── bridge health banner (shell-v3) ──────────────────────────────────────
+   Shown only when the Buildertrend feed is lagging or down, on every page, so
+   a silent failure cannot go unnoticed until a Tuesday meeting. */
+.vbh-alert {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px;
+  padding: 9px 24px; font-size: .8rem; line-height: 1.4;
+  background: #fef3c7; color: var(--amber-dk); border-bottom: 1px solid #f3d19b;
+}
+.vbh-alert.bad { background: #fee2e2; color: var(--red-dk); border-bottom-color: #f4b5b2; }
+.vbh-alert-tag { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: .68rem; }
+.vbh-alert-link { margin-left: auto; color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap; }
+@media print { .vbh-alert { display: none !important; } }
