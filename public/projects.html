@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 -->
+<!-- build:shell-v3 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -493,6 +493,7 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
   display: inline-block;
 }
 .field { margin-bottom: 15px; }
+.field-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); font-size: .92em; }
 .panel-body label {
   display: block; font-size: 10.5px; font-weight: 700;
   color: var(--muted); text-transform: uppercase;
@@ -570,7 +571,7 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
 
 </style>
 </head>
-<body data-vbh-page="projects" data-vbh-build="projects-v2">
+<body data-vbh-page="projects" data-vbh-build="projects-v3">
 
 <div data-vbh-header></div>
 
@@ -724,8 +725,21 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
           <input id="f_pct_complete" type="number" min="0" max="100" step="1"/>
         </div>
         <div class="field">
-          <label>Status</label>
-          <input id="f_status" placeholder="Rental / Customer / For Sale / SOLD"/>
+          <label>Status <span class="field-hint">schedule health</span></label>
+          <!-- Same list as the meeting page, and enforced by a check constraint
+               in the database. This was a free-text box, which is how the column
+               came to hold sale status, construction phase and schedule health
+               all at once (migration 011). Construction phase goes in Phase. -->
+          <select id="f_status">
+            <option value="">— not set —</option>
+            <option>On Track</option>
+            <option>Ahead</option>
+            <option>At Risk</option>
+            <option>Behind</option>
+            <option>On Hold</option>
+            <option>Blocked</option>
+            <option>Complete</option>
+          </select>
         </div>
       </div>
     </div>
