@@ -216,6 +216,21 @@ tr:hover .row-del { opacity:1; }
 .owner-chip.unassigned { background:var(--amber-bg); border-color:var(--amber-line); color:var(--amber); }
 .owner-chip.unassigned .av { background:var(--amber); }
 
+/* v9 Â· due dates on everything. An undated item cannot go overdue, so it never
+   gets chased â€” these make the gap visible rather than silent. */
+.ar-due-in.nodate { border-style:dashed; border-color:var(--amber); background:var(--amber-bg); }
+.due-set {
+  padding:2px 8px; border:1px dashed var(--amber); border-radius:999px;
+  background:var(--amber-bg); color:var(--amber); cursor:pointer;
+  font-family:inherit; font-size:.66rem; font-weight:800; letter-spacing:.03em; white-space:nowrap;
+}
+.due-set:hover { background:var(--amber); color:#fff; }
+.undated-fix {
+  margin-left:auto; padding:4px 11px; border:1px solid var(--amber); border-radius:999px;
+  background:var(--amber-bg); color:var(--amber-dk); cursor:pointer;
+  font-family:inherit; font-size:.72rem; font-weight:800; letter-spacing:.02em; white-space:nowrap;
+}
+.undated-fix:hover { background:var(--amber); color:#fff; }
 .due-chip {
   display:inline-block; padding:2px 8px; border-radius:999px; font-size:.7rem; font-weight:700;
   background:var(--surface-3); color:var(--ink-soft); border:1px solid #cfdcec; white-space:nowrap;
@@ -792,7 +807,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 }
 </style>
 </head>
-<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v8">
+<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v9">
 
 
 <!-- ══════════ APP ══════════ -->
@@ -1277,7 +1292,7 @@ const DRAFT_KEY   = 'vbh_meeting_draft';
 const EDITOR_KEY  = 'vbh_editor_name';
 const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
 const STATE_VERSION = 3;
-const BUILD = 'meeting-v8';
+const BUILD = 'meeting-v9';
 
 /* ─────────────────────────────────────────────────────────────────────
    ③ SMALL UTILITIES
@@ -1800,6 +1815,7 @@ function actionMatchesFilter(r) {
   if (actionFilter === 'open') return !r.done;
   if (actionFilter === 'done') return !!r.done;
   if (actionFilter === 'unassigned') return !r.done && !String(r.owner||'').trim();
+  if (actionFilter === 'overdue') return !r.done && dueTone(r.due) === 'late';
   return !r.done && splitOwners(r.owner).some(o => {
     const p = personByName(o);
     return (p ? p.name : o).toLowerCase() === actionFilter.toLowerCase();
@@ -1821,14 +1837,23 @@ function renderActionFilters() {
   const chip = (key, label, n) =>
     `<div class="filter-chip${actionFilter === key ? ' active' : ''}" onclick="setActionFilter('${String(key).replace(/'/g,"\\'")}')">${escHtml(label)}${n != null ? `<span class="fc-n">${n}</span>` : ''}</div>`;
 
+  const overdue = open.filter(r => dueTone(r.due) === 'late').length;
+  const undated = undatedRows().length;
+
   bar.innerHTML = '<span class="filter-label">Show</span>' +
     chip('open','Open', open.length) +
     chip('all','All', all.length) +
     chip('done','Done', all.length - open.length) +
+    (overdue ? chip('overdue','⏰ Overdue', overdue) : '') +
     (unassigned ? chip('unassigned','⚠ Unassigned', unassigned) : '') +
     '<span class="filter-label" style="margin-left:8px">By owner</span>' +
     TEAM.filter(p => counts[p.name]).map(p => chip(p.name, p.name, counts[p.name])).join('') +
-    Object.keys(counts).filter(n => !TEAM.some(p => p.name === n)).map(n => chip(n, n, counts[n])).join('');
+    Object.keys(counts).filter(n => !TEAM.some(p => p.name === n)).map(n => chip(n, n, counts[n])).join('') +
+    /* An undated item can never go overdue, so it never gets chased. Say so,
+       and make fixing all of them one click. */
+    (undated ? `<button class="undated-fix" type="button" onclick="setAllDueDefaults()"
+        title="Give every undated item a due date of the next meeting">
+        ${undated} with no due date — date ${undated === 1 ? 'it' : 'them all'}</button>` : '');
 }
 
 function actionRowHTML(r) {
@@ -1846,8 +1871,9 @@ function actionRowHTML(r) {
     </div>
     <div class="ar-side">
       ${ownerSelectHTML(r.id,'owner', r.owner)}
-      <input class="ar-due-in ${tone}" type="date" data-mid="${r.id}" data-field="due" value="${escHtml(r.due||'')}" title="Due date"/>
+      <input class="ar-due-in ${tone}${r.due ? '' : ' nodate'}" type="date" data-mid="${r.id}" data-field="due" value="${escHtml(r.due||'')}" title="${r.due ? 'Due date' : 'No due date — this item cannot become overdue, so nothing will flag it'}"/>
       ${r.due && tone ? `<span class="due-chip ${tone}">${tone === 'late' ? 'overdue' : fmtShort(r.due)}</span>` : ''}
+      ${!r.due && !r.done ? `<button class="due-set" type="button" onclick="setDueDefault('${r.id}')" title="Set to the next meeting">set a date</button>` : ''}
       <span class="ar-kill" onclick="deleteRow('action','${r.id}')" title="Delete">✕</span>
     </div>
   </div>`;
@@ -2005,6 +2031,9 @@ function addRow(key) {
   const row = { id: uid('r') };
   if (LISTS[key].check) row.done = false;
   LISTS[key].fields.forEach(f => { row[f] = ''; });
+  /* v9: a blank action row still gets a date — see defaultDueISO(). Warranty
+     rows carry a due date too, for the same reason. */
+  if ((key === 'action' || key === 'warranty') && 'due' in row) row.due = defaultDueISO();
   (S[key] = S[key] || []).push(row);
   if (key === 'action') { actionFilter = 'open'; renderActions(); renderWrapSummary(); } else renderTable(key);
   renderNav(); markDirty();
@@ -2096,6 +2125,48 @@ function parseQuickAdd(raw) {
   return { text: text.replace(/\s{2,}/g,' ').trim(), owner, due };
 }
 
+/* v9: every action item gets a due date.
+   Items without one cannot slip — nothing ever becomes overdue, so nothing
+   nags, and an item can ride the rollover for months unnoticed. That is
+   exactly what happened: five items sat open for 102 days, none of them
+   overdue, because none had a date.
+
+   The default is the next meeting, which is the honest answer to "by when?"
+   for most things said in the room. It is a starting point, not a verdict:
+   the date box sits right there and typing "fri" or "8/14" in the text still
+   wins. */
+function defaultDueISO() {
+  const t = new Date(); t.setDate(t.getDate() + 1);   // strictly after today
+  return toISODate(upcomingMeetingDay(t));
+}
+
+/* Give one undated row the default, from the "set a date" button. */
+function setDueDefault(id) {
+  const hit = findRow(id);
+  if (!hit || hit.row.due) return;
+  hit.row.due = defaultDueISO();
+  renderActions(); renderTable('warranty'); renderWrapSummary(); markDirty();
+  toast('Due ' + fmtShort(hit.row.due), 1600);
+}
+
+/* Anything still undated, across action items and warranty. */
+function undatedRows() {
+  return [].concat(
+    (S.action || []).filter(r => !r.done && String(r.text || '').trim() && !r.due),
+    (S.warranty || []).filter(r => !r.done && (String(r.address || '').trim() || String(r.items || '').trim()) && !r.due)
+  );
+}
+
+/* One click to date everything that is missing one. */
+function setAllDueDefaults() {
+  const rows = undatedRows();
+  if (!rows.length) { toast('Everything already has a due date'); return; }
+  const d = defaultDueISO();
+  rows.forEach(r => { r.due = d; });
+  renderActions(); renderTable('warranty'); renderWrapSummary(); markDirty();
+  toast('✓ ' + rows.length + ' item' + (rows.length === 1 ? '' : 's') + ' due ' + fmtShort(d), 2600);
+}
+
 function quickAddAction() {
   const ti = $('#qaText'), oi = $('#qaOwner'), di = $('#qaDue');
   const parsed = parseQuickAdd(ti ? ti.value : '');
@@ -2103,7 +2174,7 @@ function quickAddAction() {
   const row = {
     id: uid('r'), done:false, text: parsed.text,
     owner: parsed.owner || (oi ? oi.value : '') || '',
-    due:   parsed.due   || (di ? di.value : '') || '',
+    due:   parsed.due   || (di ? di.value : '') || defaultDueISO(),
     job:   ''
   };
   (S.action = S.action || []).push(row);
@@ -2947,6 +3018,7 @@ function flushAutosave() {
   const st = snapshot();
   writeBuffer(st);
   pushMeetingToServer(st, false);
+  syncActionItems(st);   /* throttled inside */
 }
 window.addEventListener('beforeunload', e => {
   try { writeBuffer(); } catch (err) {}
@@ -2975,7 +3047,7 @@ function saveMeeting() {
       ? `⚠ Tracker: ${res.pushed} updated, ${res.failed} failed`
       : `✓ Tracker updated (${res.pushed} project${res.pushed === 1 ? '' : 's'})`, 3000), 900);
   });
-  syncActionItems(st);
+  syncActionItems(st, true);
 }
 
 /* v7: mirror action items into the `action_items` table so they can be read
@@ -2985,10 +3057,16 @@ function saveMeeting() {
    The agenda stays the source of truth; this is a projection keyed by the id
    each row already carries, so re-saving updates in place. Failure is silent
    on purpose: the meeting must save whether or not the mirror does. */
-function syncActionItems(state) {
+let lastActionSync = 0;
+function syncActionItems(state, force) {
   if (!trackerSB || readOnly) return;
   const iso = isoDayKey(state.meetingDate) || state.dateKey;
   if (!iso) return;
+  /* Autosave fires every couple of seconds while someone types; the mirror
+     does not need that cadence. Throttled unless an explicit Save asks. */
+  const now = Date.now();
+  if (!force && now - lastActionSync < 20000) return;
+  lastActionSync = now;
   const items = (state.action || []).filter(r => String(r.text || '').trim());
   trackerSB.rpc('sync_action_items', { p_meeting_date: iso, p_items: items })
     .then(({ error }) => {
