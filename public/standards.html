@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 -->
+<!-- build:standards-v3 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet"/>
 <script src="/vbh-config.js"></script>
 <link rel="stylesheet" href="/assets/vbh.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/assets/vbh-shell.js"></script>
 <style>
   h1, h2, h3 { font-family: var(--font-head); }
@@ -80,6 +81,36 @@
   .notes ul { margin:0; padding-left:18px; }
   .notes li { font-size:12.5px; color:var(--gray); margin-bottom:8px; }
 
+  /* Live measurement against a written standard. Only one standard on this
+     page can be checked today; the others carry a note saying why not. */
+  .measure { margin-top:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .measure-head {
+    display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px;
+    padding:8px 12px; background:var(--surface-2); border-bottom:1px solid var(--line);
+    font-size:12.5px;
+  }
+  .measure-head b { color:var(--navy); font-size:13px; }
+  .measure-score { font-weight:800; }
+  .measure-score.good { color:#2e7d32; } .measure-score.mid { color:var(--amber-dk); } .measure-score.bad { color:var(--red-dk); }
+  .measure-as-of { margin-left:auto; color:var(--muted); font-size:11.5px; }
+  .measure table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .measure th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px;
+                color:var(--steel); padding:6px 12px; border-bottom:1px solid var(--line); font-weight:700; }
+  .measure td { padding:6px 12px; border-bottom:1px solid var(--line); }
+  .measure tr:last-child td { border-bottom:0; }
+  .measure .num { text-align:right; white-space:nowrap; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:10.5px; font-weight:800;
+          text-transform:uppercase; letter-spacing:.4px; }
+  .pill.met { background:#dcfce7; color:#15803d; }
+  .pill.late { background:#fef3c7; color:var(--amber-dk); }
+  .pill.missed { background:#fee2e2; color:var(--red-dk); }
+  .pill.never { background:#ede9fe; color:#6d28d9; }
+  .measure-note { padding:8px 12px; font-size:11.5px; color:var(--muted); font-style:italic; background:var(--surface-2); }
+  .not-measured {
+    margin-top:10px; padding:7px 11px; border-left:3px solid var(--border);
+    background:var(--surface-2); font-size:11.5px; color:var(--muted);
+  }
+  .not-measured b { color:var(--navy); font-style:normal; }
   .companion { margin-top:22px; text-align:center; font-size:11.5px; color:var(--gray); }
   .companion a { color:var(--navy); font-weight:700; text-decoration:none; }
 
@@ -95,7 +126,7 @@
   }
 </style>
 </head>
-<body data-vbh-page="standards" data-vbh-build="standards-v2">
+<body data-vbh-page="standards" data-vbh-build="standards-v3">
   <div data-vbh-header>
     <button class="vbh-btn vbh-btn-ghost vbh-btn-sm" type="button" onclick="window.print()">🖨 Print</button>
   </div>
@@ -210,6 +241,10 @@
             <span><b>Clock / Deadline</b>Friday, 5:00 PM — before leaving</span>
           </div>
           <p class="std-detail">Jobs are split equally into Group A and Group B. Group A goes out one Friday, Group B the next, alternating, so each project receives a written update every two weeks. Cover progress, what&#x27;s planned next, any decisions or selections needed, and any schedule change. Distribute to all interested parties — client, investor, realtor, the Director (CC), and any additional parties on internal projects. The Director is CC&#x27;d on every update as confirmation it went out.</p>
+          <!-- Live measurement, from the Buildertrend client updates that actually
+               went out. This is the only standard on this page the hub can check;
+               the rest say so rather than showing an invented number. -->
+          <div class="measure" id="measureUpdates" hidden></div>
         </div>
         <div class="std">
           <div class="std-head">
@@ -280,6 +315,85 @@
 
     <div class="companion">Standards reference companion to the <a href="/raci">VBH RACI Matrix</a>.</div>
   </div>
+<script>
+/* Standards compliance, measured &mdash; see migration 016.
+
+   Only the Bi-Weekly Project Update standard can be checked from data the hub
+   holds. The others are marked "not measured yet" with the reason, because a
+   compliance page that invents nine numbers is worse than one that admits to
+   measuring one. */
+const NOT_MEASURED = {
+  'Subcontractor Bids Returned': 'Nothing records when a plan went out for bidding or when bids came back.',
+  'Bids Coded &amp; Organized':  'Depends on the bid-return date above, which is not recorded.',
+  'Site Logs':                   'Buildertrend daily-log notifications are not reaching the hub yet.',
+  'Site Photos':                 'Arrives with the daily log, which is not reaching the hub yet.',
+  '2-Week Look-Ahead':           'Not published through Buildertrend, so nothing signals it was done.',
+  'Weekly Site Visit':           'No data source records a site visit.',
+  'Claim Acknowledgement':       'Past-due to-dos are visible, but the acknowledgement clock is not captured.',
+  'Inspection / Repair Date':    'Same as above &mdash; the claim clock is not captured.',
+  'Emergency Items':             'Handled case by case under Section 5.5.'
+};
+
+function markUnmeasured() {
+  document.querySelectorAll('.std').forEach(std => {
+    const nameEl = std.querySelector('.std-name');
+    if (!nameEl) return;
+    const why = NOT_MEASURED[nameEl.innerHTML.trim()] || NOT_MEASURED[nameEl.textContent.trim()];
+    if (!why) return;
+    const d = document.createElement('div');
+    d.className = 'not-measured';
+    d.innerHTML = '<b>Not measured yet.</b> ' + why;
+    std.appendChild(d);
+  });
+}
+
+async function renderUpdateCompliance() {
+  const box = document.getElementById('measureUpdates');
+  if (!box) return;
+  try {
+    const sb = VBH.sb();
+    const [sum, jobs] = await Promise.all([
+      sb.from('v_standards_summary').select('*').maybeSingle(),
+      sb.from('v_standard_update_compliance').select('job_number,address,pm,days_since,compliance').limit(100)
+    ]);
+    if (sum.error || !sum.data) return;
+    const s = sum.data;
+    const rows = (jobs.data || []).slice().sort((a, b) => {
+      const rank = c => ({ never: 0, missed: 1, late: 2, met: 3 })[c] ?? 4;
+      return rank(a.compliance) - rank(b.compliance) || (b.days_since || 0) - (a.days_since || 0);
+    });
+    const pct = s.pct_on_cycle == null ? '&mdash;' : s.pct_on_cycle + '%';
+    const tone = s.pct_on_cycle >= 80 ? 'good' : s.pct_on_cycle >= 50 ? 'mid' : 'bad';
+    const esc = VBH.esc;
+    box.innerHTML =
+      `<div class="measure-head">
+         <b>How we are doing</b>
+         <span class="measure-score ${tone}">${pct} on cycle</span>
+         <span>${s.on_cycle} of ${s.active_jobs} active jobs updated within 14 days</span>
+         ${s.never_updated ? `<span>&middot; ${s.never_updated} never updated</span>` : ''}
+         <span class="measure-as-of">live from Buildertrend</span>
+       </div>
+       <table><thead><tr>
+         <th>Job</th><th>PM</th><th class="num">Days since</th><th class="num">Status</th>
+       </tr></thead><tbody>` +
+      rows.map(r => `<tr>
+          <td><b>${esc(r.job_number)}</b> ${esc((r.address || '').slice(0, 30))}</td>
+          <td>${r.pm ? esc(r.pm) : '&mdash;'}</td>
+          <td class="num">${r.days_since == null ? '&mdash;' : r.days_since}</td>
+          <td class="num"><span class="pill ${r.compliance}">${r.compliance}</span></td>
+        </tr>`).join('') +
+      `</tbody></table>
+       <div class="measure-note">Counts the newest published client update per active job. A model or internal
+       build with no outside client may legitimately show as never updated &mdash; worth confirming which of those the
+       standard is meant to cover.</div>`;
+    box.hidden = false;
+  } catch (e) {
+    console.warn('[standards] compliance unavailable:', e);
+  }
+}
+
+VBH.auth.require(() => { markUnmeasured(); renderUpdateCompliance(); });
+</script>
   <div data-vbh-foot></div>
 </body>
 </html>
