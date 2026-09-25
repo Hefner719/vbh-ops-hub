@@ -1,5 +1,5 @@
-<#
-  bt-set-graph-creds.ps1 · enter the Microsoft Graph values from IT.
+﻿<#
+  bt-set-graph-creds.ps1 - enter the Microsoft Graph values from IT.
 
   Prompts only for values not already present in %USERPROFILE%\.vbh\bt-graph.env
   (outside the repo), then pushes them to Supabase as Edge Function secrets.

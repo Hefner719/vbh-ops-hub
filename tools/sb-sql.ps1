@@ -1,9 +1,9 @@
-<#
-  sb-sql.ps1 · run SQL against the VBH Supabase project via the Management API.
+﻿<#
+  sb-sql.ps1 - run SQL against the VBH Supabase project via the Management API.
 
   Auth: a Supabase personal access token read from a file OUTSIDE the repo:
         %USERPROFILE%\.vbh\supabase_pat.txt   (one line, the token, nothing else)
-  Create one at https://supabase.com/dashboard/account/tokens — name it "claude-code sb-sql".
+  Create one at https://supabase.com/dashboard/account/tokens - name it "claude-code sb-sql".
   The token is never printed and never written anywhere else.
 
   Usage:

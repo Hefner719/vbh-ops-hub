@@ -80,3 +80,31 @@ To remove access immediately: `update profiles set active=false where email='…
 
 Only company addresses (`@vanbuskirkco.com`, `@vbclink.com`) are activated
 automatically. Anyone else who signs up lands inactive and sees nothing.
+
+---
+
+## Update, 2026-09-25: no email sender needed to roll out
+
+The SMTP blocker above turned out to be avoidable. Supabase's admin API mints
+the same sign-in link its email would have contained, so links can be handed out
+over Teams, text or in person instead:
+
+```
+tools\vbh-invite.ps1              # everyone on the roster
+tools\vbh-invite.ps1 -Pending     # only those who have not signed in yet
+tools\vbh-invite.ps1 -Csv invites.csv
+```
+
+Links last 7 days (`mailer_otp_exp` raised for the rollout window) and sign that
+person in on whatever device they open them with. Each is effectively that
+person's password until used, so hand them out individually rather than posting
+one list in a channel. Delete the CSV afterwards.
+
+This needs no new vendor, no DNS change, and nothing from IT. A mail sender is
+still wanted later for the Friday digest and bridge-health alerts, but it no
+longer gates the security lockdown.
+
+Note `rate_limit_email_sent` cannot be raised while the built-in mailer is in
+use — Supabase rejects it with a 401. The in-page "Email me a sign-in link"
+button still works and is fine for one person at a time; it is only bulk
+onboarding that the cap made impractical.

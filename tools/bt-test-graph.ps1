@@ -1,5 +1,5 @@
-<#
-  bt-test-graph.ps1 · preflight the Microsoft Graph setup.
+﻿<#
+  bt-test-graph.ps1 - preflight the Microsoft Graph setup.
 
   Four checks, each printing the exact fix when it fails:
     1. Token    - are tenant / client / secret valid?
@@ -42,7 +42,7 @@ Write-Host "Secret   $($secret.Length) chars$(if ($isGuid) { ', GUID-shaped' })"
 Write-Host "Mailbox  $mailbox    Folder: $folder"
 Write-Host ''
 
-# ── 1 · token ───────────────────────────────────────────────────────────────
+# ── 1 - token ───────────────────────────────────────────────────────────────
 Write-Host '1. Requesting a token from Microsoft ...' -NoNewline
 $body = @{
   client_id     = $client
@@ -80,7 +80,7 @@ try {
   exit 1
 }
 
-# ── 2 · consent ─────────────────────────────────────────────────────────────
+# ── 2 - consent ─────────────────────────────────────────────────────────────
 Write-Host '2. Checking granted permissions ...' -NoNewline
 $part = ($access -split '\.')[1].Replace('-', '+').Replace('_', '/')
 while ($part.Length % 4) { $part += '=' }
@@ -98,7 +98,7 @@ if ($roles -contains 'Mail.Read' -or $roles -contains 'Mail.ReadWrite') {
   exit 1
 }
 
-# ── 3 · mailbox ─────────────────────────────────────────────────────────────
+# ── 3 - mailbox ─────────────────────────────────────────────────────────────
 $hdr = @{ Authorization = "Bearer $access" }
 $base = "https://graph.microsoft.com/v1.0/users/$mailbox"
 Write-Host '3. Reading the mailbox ...' -NoNewline
@@ -123,7 +123,7 @@ try {
   exit 1
 }
 
-# ── 4 · folder ──────────────────────────────────────────────────────────────
+# ── 4 - folder ──────────────────────────────────────────────────────────────
 Write-Host "4. Locating the '$folder' folder ..." -NoNewline
 $want = $folder.Trim().ToLower()
 $found = $null

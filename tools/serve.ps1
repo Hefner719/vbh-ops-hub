@@ -1,5 +1,5 @@
-<#
-  serve.ps1 · preview public/ locally with no Node install.
+﻿<#
+  serve.ps1 - preview public/ locally with no Node install.
   Mirrors Netlify's pretty URLs (/hub → hub.html). Ctrl+C to stop.
 
     tools\serve.ps1            # http://localhost:8788

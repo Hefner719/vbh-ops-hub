@@ -1,5 +1,5 @@
-<#
-  vbh-backup.ps1 · take a restorable copy of the hub's data.
+﻿<#
+  vbh-backup.ps1 - take a restorable copy of the hub's data.
 
   WHY: Supabase's free tier keeps its own daily snapshots, but they are not
   listed through the API, not downloadable, and point-in-time recovery is off.
@@ -34,7 +34,7 @@ if ($Install) {
   $me = $MyInvocation.MyCommand.Path
   $action = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$me`" -Quiet"
   schtasks /Create /TN 'VBH Hub Backup' /TR $action /SC DAILY /ST 18:00 /F | Out-Null
-  Write-Host 'Registered "VBH Hub Backup" — runs daily at 6:00 PM.' -ForegroundColor Green
+  Write-Host 'Registered "VBH Hub Backup" - runs daily at 6:00 PM.' -ForegroundColor Green
   Write-Host 'Remove it with:  schtasks /Delete /TN "VBH Hub Backup" /F'
   exit 0
 }

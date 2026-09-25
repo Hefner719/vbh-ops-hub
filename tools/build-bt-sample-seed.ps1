@@ -1,5 +1,5 @@
 ﻿<#
-  build-bt-sample-seed.ps1 · bt-bridge-v1
+  build-bt-sample-seed.ps1 - bt-bridge-v1
 
   Turns an Outlook CSV export of the Buildertrend folder into a SQL seed that loads
   every row into bt_emails (the insert trigger parses each one). Default input is
@@ -59,7 +59,7 @@ foreach ($r in $rows) {
 [void]$sb.AppendLine("commit;")
 [void]$sb.AppendLine("")
 [void]$sb.AppendLine("-- Expected on the 2026-09-14 sample set (64 rows, 28 notifications):")
-[void]$sb.AppendLine("--   client_update 19 · change_order_added 3 · change_order_approved 3 · document_comment 2 · change_order_file 1 · unclassified 36")
+[void]$sb.AppendLine("--   client_update 19 - change_order_added 3 - change_order_approved 3 - document_comment 2 - change_order_file 1 - unclassified 36")
 [void]$sb.AppendLine("select event_type, count(*) from bt_events group by 1 order by 2 desc;")
 
 [IO.File]::WriteAllText($out, $sb.ToString(), $utf8)

@@ -1,5 +1,5 @@
-<#
-  sb-fn-secrets.ps1 · push Edge Function secrets from a local env file.
+﻿<#
+  sb-fn-secrets.ps1 - push Edge Function secrets from a local env file.
 
   The file lives OUTSIDE the repo and is never printed:
       %USERPROFILE%\.vbh\bt-graph.env

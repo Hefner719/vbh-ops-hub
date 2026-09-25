@@ -1,5 +1,5 @@
-<#
-  sb-fn-deploy.ps1 · deploy an Edge Function through the Management API (no Supabase CLI, no Node).
+﻿<#
+  sb-fn-deploy.ps1 - deploy an Edge Function through the Management API (no Supabase CLI, no Node).
 
     tools\sb-fn-deploy.ps1 -Name bt-ingest
     tools\sb-fn-deploy.ps1 -Name bt-ingest -NoVerifyJwt     # only if the function must be callable without a JWT
@@ -34,5 +34,5 @@ $resp = $client.PostAsync($uri, $form).Result
 $text = $resp.Content.ReadAsStringAsync().Result
 if (-not $resp.IsSuccessStatusCode) { throw "Deploy failed: $([int]$resp.StatusCode) $text" }
 $j = $text | ConvertFrom-Json
-"Deployed $Name · version $($j.version) · status $($j.status) · verify_jwt=$($j.verify_jwt)"
+"Deployed $Name - version $($j.version) - status $($j.status) - verify_jwt=$($j.verify_jwt)"
 "URL: https://$ProjectRef.supabase.co/functions/v1/$Name"
