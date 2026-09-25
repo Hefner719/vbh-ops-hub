@@ -792,7 +792,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 }
 </style>
 </head>
-<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v7">
+<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v8">
 
 
 <!-- ══════════ APP ══════════ -->
@@ -1277,7 +1277,7 @@ const DRAFT_KEY   = 'vbh_meeting_draft';
 const EDITOR_KEY  = 'vbh_editor_name';
 const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
 const STATE_VERSION = 3;
-const BUILD = 'meeting-v7';
+const BUILD = 'meeting-v8';
 
 /* ─────────────────────────────────────────────────────────────────────
    ③ SMALL UTILITIES
@@ -2975,6 +2975,27 @@ function saveMeeting() {
       ? `⚠ Tracker: ${res.pushed} updated, ${res.failed} failed`
       : `✓ Tracker updated (${res.pushed} project${res.pushed === 1 ? '' : 's'})`, 3000), 900);
   });
+  syncActionItems(st);
+}
+
+/* v7: mirror action items into the `action_items` table so they can be read
+   between meetings — "what does Justin owe" without opening an agenda, and a
+   true age for anything that has been riding the rollover.
+
+   The agenda stays the source of truth; this is a projection keyed by the id
+   each row already carries, so re-saving updates in place. Failure is silent
+   on purpose: the meeting must save whether or not the mirror does. */
+function syncActionItems(state) {
+  if (!trackerSB || readOnly) return;
+  const iso = isoDayKey(state.meetingDate) || state.dateKey;
+  if (!iso) return;
+  const items = (state.action || []).filter(r => String(r.text || '').trim());
+  trackerSB.rpc('sync_action_items', { p_meeting_date: iso, p_items: items })
+    .then(({ error }) => {
+      if (error) console.warn('[actions] sync failed (meeting still saved):', error.message);
+      else console.log('[actions] mirrored ' + items.length + ' item(s) for ' + iso);
+    })
+    .catch(e => console.warn('[actions] sync error:', e));
 }
 
 /* ─────────────────────────────────────────────────────────────────────
