@@ -88,10 +88,6 @@ const VBH = {
       title:'Weekly Executive Update', sub:'Ownership briefing · Wednesdays 4:30 PM',
       tile:{ icon:'📈', accent:'navy-gold', blurb:'Ownership briefing — active builds, closings, and top prospects on one page. Live from the tracker, one-click PDF to send.' } },
 
-    { id:'dashboard',    path:'/dashboard',    nav:'Work Orders',  group:'field', protected:true,
-      title:'Work Order Dashboard', sub:'Van Buskirk Homes · Maintenance Operations',
-      tile:{ icon:'🔧', accent:'green', blurb:'Approve, dispatch, and track development-maintenance work orders. Crew view for field assignments.' } },
-
     { id:'equipment',    path:'/equipment',    nav:'Assets',       group:'field', protected:true,
       title:'Asset Tracker', sub:'Signage · Cameras · Equipment',
       tile:{ icon:'📷', accent:'amber', blurb:'Signage, cameras, and equipment — location, check-in/out, who\'s holding it, and service status across every job site.' } },
@@ -105,7 +101,6 @@ const VBH = {
       tile:{ icon:'🗂️', accent:'navy', blurb:'Role-based responsibility matrix across the full project lifecycle, financials, admin, and standing meetings.' } },
 
     /* Public forms — no nav entry, no gate. Linked from the hub footer. */
-    { id:'workorder',    path:'/',             protected:false, title:'Work Order Request', sub:'Development Maintenance', footer:'Work Order Request Form' },
     { id:'intake',       path:'/intake',       protected:false, title:'Client Intake',      sub:'New lead → Leads Tracker', footer:'Client Intake Form' }
   ],
 
@@ -138,33 +133,9 @@ const VBH = {
   DEPOSIT_STATUSES: ['Not Received','Partial','Received'],
 
   /* ── 4 · roles & rosters ──────────────────────────────────────────────── */
-  WORK_ORDERS: {
-    /* Role: who approves and dispatches work orders, is cc'd on completions,
-       and signs the notification emails. */
-    approverName:  VBH_ROLES.opsDirector.name,
-    approverTitle: VBH_ROLES.opsDirector.title,
-    approverEmail: VBH_ROLES.opsDirector.email,
-    /* People who may submit a request (dropdown on the public form). */
-    requestors: [
-      { name:'Brandt', email:'Brandt.williams@vanbuskirkco.com' },
-      { name:'Logan',  email:'Logan.Callahan@vanbuskirkco.com' },
-      { name:'Gabbie', email:'Gabbie.hibbert@vanbuskirkco.com' },
-      { name:'Clay',   email:'Clay.nelson@vanbuskirkco.com' },
-      { name:'Steve',  email:'Steve@vbclink.com' },
-      { name:'Jordan', email:'Jordan.hefner@vanbuskirkco.com' },
-      { name:'Kelly',  email:'Kelly.boyd@vanbuskirkco.com' }
-    ],
-    /* Crew a work order can be assigned to (dashboard approval dropdown). */
-    crew: [
-      { name:'Dallas Westover',         email:'Dallas.westover@vanbuskirkco.com' },
-      { name:'Quentin Robertson',       email:'Quentin.robertson@vanbuskirkco.com' },
-      { name:'Jordan Hefner - Sub W/O', email:'Jordan.hefner@vanbuskirkco.com' },
-      { name:'Josh Isaacson',           email:'Josh.Isaacson@vanbuskirkco.com' },
-      { name:'Jackson Breuer',          email:'Jackson.Breuer@vanbuskirkco.com' },
-      { name:'Bill Hoffman',            email:'Bill.hoffman@vanbuskirkco.com' },
-      { name:'Jacob Bender',            email:'Jacob.bender@vanbuskirkco.com' }
-    ]
-  },
+  /* The development-maintenance work-order form, dashboard and `work_orders`
+     table were retired 2026-10-05 when that side of the business wound down.
+     The 34 records are kept at archive/work-orders-retired-2026-10-05/. */
 
   /* Who sits in the Tuesday production meeting (meeting.html).
      name     shows on the agenda and as the Send-panel heading
@@ -187,13 +158,6 @@ const VBH = {
   }
 };
 
-/* Look up a requestor's email by the name stored on a work order. */
-function requestorEmail(name) {
-  if (!name) return '';
-  var r = VBH.WORK_ORDERS.requestors.find(function (x) { return x.name === name; });
-  return r ? r.email : '';
-}
-
 /* ── 5 · meeting.html reads window.VBH_CONFIG ─────────────────────────── */
 window.VBH_CONFIG = {
   password:     VBH.PASSWORD,
@@ -209,6 +173,3 @@ window.VBH_CONFIG = {
    same name still parses. New code should read VBH.* directly. */
 window.SUPABASE_URL      = VBH.SUPABASE_URL;
 window.SUPABASE_ANON_KEY = VBH.SUPABASE_KEY;
-window.JORDAN_EMAIL      = VBH.WORK_ORDERS.approverEmail;
-window.REQUESTORS        = VBH.WORK_ORDERS.requestors;
-window.CREW              = VBH.WORK_ORDERS.crew;

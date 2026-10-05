@@ -19,7 +19,10 @@ try {
   while ($listener.IsListening) {
     $ctx = $listener.GetContext()
     $path = [Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath)
-    if ($path -eq '/') { $path = '/index.html' }
+    # Mirror the netlify.toml redirect: there is no index.html any more, the
+    # hub is the front door. Without this, local preview 404s where production
+    # works, which is the worst kind of difference between the two.
+    if ($path -eq '/') { $path = '/hub.html' }
     $file = Join-Path $root ($path.TrimStart('/') -replace '/', '\')
     if (-not (Test-Path $file -PathType Leaf) -and (Test-Path "$file.html" -PathType Leaf)) { $file = "$file.html" }
     $full = [IO.Path]::GetFullPath($file)

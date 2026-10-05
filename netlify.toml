@@ -8,6 +8,15 @@
 [build.processing.html]
   pretty_urls = true
 
+# The site root used to be the development-maintenance work-order form
+# (index.html), retired 2026-10-05 with that side of the business. The hub is
+# the front door now. 302 rather than 301 on purpose: a permanent redirect is
+# cached by the browser forever, and the root may well move again.
+[[redirects]]
+  from = "/"
+  to = "/hub"
+  status = 302
+
 # Shared assets change only when we deploy; browsers may cache them briefly
 # but must revalidate so a deploy shows up on the next load.
 [[headers]]
