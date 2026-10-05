@@ -2778,7 +2778,7 @@ async function loadBuildertrendActivity() {
     /* Emails imported from an Outlook CSV carry no timestamp (occurred_at is
        null), so a plain date filter would hide them. Fetch them separately and
        list them after the dated items. Live (Graph) ingest always has a date. */
-    const [recent, undated, latest, unmatched, owing, cadence] = await Promise.all([
+    const [recent, undated, latest, unmatched, owing, cadence, logs] = await Promise.all([
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).gte('occurred_at', since).order('occurred_at', { ascending: false }).limit(2000) : { data: [] },
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).is('occurred_at', null).neq('event_type', 'client_update').order('id', { ascending: false }) : { data: [] },
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).eq('event_type', 'client_update').order('occurred_at', { ascending: false }) : { data: [] },
@@ -2787,7 +2787,10 @@ async function loadBuildertrendActivity() {
          paid matching lives in v_bt_bill_status, not here — one home per
          thing, and the page just reads the answer. */
       nums.length ? trackerSB.from('v_bt_bills_outstanding').select('job_number,vendor,title,days_outstanding').in('job_number', nums) : { data: [] },
-      trackerSB.from('v_bt_client_update_cadence').select('job_number,job_name,last_client_update,fridays_since,cadence')
+      trackerSB.from('v_bt_client_update_cadence').select('job_number,job_name,last_client_update,fridays_since,cadence'),
+      /* Empty until daily-log emails start arriving — the view guards itself,
+         so this needs no feature flag here. */
+      trackerSB.from('v_bt_daily_log_cadence').select('job_number,job_name,last_daily_log,workdays_since,last_author,cadence')
     ]);
     if (recent.error) throw recent.error;
     if (undated.error) throw undated.error;
@@ -2801,6 +2804,7 @@ async function loadBuildertrendActivity() {
     btByJob = map;
     btUnmatched = unmatched.error ? [] : (unmatched.data || []);
     btCadence   = cadence.error   ? [] : (cadence.data || []);
+    btLogs      = logs.error      ? [] : (logs.data || []);
     btLoaded = true;
   } catch (e) {
     console.warn('[buildertrend] load failed:', e.message || e);
@@ -2975,6 +2979,30 @@ function btFinanceHTML(money, owing) {
          `</div>`;
 }
 
+/* Daily log line for one job. Renders nothing at all until daily-log emails
+   start arriving — v_bt_daily_log_cadence returns no rows while the event type
+   is unseen, so this stays invisible rather than announcing that every job is
+   missing logs on day one. */
+function btDailyLogHTML(num) {
+  const r = btLogs.find(x => String(x.job_number||'').toUpperCase() === num);
+  if (!r) return '';
+  if (r.cadence === 'never') {
+    return `<div class="bt-update none">No daily log on record for ${escHtml(num)}.</div>`;
+  }
+  const late = r.cadence === 'overdue';
+  const due  = r.cadence === 'due';
+  return `
+    <div class="bt-update${late ? ' stale' : ''}">
+      <div class="bt-update-head">
+        <span class="bt-tag">Daily log</span>
+        <span class="bt-when">${escHtml(fmtBtDate(r.last_daily_log))}</span>
+        ${r.last_author ? `<span class="bt-who">${escHtml(r.last_author)}</span>` : ''}
+        ${late ? `<span class="bt-stale">${r.workdays_since} work days since the last one</span>`
+               : (due ? `<span class="bt-stale">${r.workdays_since} work days — due today</span>` : '')}
+      </div>
+    </div>`;
+}
+
 /* The read-only Buildertrend block on a job card. */
 function btStripHTML(j) {
   const num = jobNumberOf(j);
@@ -3015,6 +3043,7 @@ function btStripHTML(j) {
         <span class="bt-meta">${count ? count + ' item' + (count === 1 ? '' : 's') + (recent.some(e => e.undated) ? ' reported' : ' in the last ' + BT_WINDOW_DAYS + ' days') : 'read-only · from notification emails'}</span>
       </div>
       ${updHTML}
+      ${btDailyLogHTML(num)}
       ${feed.length ? `<div class="bt-feed">${feed.map(btEventLine).join('')}</div>` : ''}
       ${btFinanceHTML(money, (b && b.owing) || [])}
     </div>`;
@@ -3032,19 +3061,42 @@ function btStripHTML(j) {
    mixed in: several of them are models and spec houses with no client to
    update, so they are a question to settle once, not a weekly alarm. */
 let btCadence = [];
+let btLogs = [];
 
 function renderBtCadence() {
   const box = $('#btCadence');
   if (!box) return;
   const onAgenda = jobNumbersOnAgenda();
-  const rows = btCadence.filter(r => onAgenda.has(String(r.job_number||'').toUpperCase()));
-  const late  = rows.filter(r => r.cadence === 'overdue')
-                    .sort((a, b) => (b.fridays_since||0) - (a.fridays_since||0));
-  const never = rows.filter(r => r.cadence === 'never');
+  const mine = rows => rows.filter(r => onAgenda.has(String(r.job_number||'').toUpperCase()));
 
-  if (!late.length && !never.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  /* ── client updates: the Friday rule ── */
+  const cu    = mine(btCadence);
+  const late  = cu.filter(r => r.cadence === 'overdue')
+                  .sort((a, b) => (b.fridays_since||0) - (a.fridays_since||0));
+  const never = cu.filter(r => r.cadence === 'never');
+
+  /* ── daily logs: the work-day rule. btLogs is empty until daily-log emails
+        start arriving, so this whole section simply does not appear yet. ── */
+  const lg      = mine(btLogs);
+  const logLate = lg.filter(r => r.cadence === 'overdue' || r.cadence === 'never')
+                    .sort((a, b) => (b.workdays_since == null ? 999 : b.workdays_since)
+                                  - (a.workdays_since == null ? 999 : a.workdays_since));
+
+  if (!late.length && !never.length && !logLate.length) {
+    box.style.display = 'none'; box.innerHTML = ''; return;
+  }
 
   box.innerHTML =
+    (logLate.length
+      ? `<div class="nsb-head">📋 Daily log overdue (${logLate.length})</div>` +
+        logLate.map(r => `<div class="new-starts-row">
+          <div class="nsr-info"><b>${escHtml(r.job_number)}</b> <span>${escHtml(String(r.job_name||''))}</span> · ${
+            r.last_daily_log
+              ? `<b>${r.workdays_since} work days</b> since the last log (${escHtml(fmtBtDate(r.last_daily_log))}${r.last_author ? ', ' + escHtml(r.last_author) : ''})`
+              : '<b>no daily log on record</b>'
+          }</div>
+        </div>`).join('')
+      : '') +
     (late.length
       ? `<div class="nsb-head">📣 Client update overdue (${late.length})</div>` +
         late.map(r => `<div class="new-starts-row">
