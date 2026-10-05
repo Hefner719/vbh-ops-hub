@@ -896,6 +896,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
         </div>
 
         <div id="newStartsBanner" class="new-starts-banner" style="display:none"></div>
+        <div id="btCadence" class="new-starts-banner" style="display:none"></div>
         <div id="btUnmatched" class="new-starts-banner" style="display:none"></div>
         <div class="job-grid" id="jobGrid"></div>
 
@@ -2734,7 +2735,29 @@ function ensureActiveProjectCards() {
 
 /* ── Buildertrend activity ── */
 const BT_WINDOW_DAYS = 21;            // covers a skipped week with margin
-const BT_STALE_DAYS  = 14;            // no client update in this long → flag it
+const BT_STALE_FRIDAYS = 2;           // more than this many Fridays with no client update → flag it
+
+/* Fridays strictly after `since`, up to and including today. Counting Fridays
+   rather than days is deliberate: the client update is a Friday job, so "two
+   Fridays missed" is the question people actually ask, and 13 days can span
+   two Fridays while 14 days spans two as well. Mirrors bt_fridays_since() in
+   migration 020 so the page and the database agree. */
+function fridaysSince(since) {
+  if (!since) return null;
+  /* 'YYYY-MM-DD' is parsed as UTC midnight by the Date constructor, which in
+     Central time lands on the previous day and reports one Friday too many.
+     Timestamps from the server are fine; a bare date is not, so split it. */
+  const s = String(since);
+  const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const d = ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : startOfDay(new Date(s));
+  if (!d || isNaN(d)) return null;
+  let n = 0;
+  const cur = new Date(d);
+  const today = startOfDay(new Date());
+  cur.setDate(cur.getDate() + 1);
+  for (; cur <= today; cur.setDate(cur.getDate() + 1)) if (cur.getDay() === 5) n++;
+  return n;
+}
 let btByJob = new Map();              // job_number → { recent:[], latestUpdate }
 let btUnmatched = [];
 let btLoaded = false;
@@ -2755,34 +2778,46 @@ async function loadBuildertrendActivity() {
     /* Emails imported from an Outlook CSV carry no timestamp (occurred_at is
        null), so a plain date filter would hide them. Fetch them separately and
        list them after the dated items. Live (Graph) ingest always has a date. */
-    const [recent, undated, latest, unmatched] = await Promise.all([
+    const [recent, undated, latest, unmatched, owing, cadence] = await Promise.all([
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).gte('occurred_at', since).order('occurred_at', { ascending: false }).limit(2000) : { data: [] },
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).is('occurred_at', null).neq('event_type', 'client_update').order('id', { ascending: false }) : { data: [] },
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).eq('event_type', 'client_update').order('occurred_at', { ascending: false }) : { data: [] },
-      trackerSB.from('v_bt_unmatched_jobs').select('job_number,job_name,events,last_seen,event_types')
+      trackerSB.from('v_bt_unmatched_jobs').select('job_number,job_name,events,last_seen,event_types'),
+      /* v10: bills still owed, not every bill ever marked ready. The ready →
+         paid matching lives in v_bt_bill_status, not here — one home per
+         thing, and the page just reads the answer. */
+      nums.length ? trackerSB.from('v_bt_bills_outstanding').select('job_number,vendor,title,days_outstanding').in('job_number', nums) : { data: [] },
+      trackerSB.from('v_bt_client_update_cadence').select('job_number,job_name,last_client_update,fridays_since,cadence')
     ]);
     if (recent.error) throw recent.error;
     if (undated.error) throw undated.error;
     if (latest.error) throw latest.error;
     const map = new Map();
-    nums.forEach(n => map.set(n, { recent: [], latestUpdate: null }));
+    nums.forEach(n => map.set(n, { recent: [], latestUpdate: null, owing: [] }));
     (recent.data || []).forEach(e => { const b = map.get(e.job_number); if (b) b.recent.push(e); });
     (undated.data || []).forEach(e => { const b = map.get(e.job_number); if (b) b.recent.push(Object.assign({}, e, { undated: true })); });
     (latest.data || []).forEach(e => { const b = map.get(e.job_number); if (b && !b.latestUpdate) b.latestUpdate = e; });
+    if (!owing.error) (owing.data || []).forEach(r => { const b = map.get(r.job_number); if (b) b.owing.push(r); });
     btByJob = map;
     btUnmatched = unmatched.error ? [] : (unmatched.data || []);
+    btCadence   = cadence.error   ? [] : (cadence.data || []);
     btLoaded = true;
   } catch (e) {
     console.warn('[buildertrend] load failed:', e.message || e);
     btLoaded = true;
   }
   renderJobs();
+  renderBtCadence();
   renderBtUnmatched();
 }
 
 function fmtBtDate(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
+  /* A bare 'YYYY-MM-DD' (what a Postgres date column returns) is parsed as UTC
+     midnight and prints as the day before in Central time — a client update
+     sent on the 4th displayed as 9/3. Timestamps are unaffected. */
+  const ymd = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const d = ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : new Date(iso);
   return isNaN(d.getTime()) ? '' : (d.getMonth()+1) + '/' + d.getDate();
 }
 function fmtMoney(n) {
@@ -2836,10 +2871,10 @@ function btDeadlineDate(s) {
   return d && !isNaN(d) ? d : null;
 }
 
-function btFinanceHTML(money) {
-  if (!money.length) return '';
+function btFinanceHTML(money, owing) {
+  owing = owing || [];
+  if (!money.length && !owing.length) return '';
   const paid  = money.filter(e => e.event_type === 'bill_paid');
-  const ready = money.filter(e => e.event_type === 'bill_ready');
   const liens = money.filter(e => e.event_type === 'lien_waiver_signed');
   const paidTotal = paid.reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
@@ -2916,9 +2951,23 @@ function btFinanceHTML(money) {
       : `<div class="bt-money-alert" style="background:none;border:none;padding-left:0"><span class="bt-tag">Invoice</span>${bits}</div>`);
   });
 
+  /* Bills still owed. This used to read "N ready for payment", counting every
+     bill_ready email ever seen — two thirds of which had already been paid.
+     v_bt_bills_outstanding matches each ready bill to its payment, so this is
+     now only what is actually owed. Anything sitting a fortnight gets named. */
+  const stuck = owing.filter(r => (r.days_outstanding || 0) >= 14)
+                     .sort((a, b) => (b.days_outstanding||0) - (a.days_outstanding||0));
+  if (stuck.length) {
+    const worst = stuck[0];
+    alerts.push(`<div class="bt-money-alert">⚠ <b>${stuck.length} bill${stuck.length === 1 ? '' : 's'} unpaid 2+ weeks</b>`
+      + (worst.vendor ? ` · oldest: ${escHtml(worst.vendor)}` : '')
+      + (worst.days_outstanding ? ` (${worst.days_outstanding}d)` : '')
+      + `</div>`);
+  }
+
   const routine = [];
-  if (paid.length)  routine.push(`${paid.length} bill${paid.length === 1 ? '' : 's'} paid${paidTotal ? ' · ' + fmtMoney(paidTotal) : ''}`);
-  if (ready.length) routine.push(`${ready.length} ready for payment`);
+  if (owing.length) routine.push(`${owing.length} bill${owing.length === 1 ? '' : 's'} outstanding`);
+  if (paid.length)  routine.push(`${paid.length} paid${paidTotal ? ' · ' + fmtMoney(paidTotal) : ''}`);
   if (liens.length) routine.push(`${liens.length} lien waiver${liens.length === 1 ? '' : 's'} signed`);
 
   return `<div class="bt-money">${alerts.join('')}` +
@@ -2939,15 +2988,18 @@ function btStripHTML(j) {
 
   let updHTML;
   if (upd) {
-    const ageDays = Math.round((startOfDay(new Date()) - startOfDay(new Date(upd.occurred_at))) / 86400000);
-    const stale = ageDays > BT_STALE_DAYS;
+    /* Client updates are a Friday habit here, so the question is "how many
+       Fridays have gone by", not "how many days". Two is the limit. */
+    const missed = fridaysSince(upd.occurred_at);
+    const stale = missed > BT_STALE_FRIDAYS;
     updHTML = `
       <div class="bt-update${stale ? ' stale' : ''}">
         <div class="bt-update-head">
           <span class="bt-tag">Client update</span>
           <span class="bt-when">${escHtml(fmtPeriod(upd))}</span>
           ${upd.actor ? `<span class="bt-who">${escHtml(upd.actor)}</span>` : ''}
-          ${stale ? `<span class="bt-stale">no update in ${Math.floor(ageDays/7)} wk</span>` : ''}
+          ${stale ? `<span class="bt-stale">${missed} Fridays with no update</span>`
+                  : (missed === BT_STALE_FRIDAYS ? `<span class="bt-stale">${missed} Fridays — due this week</span>` : '')}
           ${upd.link ? `<a class="bt-link" href="${escHtml(upd.link)}" target="_blank" rel="noopener">Open in Buildertrend ↗</a>` : ''}
         </div>
         <div class="bt-teaser">${escHtml(upd.summary||'')}${upd.fields && upd.fields.truncated ? '…' : ''}</div>
@@ -2964,12 +3016,47 @@ function btStripHTML(j) {
       </div>
       ${updHTML}
       ${feed.length ? `<div class="bt-feed">${feed.map(btEventLine).join('')}</div>` : ''}
-      ${btFinanceHTML(money)}
+      ${btFinanceHTML(money, (b && b.owing) || [])}
     </div>`;
 }
 
 /* Buildertrend jobs with activity but no tracker row — the tracker is the
    agenda's source of truth, so these need a human to add them there. */
+/* ── client update cadence banner ──────────────────────────────────────────
+   Per-card badges answer "how is this job doing" once you are already looking
+   at it. This answers the question Jordan actually asks on a Tuesday: has
+   ANYTHING slipped? Jobs are named here only once more than two Fridays have
+   gone by, which is the agreed line.
+
+   Jobs that have never had a client update are listed separately rather than
+   mixed in: several of them are models and spec houses with no client to
+   update, so they are a question to settle once, not a weekly alarm. */
+let btCadence = [];
+
+function renderBtCadence() {
+  const box = $('#btCadence');
+  if (!box) return;
+  const onAgenda = jobNumbersOnAgenda();
+  const rows = btCadence.filter(r => onAgenda.has(String(r.job_number||'').toUpperCase()));
+  const late  = rows.filter(r => r.cadence === 'overdue')
+                    .sort((a, b) => (b.fridays_since||0) - (a.fridays_since||0));
+  const never = rows.filter(r => r.cadence === 'never');
+
+  if (!late.length && !never.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+  box.innerHTML =
+    (late.length
+      ? `<div class="nsb-head">📣 Client update overdue (${late.length})</div>` +
+        late.map(r => `<div class="new-starts-row">
+          <div class="nsr-info"><b>${escHtml(r.job_number)}</b> <span>${escHtml(String(r.job_name||''))}</span> · <b>${r.fridays_since} Fridays</b> since the last update${r.last_client_update ? ' (' + escHtml(fmtBtDate(r.last_client_update)) + ')' : ''}</div>
+        </div>`).join('')
+      : '') +
+    (never.length
+      ? `<div class="nsb-note">No client update has ever been sent for ${never.map(r => escHtml(r.job_number)).join(', ')} — expected for models and specs, worth confirming for the rest.</div>`
+      : '');
+  box.style.display = 'block';
+}
+
 function renderBtUnmatched() {
   const box = $('#btUnmatched');
   if (!box) return;
