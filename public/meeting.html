@@ -2825,7 +2825,16 @@ function btEventLine(e) {
    news the meeting actually runs on, so finance is rolled into a single line:
    anything overdue stated plainly, the routine flow reduced to counts. */
 const BT_FINANCE = new Set(['bill_paid', 'bill_ready', 'lien_waiver_signed',
-                            'bills_overdue', 'bills_upcoming', 'invoice_overdue']);
+                            'bills_overdue', 'bills_upcoming', 'invoice_overdue',
+                            /* v10 (parser v4): money OUT per job, and bills
+                               sitting on somebody's desk waiting to be approved. */
+                            'invoice_created', 'invoice_updated', 'bill_approval_needed']);
+
+/* "Oct 15, 2026" as Buildertrend writes it in an invoice body. */
+function btDeadlineDate(s) {
+  const d = s ? new Date(String(s).replace(/(\d)(st|nd|rd|th)/, '$1')) : null;
+  return d && !isNaN(d) ? d : null;
+}
 
 function btFinanceHTML(money) {
   if (!money.length) return '';
@@ -2856,6 +2865,55 @@ function btFinanceHTML(money) {
       + (f.days_overdue ? ` · ${f.days_overdue} day${f.days_overdue === 1 ? '' : 's'} past due` : '')
       + (e.link ? ` <a class="bt-link" href="${escHtml(e.link)}" target="_blank" rel="noopener">↗</a>` : '')
       + `</div>`);
+  });
+
+  /* Bills waiting on an approval. Buildertrend re-sends the same reminder
+     daily, so collapse them on the bill number or the same bill is listed
+     three times. */
+  const seenBills = new Set();
+  money.filter(e => e.event_type === 'bill_approval_needed')
+       .sort((a, b) => String(b.occurred_at||'').localeCompare(String(a.occurred_at||'')))
+       .forEach(e => {
+    const f = e.fields || {};
+    const key = f.bill_number || e.id;
+    if (seenBills.has(key)) return;
+    seenBills.add(key);
+    alerts.push(`<div class="bt-money-alert">⚠ <b>Bill awaiting approval</b>`
+      + (e.title ? ` — ${escHtml(e.title)}` : '')
+      + (f.vendor ? ` · ${escHtml(f.vendor)}` : '')
+      + (e.amount != null ? ` · ${fmtMoney(e.amount)}` : '')
+      + `</div>`);
+  });
+
+  /* Invoices out. An invoice that was raised and then revised arrives as two
+     emails; the newest notification per invoice id is the one that counts. */
+  const invById = new Map();
+  /* Buildertrend's own "invoice overdue" alert is already printed above. An
+     invoice named there does not need a second line from us saying the same
+     thing in different words. */
+  const alreadyFlagged = new Set(invoices.map(e => e.fields && e.fields.invoice_id).filter(Boolean));
+  money.filter(e => e.event_type === 'invoice_created' || e.event_type === 'invoice_updated')
+       .sort((a, b) => String(b.occurred_at||'').localeCompare(String(a.occurred_at||'')))
+       .forEach(e => {
+    const id = (e.fields && e.fields.invoice_id) || e.id;
+    if (alreadyFlagged.has(id)) return;
+    if (!invById.has(id)) invById.set(id, e);
+  });
+  const today = startOfDay(new Date());
+  invById.forEach(e => {
+    const f = e.fields || {};
+    const due = btDeadlineDate(f.deadline);
+    /* Still a draft with its deadline behind it is the one worth saying out
+       loud — the draw has not gone out and the date it was meant to has
+       passed. Anything else is a line of record. */
+    const late = f.status === 'Draft' && due && due < today;
+    const bits = `${f.invoice_id ? escHtml(f.invoice_id) + ' · ' : ''}${fmtMoney(e.amount)}`
+      + (f.status ? ` · ${escHtml(f.status)}` : '')
+      + (f.deadline ? ` · due ${escHtml(f.deadline)}` : '')
+      + (e.link ? ` <a class="bt-link" href="${escHtml(e.link)}" target="_blank" rel="noopener">↗</a>` : '');
+    alerts.push(late
+      ? `<div class="bt-money-alert">⚠ <b>Invoice still in draft</b> — ${bits}</div>`
+      : `<div class="bt-money-alert" style="background:none;border:none;padding-left:0"><span class="bt-tag">Invoice</span>${bits}</div>`);
   });
 
   const routine = [];

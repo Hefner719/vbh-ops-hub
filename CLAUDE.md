@@ -80,17 +80,22 @@ Buildertrend has no public API. Its notification emails are templated, so they'r
 - `bt_ingest_runs` — audit log per run. `bt_settings` — ingest secret (RLS, no anon policy).
 - Parser is plpgsql (`bt_parse_email`) fired by an insert trigger; per-email error isolation; `bt_reparse_all()` re-runs the current parser over all raw mail.
 - Entry point `bt_ingest_email(...)` — idempotent, returns `inserted`/`duplicate`.
-- Read views: `v_bt_events`, `v_bt_job_activity`, `v_bt_unclassified`, `v_bt_unmatched_jobs`, `v_bt_job_finance`.
+- Read views: `v_bt_events`, `v_bt_job_activity`, `v_bt_unclassified`, `v_bt_unmatched_jobs`, `v_bt_job_finance`, `v_bt_open_todos`, `v_bt_health`, and from v4 `v_bt_job_invoices` (event log), `v_bt_invoice_status` (one row per invoice, newest notification wins — use this one for "what is still in draft"), `v_bt_awaiting_approval`, `v_bt_client_update_gap`.
+- An invoice's `status` is only as current as the last email about it. Buildertrend notifies on create and update, so "Draft" means *draft as of the last notification*, not confirmed-still-draft.
 
-### Notification types (parser v2, from live mail 2026-09-24)
+### Notification types (parser v4, migration 019)
 
-Schedule and scope: `client_update` (weekly PM update - **body is a ~170-char teaser ending in `..."`, full text is behind the login link**), `change_order_added`, `change_order_approved` (credits arrive parenthesised, e.g. `($102,500.00)`, and are stored negative), `change_order_file`, `document_comment`.
+Schedule and scope: `client_update` (weekly PM update - **body is a ~170-char teaser ending in `..."`, full text is behind the login link**), `client_update_ready` (Buildertrend saying the weekly updates have **not** gone out yet), `change_order_added`, `change_order_approved` (credits arrive parenthesised, e.g. `($102,500.00)`, and are stored negative), `change_order_file`, `document_comment`, `todo_overdue`.
 
-Accounts payable (~90% of folder volume): `bill_paid`, `bill_ready`, `lien_waiver_signed`, `bills_overdue` and `bills_upcoming` (digests; individual bills in `fields.bills[]`), `invoice_overdue`, `insurance_expiring` (vendor-level, no job number; `fields.vendors[]`).
+Money out: `invoice_created` / `invoice_updated` (job, amount, `fields.invoice_id`, `status`, `balance_due`, `deadline`), `bill_approval_needed` (job, bill #, vendor, amount — Buildertrend re-sends the same reminder daily, so dedupe on `fields.bill_number`).
+
+Accounts payable (~90% of folder volume): `bill_paid`, `bill_ready`, `lien_waiver_signed`, `bills_overdue` and `bills_upcoming` (digests; individual bills in `fields.bills[]`), `invoice_overdue`, `insurance_expiring` (vendor-level, no job number; `fields.vendors[]`). Also `vendor_activated`, `timesheet_long`.
+
+**Senders matter.** The whole v2/v3 branch chain is gated on `vanbuskirkhomes@buildertrend.com`. Bill approvals and sub/vendor activations come from `info@buildertrend.com` and so were invisible to the parser until v4 — check the sender before concluding a template "isn't arriving". Everything else `@buildertrend.com` is sales, marketing or account mail and is classified `bt_marketing`, which keeps `unclassified` meaning "a template we don't understand yet".
 
 Still unseen: schedule changes, selections, daily logs, client messages. Add a parser only once a real sample is in the mailbox; until then they land as `unclassified`.
 
-~67 emails stay unclassified on purpose: human correspondence in the folder plus Buildertrend marketing. Notification sender is `vanbuskirkhomes@buildertrend.com`; other `@buildertrend.com` senders are sales and marketing.
+38 emails stay unclassified on purpose: human correspondence that lives in the same Outlook folder.
 
 ### Ingest path
 
