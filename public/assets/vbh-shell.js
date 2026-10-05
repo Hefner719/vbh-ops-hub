@@ -203,7 +203,7 @@
         el('div', { class: 'vbh-gate-sub', text: (page.id === 'hub' ? '' : (page.title || '') + ' · ') + 'Van Buskirk Homes staff' }),
         mailIn, mailBtn, err, note, pwToggle, pwBox
       ]),
-      el('div', { class: 'vbh-gate-foot', html: esc(VBH.COMPANY.name) + ' · <a href="/">Work order request</a> · <a href="/intake">Client intake</a>' })
+      el('div', { class: 'vbh-gate-foot', html: esc(VBH.COMPANY.name) + ' · <a href="/intake">Client intake</a>' })
     ]);
 
     const sendLink = async () => {
