@@ -126,7 +126,11 @@ if (Test-Path $svcFile) {
 if (-not $key) { throw 'No Supabase key available.' }
 $hdr = @{ apikey = $key; Authorization = "Bearer $key" }
 
-$tables = @('projects','project_updates','leads','meetings','work_orders','assets',
+# work_orders was dropped 2026-10-05 with the development-maintenance side of
+# the business (migration 022); its 34 rows live in
+# archive/work-orders-retired-2026-10-05/. Left in this list it would fail the
+# backup every night.
+$tables = @('projects','project_updates','leads','meetings','assets','action_items',
             'profiles','vbh_role_seed','bt_emails','bt_events','bt_ingest_runs')
 
 Say ''

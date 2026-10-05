@@ -15,9 +15,9 @@ Internal operations hub for Van Buskirk Homes (VBH), a custom home builder in Si
 ## Stack
 
 - Vanilla HTML/CSS/JS. No frameworks, no bundler, no TypeScript in `public/`. Edge Functions are plain JS on Deno.
-- Hosted on Netlify at vbchomes.net; `netlify.toml` declares publish dir, pretty URLs (`/projects` serves `projects.html` — always link extensionless), and headers. PWA manifests: `manifest.json` (hub) plus per-app ones for the work-order form, dashboard, and intake.
+- Hosted on Netlify at vbchomes.net; `netlify.toml` declares publish dir, pretty URLs (`/projects` serves `projects.html` — always link extensionless), and headers. PWA manifests: `manifest.json` (hub) plus `manifest-intake.json`. The site root `/` is a 302 to `/hub` — there is no index.html.
 - Backend is Supabase, project ref `bppirsahciuxrqzitfxa`. The anon key is public by design and lives only in `public/vbh-config.js` (`VBH.SUPABASE_KEY`). **Never** put a service-role key, a Graph client secret, or any other secret in this repo. Secrets go in Supabase Edge Function secrets or Netlify env vars.
-- Supabase tables in use: `projects` (+ view `v_active_projects`), `project_updates`, `leads`, `meetings`, `work_orders`, `assets`, and the `bt_*` bridge tables below.
+- Supabase tables in use: `projects` (+ view `v_active_projects`), `project_updates`, `leads`, `meetings`, `assets`, `action_items`, and the `bt_*` bridge tables below.
 
 ## The shell (build `shell-v1`) — how every page is put together
 
@@ -30,7 +30,7 @@ Three shared files, loaded in this order in `<head>`: `/vbh-config.js` → `/ass
 
 ## Auth (current state — interim)
 
-One shared password, `VBH.PASSWORD`, checked by the shell gate and remembered in `localStorage` (`vbh_auth`, 12-hour TTL, cleared by the nav Lock button). One key for the whole hub — unlocking any page unlocks all. Legacy `sessionStorage` flags are migrated on first load. There is **no** Netlify Identity, no role matrix. Real login is on the roadmap. `index.html` (work-order request form) and `intake.html` (client intake) are public on purpose (`protected:false` in the registry).
+One shared password, `VBH.PASSWORD`, checked by the shell gate and remembered in `localStorage` (`vbh_auth`, 12-hour TTL, cleared by the nav Lock button). One key for the whole hub — unlocking any page unlocks all. Legacy `sessionStorage` flags are migrated on first load. There is **no** Netlify Identity, no role matrix. Real login is on the roadmap. `intake.html` (client intake) is public on purpose (`protected:false` in the registry) — it is now the only unauthenticated page.
 
 ## Pages (all in `public/`)
 
@@ -42,9 +42,10 @@ One shared password, `VBH.PASSWORD`, checked by the shell gate and remembered in
 - `leads.html` — pipeline with probability pills and archive (`leads`)
 - `weeklyupdate.html` — exec briefing for ownership (no hyphen in the filename); recipients/sender come from `VBH.EXEC_UPDATE`
 - `gantt.html`, `equipment.html` (`assets`), `raci.html`, `standards.html`
-- `index.html` + `dashboard.html` — development-maintenance work-order request form and dispatch board (`work_orders`, helper `db.js`)
 - `intake.html` — client intake form (writes to `leads`)
-- `archive/` (repo root, not deployed) — retired one-time migration tools.
+- `archive/` (repo root, not deployed) — retired one-time migration tools, and `work-orders-retired-2026-10-05/` holding the 34 exported work-order records.
+
+**Retired 2026-10-05:** the development-maintenance work-order form (`index.html`), dispatch board (`dashboard.html`), `db.js`, their manifests and icons, the `VBH.WORK_ORDERS` roster, and the `work_orders` table (migration 022) — that side of the business wound down. Records are in `archive/`. Dropping the table also removed the last three `Public insert/read/update` policies on the project.
 
 Don't restructure a page's working area unless the task says so; chrome changes go in the shell, not in pages.
 
