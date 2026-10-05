@@ -82,6 +82,11 @@ Buildertrend has no public API. Its notification emails are templated, so they'r
 - Entry point `bt_ingest_email(...)` — idempotent, returns `inserted`/`duplicate`.
 - Read views: `v_bt_events`, `v_bt_job_activity`, `v_bt_unclassified`, `v_bt_unmatched_jobs`, `v_bt_job_finance`, `v_bt_open_todos`, `v_bt_health`, and from v4 `v_bt_job_invoices` (event log), `v_bt_invoice_status` (one row per invoice, newest notification wins — use this one for "what is still in draft"), `v_bt_awaiting_approval`, `v_bt_client_update_gap`.
 - An invoice's `status` is only as current as the last email about it. Buildertrend notifies on create and update, so "Draft" means *draft as of the last notification*, not confirmed-still-draft.
+- From v5 (migration 020): `v_bt_bill_status` (every bill, ready → paid lifecycle), `v_bt_bills_outstanding` (only what is still owed), `v_bt_client_update_cadence` (Fridays since each active job's last client update), helper `bt_fridays_since(date)`.
+- **Never count `bill_ready` events as a backlog.** `bill_ready` and `bill_paid` are separate notifications with no shared id, so counting ready emails counts history — 180 bills marked ready, 117 of them already paid. They match on job + the vendor's invoice number: `bill_ready.fields.bill_no` appears inside `bill_paid.fields.bill_title` (`<JOB>-<bill_no> - <description>`). Match by containment, not a strict prefix — a few bill numbers aren't numeric (`Sttlmnt Stmnt`).
+- Bill notifications only start **2026-09-14**. Anything marked ready before that is absent from the lifecycle view rather than wrongly shown as owed.
+- Client update cadence is measured in **Fridays, not days** (`BT_STALE_FRIDAYS = 2` on the page, `bt_fridays_since()` in SQL — keep the two in step). The update is a Friday job, so "14 days" and "two Fridays" are different questions.
+- **Date-only vs timestamp.** A bare `YYYY-MM-DD` from a Postgres `date` column is parsed by JS as UTC midnight and lands on the previous day in Central time. `fridaysSince()` and `fmtBtDate()` both split date-only strings from timestamps; any new date helper must do the same or it will be off by one.
 
 ### Notification types (parser v4, migration 019)
 
@@ -94,6 +99,8 @@ Accounts payable (~90% of folder volume): `bill_paid`, `bill_ready`, `lien_waive
 **Senders matter.** The whole v2/v3 branch chain is gated on `vanbuskirkhomes@buildertrend.com`. Bill approvals and sub/vendor activations come from `info@buildertrend.com` and so were invisible to the parser until v4 — check the sender before concluding a template "isn't arriving". Everything else `@buildertrend.com` is sales, marketing or account mail and is classified `bt_marketing`, which keeps `unclassified` meaning "a template we don't understand yet".
 
 Still unseen: schedule changes, selections, daily logs, client messages. Add a parser only once a real sample is in the mailbox; until then they land as `unclassified`.
+
+**Daily logs and schedule shifts can't be tracked from notification email — confirmed 2026-10-05 against Buildertrend's help centre, not assumed.** A Daily Log emails only the people hand-picked in that log's **Notify Users** field, and a schedule shift is a *prompted manual send* to assignees. Neither is a subscription you can switch on, there is no Daily Log reminder or digest, and Client Updates do not auto-pull daily logs. So a missing email means "nobody ticked the box", not "no log was written" — an alert built on that absence would be false most of the time. Don't build one on the email bridge; it needs a different source.
 
 38 emails stay unclassified on purpose: human correspondence that lives in the same Outlook folder.
 
