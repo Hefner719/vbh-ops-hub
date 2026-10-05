@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 -->
+<!-- build:shell-v1 · meeting-v10 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1079,6 +1079,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 <!-- ══════════ SYNC CONFLICT ══════════ -->
 <div id="syncBanner" style="display:none;">
   <span id="syncBannerMsg"></span>
+  <button class="btn-sm" onclick="resolveConflict('merge')">Keep both</button>
   <button class="btn-sm" onclick="resolveConflict(true)">Load theirs</button>
   <button class="btn-sm" onclick="resolveConflict(false)">Keep mine</button>
 </div>
@@ -1292,7 +1293,7 @@ const DRAFT_KEY   = 'vbh_meeting_draft';
 const EDITOR_KEY  = 'vbh_editor_name';
 const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
 const STATE_VERSION = 3;
-const BUILD = 'meeting-v9';
+const BUILD = 'meeting-v10';
 
 /* ─────────────────────────────────────────────────────────────────────
    ③ SMALL UTILITIES
@@ -1438,7 +1439,10 @@ function blankState() {
     wins: TEAM.filter(p => p.wins).map(p => ({ id:uid('w'), name:p.name, text:'' })),
     jobs: [],
     action: [], warranty: [], events: [], misc: [],
-    startManual: [], pipelineManual: []
+    startManual: [], pipelineManual: [],
+    /* v10: projects deliberately taken off the agenda. Without this, removing
+       a card only lasted until the next page load — see dropProject(). */
+    dropped: []
   };
 }
 
@@ -1569,6 +1573,8 @@ function migrateState(raw) {
   const haveWins = new Set(st.wins.map(w => (w.name||'').toLowerCase()));
   TEAM.filter(p => p.wins && !haveWins.has(p.name.toLowerCase()))
       .forEach(p => st.wins.push({ id:uid('w'), name:p.name, text:'' }));
+  st.dropped = (Array.isArray(snap.dropped) ? snap.dropped : [])
+    .filter(d => d && (d.projectId || d.jobNumber));
   st.dateKey = isoDayKey(st.meetingDate) || todayISO();
   return st;
 }
@@ -2077,10 +2083,49 @@ function addJobCard(seed) {
   }, 40);
   return j;
 }
+/* ── remembering a card that was taken off on purpose (v10) ────────────
+   ensureActiveProjectCards() adds a card for every tracker project sitting in
+   an agenda stage. That is what keeps the agenda complete — but it also meant
+   a card removed during the meeting came straight back the next time anyone
+   opened the page, because nothing recorded that the removal was deliberate.
+   (Jordan took four cards off on 2026-10-05 and a page load put all four
+   back.)
+
+   A removal is now remembered against the project, together with the stage it
+   was in. The card stays off the agenda until that project MOVES — a stage
+   change is real news, so the card comes back and the note is cleared. */
+function dropKey(projectId, jobNumber) {
+  return String(projectId || ('#' + String(jobNumber || '').toUpperCase()));
+}
+function dropProject(j) {
+  if (!j) return;
+  const num = jobNumberOf(j);
+  if (!j.projectId && !num) return;                 // a free-text card has nothing to pin it to
+  const p = j.projectId && trackerProjects.find(tp => tp.id === j.projectId);
+  const key = dropKey(j.projectId, num);
+  S.dropped = (S.dropped || []).filter(d => dropKey(d.projectId, d.jobNumber) !== key);
+  S.dropped.push({
+    projectId: j.projectId || null,
+    jobNumber: num || null,
+    stage: p ? String(p.stage || '').toLowerCase() : null,
+    at: new Date().toISOString(),
+    by: editorLabel()
+  });
+}
+/* Putting a project back on the agenda by hand cancels the note. */
+function undropProject(projectId, jobNumber) {
+  if (!projectId && !jobNumber) return;
+  const key = dropKey(projectId, jobNumber);
+  const before = (S.dropped || []).length;
+  S.dropped = (S.dropped || []).filter(d => dropKey(d.projectId, d.jobNumber) !== key);
+  return before !== S.dropped.length;
+}
+
 function deleteJob(e, id) {
   if (e) e.stopPropagation();
   const j = (S.jobs||[]).find(x => x.id === id);
-  if (!confirm('Remove "' + ((j && j.name) || 'this job') + '" from the agenda?\n\nIt stays in the Projects tracker and in past archives.')) return;
+  if (!confirm('Remove "' + ((j && j.name) || 'this job') + '" from the agenda?\n\nIt stays in the Projects tracker and in past archives, and it will not come back unless the project changes stage.')) return;
+  dropProject(j);
   S.jobs = (S.jobs||[]).filter(x => x.id !== id);
   renderJobs(); renderNav(); markDirty();
 }
@@ -2238,6 +2283,10 @@ function onTrackerLinkChange(sel) {
   const j = (S.jobs||[]).find(x => x.id === jid);
   if (!j) return;
   j.projectId = sel.value || null;
+  if (j.projectId) {                                 // v10: linking it back cancels any removal note
+    const p = trackerProjects.find(tp => tp.id === j.projectId);
+    undropProject(j.projectId, p && p.job_number);
+  }
   pullTrackerValues(j, true);
   renderJobs(); markDirty();
   loadBuildertrendActivity();   // v6
@@ -2635,12 +2684,39 @@ function ensureActiveProjectCards() {
   if (!trackerProjects.length) return 0;
   const linked   = new Set((S.jobs||[]).map(j => j.projectId).filter(Boolean));
   const onAgenda = jobNumbersOnAgenda();
+
+  /* v10: respect cards that were taken off on purpose. The note is dropped —
+     and the card returns — as soon as the project changes stage. */
+  const dropNotes = new Map();
+  (S.dropped || []).forEach(d => {
+    dropNotes.set(dropKey(d.projectId, d.jobNumber), d);
+    if (d.projectId && d.jobNumber) dropNotes.set(dropKey(null, d.jobNumber), d);
+  });
+  const staleNotes = [];
+  function wasDroppedOnPurpose(p) {
+    const note = dropNotes.get(dropKey(p.id, p.job_number)) ||
+                 (p.job_number ? dropNotes.get(dropKey(null, p.job_number)) : null);
+    if (!note) return false;
+    if (note.stage != null && note.stage !== String(p.stage || '').toLowerCase()) {
+      staleNotes.push(note);          // it moved — that is worth putting back
+      return false;
+    }
+    return true;
+  }
+
   const missing = trackerProjects
     .filter(p => AGENDA_STAGES.includes((p.stage||'').toLowerCase())
               && !linked.has(p.id)
-              && !(p.job_number && onAgenda.has(p.job_number.toUpperCase())))
+              && !(p.job_number && onAgenda.has(p.job_number.toUpperCase()))
+              && !wasDroppedOnPurpose(p))
     .sort((a, b) => String(a.job_number||'').localeCompare(String(b.job_number||'')));
+
+  if (staleNotes.length) {
+    const gone = new Set(staleNotes.map(n => dropKey(n.projectId, n.jobNumber)));
+    S.dropped = (S.dropped || []).filter(d => !gone.has(dropKey(d.projectId, d.jobNumber)));
+  }
   missing.forEach(p => {
+    undropProject(p.id, p.job_number);
     (S.jobs = S.jobs || []).push({
       id: uid('j'), projectId: p.id, name: vbhProjectLabel(p),
       date: p.start_date ? 'Started ' + fmtStartDate(p.start_date) : '',
@@ -2652,7 +2728,7 @@ function ensureActiveProjectCards() {
       collapsed: false
     });
   });
-  if (missing.length) { renderJobs(); renderNav(); markDirty(); }
+  if (missing.length || staleNotes.length) { renderJobs(); renderNav(); markDirty(); }
   return missing.length;
 }
 
@@ -2856,7 +2932,186 @@ function renderBtUnmatched() {
    never read, so markup changes can never corrupt a saved meeting.
    ───────────────────────────────────────────────────────────────────── */
 
-const mtg = { id:null, rev:0, dateISO:null, offline:false, editedToday:false };
+/* ─────────────────────────────────────────────────────────────────────
+   THREE-WAY MERGE (v10)
+
+   Several people have this agenda open during the meeting, and one of them is
+   usually remote. The old scheme saved the whole document under a
+   compare-and-swap: the second person to save got a banner offering "load
+   theirs" (lose my work) or "keep mine" (lose theirs). Both answers throw away
+   somebody's typing, and in practice the banner sat unread in a tab nobody was
+   looking at.
+
+   A conflicting save is now merged field by field against `mtg.base` — the
+   state this tab is known to share with the server:
+     · I changed a field, they didn't   → mine
+     · they changed it, I didn't        → theirs
+     · we both changed the same field   → theirs stands, and it is named in a
+                                          toast, because the server copy is
+                                          what everyone else already sees
+     · a row either of us added         → kept
+     · a row either of us deleted       → stays deleted, unless the other
+                                          person edited it in the meantime
+
+   Rows match on their uid, which is minted once and travels with the row, so
+   re-ordering a list never reads as a delete plus an add.
+   ───────────────────────────────────────────────────────────────────── */
+
+const LIST_KEYS   = ['wins','action','warranty','events','misc','startManual','pipelineManual'];
+const SCALAR_KEYS = ['meetingDate','nextMeeting','dateKey'];
+const JOB_FIELDS  = ['projectId','name','date','blockers','next','notes','phase','pct','status','sched','collapsed'];
+const GOAL_FIELDS = ['text','done'];
+
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function listFields(key) { return ((LISTS[key] && LISTS[key].fields) || []).concat('done'); }
+
+function byId(arr) {
+  const m = new Map();
+  (Array.isArray(arr) ? arr : []).forEach(r => { if (r && r.id) m.set(r.id, r); });
+  return m;
+}
+/* Field equality that ignores the difference between '', null and undefined,
+   and between false and absent — the state picks up defaults as it migrates,
+   and those defaults must not read as somebody's edit. */
+function same(a, b) {
+  if (a === b) return true;
+  if (typeof a === 'boolean' || typeof b === 'boolean') return !!a === !!b;
+  return String(a == null ? '' : a) === String(b == null ? '' : b);
+}
+function rowSame(a, b, fields) { return !!a && !!b && fields.every(f => same(a[f], b[f])); }
+function rowHasContent(r, fields) { return (fields || []).some(f => String((r && r[f]) || '').trim()); }
+
+function mergeRow(base, mine, theirs, fields, clashes, label) {
+  const out = Object.assign({}, theirs);
+  fields.forEach(f => {
+    const b = base ? base[f] : undefined;
+    const iMoved = !same(mine[f], b);
+    const theyMoved = !same(theirs[f], b);
+    if (iMoved && theyMoved && !same(mine[f], theirs[f])) { clashes.push(label); return; }
+    if (iMoved) out[f] = mine[f];
+  });
+  return out;
+}
+
+function mergeList(baseArr, mineArr, theirsArr, fields, clashes, label) {
+  const B = byId(baseArr), M = byId(mineArr);
+  const out = [], taken = new Set();
+  /* Their order is the spine: it is the one everyone else is looking at. */
+  (Array.isArray(theirsArr) ? theirsArr : []).forEach(t => {
+    taken.add(t.id);
+    const m = M.get(t.id), b = B.get(t.id);
+    if (m) { out.push(mergeRow(b, m, t, fields, clashes, label)); return; }
+    /* Missing from mine. If I had it and left it untouched I deleted it on
+       purpose — but only honour that when they didn't touch it either. */
+    if (b && rowSame(b, t, fields)) return;
+    out.push(t);
+  });
+  (Array.isArray(mineArr) ? mineArr : []).forEach(m => {
+    if (taken.has(m.id)) return;
+    const b = B.get(m.id);
+    if (!b) { out.push(m); return; }                    // I added it
+    if (!rowSame(b, m, fields)) { out.push(m); return; } // they deleted it, I edited it → it stays
+    /* untouched by me and gone from theirs → their delete stands */
+  });
+  return out;
+}
+
+function mergeJobs(baseArr, mineArr, theirsArr, clashes) {
+  const merged = mergeList(baseArr, mineArr, theirsArr, JOB_FIELDS, clashes, 'a job card');
+  const B = byId(baseArr), M = byId(mineArr), T = byId(theirsArr);
+  return merged.map(j => {
+    const m = M.get(j.id), t = T.get(j.id), b = B.get(j.id);
+    if (!m || !t) return j;        // only one side had the card; its goals travel with it
+    return Object.assign({}, j, {
+      goals: mergeList(b && b.goals, m.goals, t.goals, GOAL_FIELDS, clashes, (j.name || 'a job') + "'s goals")
+    });
+  });
+}
+
+function mergeStates(base, mine, theirs) {
+  const clashes = [];
+  const out = Object.assign({}, theirs);
+  SCALAR_KEYS.forEach(f => { if (!same(mine[f], base ? base[f] : undefined)) out[f] = mine[f]; });
+  LIST_KEYS.forEach(k => { out[k] = mergeList(base && base[k], mine[k], theirs[k], listFields(k), clashes, k === 'action' ? 'an action item' : k); });
+  out.jobs = mergeJobs(base && base.jobs, mine.jobs, theirs.jobs, clashes);
+
+  /* Removal notes are a union, keyed on the project: two people clearing
+     different cards must both get their way, and a note that either side has
+     already cancelled stays cancelled only if the other side never made it. */
+  const notes = new Map();
+  (theirs.dropped || []).forEach(d => notes.set(dropKey(d.projectId, d.jobNumber), d));
+  const baseNotes = new Set((base && base.dropped || []).map(d => dropKey(d.projectId, d.jobNumber)));
+  const theirNotes = new Set(notes.keys());
+  (mine.dropped || []).forEach(d => {
+    const k = dropKey(d.projectId, d.jobNumber);
+    if (!notes.has(k) && !baseNotes.has(k)) notes.set(k, d);   // I added it
+  });
+  baseNotes.forEach(k => { if (!theirNotes.has(k)) notes.delete(k); });  // they cancelled it
+  out.dropped = Array.from(notes.values());
+
+  out.v = STATE_VERSION;
+  return { state: out, clashes: Array.from(new Set(clashes)) };
+}
+
+/* Recovery with no common base (a draft buffer of unknown vintage). Never let
+   a recovered draft undo what is already on the server: the server copy stands
+   and the draft only contributes rows the server has never seen. */
+function adoptAdditions(serverState, draft) {
+  const out = clone(serverState);
+  let added = 0;
+  /* A card the server has deliberately taken off is not a missing row — a
+     draft written before the removal still carries it, and re-adding it here
+     would undo the removal on every recovery. */
+  const refused = new Set();
+  (out.dropped || []).forEach(d => {
+    refused.add(dropKey(d.projectId, d.jobNumber));
+    if (d.jobNumber) refused.add(dropKey(null, d.jobNumber));
+  });
+  const isRefused = j => {
+    if (!j) return false;
+    const num = String(j.name || '').match(/\b([RM]\d{4,6})\b/i);
+    return refused.has(dropKey(j.projectId, num && num[1])) ||
+           (num && refused.has(dropKey(null, num[1])));
+  };
+  LIST_KEYS.forEach(k => {
+    const have = byId(out[k]);
+    (draft[k] || []).forEach(r => {
+      if (r && r.id && !have.has(r.id) && rowHasContent(r, listFields(k))) { out[k].push(r); added++; }
+    });
+  });
+  const haveJobs = byId(out.jobs);
+  (draft.jobs || []).forEach(j => {
+    if (!j || !j.id) return;
+    const sj = haveJobs.get(j.id);
+    if (!sj) { if (!isRefused(j)) { out.jobs.push(j); added++; } return; }
+    const haveGoals = byId(sj.goals);
+    (j.goals || []).forEach(g => {
+      if (g && g.id && !haveGoals.has(g.id) && String(g.text || '').trim()) { sj.goals.push(g); added++; }
+    });
+  });
+  const notes = new Set((out.dropped || []).map(d => dropKey(d.projectId, d.jobNumber)));
+  (draft.dropped || []).forEach(d => {
+    const k = dropKey(d.projectId, d.jobNumber);
+    if (!notes.has(k)) { out.dropped.push(d); notes.add(k); }
+  });
+  return { state: out, added };
+}
+
+/* Each tab gets its own id. The draft buffer is a single localStorage slot
+   shared by every tab in the browser, so a draft has to say who wrote it and
+   which revision it was built on. */
+const TAB_ID = (function () {
+  try {
+    let t = sessionStorage.getItem('vbh_tab_id');
+    if (!t) { t = uid('tab'); sessionStorage.setItem('vbh_tab_id', t); }
+    return t;
+  } catch (e) { return uid('tab'); }
+})();
+
+/* `base` is the state that matches `rev` on the server — the third leg of
+   every merge. Without it a conflict can only be resolved by discarding one
+   side, so it is kept current on every successful push, load and pull. */
+const mtg = { id:null, rev:0, dateISO:null, offline:false, editedToday:false, base:null };
 let pushChain = Promise.resolve();
 let conflictRow = null;
 let dirty = false;
@@ -2909,8 +3164,15 @@ function archiveLocally(state) {
   } catch (e) { console.warn('[meetings] local archive failed:', e); }
 }
 
+/* v10: the draft is stamped with the tab that wrote it and the revision it was
+   built on. Both are read back on load: an unstamped or older-based draft is
+   no longer allowed to win a tie-break and get pushed over a newer save. */
 function writeBuffer(state) {
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(state || snapshot())); } catch (e) {}
+  try {
+    const st = state || snapshot();
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(
+      Object.assign({}, st, { baseRev: mtg.rev, baseId: mtg.id || null, tabId: TAB_ID })));
+  } catch (e) {}
 }
 
 function pushMeetingToServer(state, explicit) {
@@ -2919,7 +3181,7 @@ function pushMeetingToServer(state, explicit) {
   return pushChain;
 }
 
-async function doPush(state, explicit) {
+async function doPush(state, explicit, attempt) {
   if (readOnly) return { ok:false, readOnly:true };                     // v4
   if (!trackerSB) { mtg.offline = true; setSaveState('Local only', 'err'); return { ok:false, offline:true }; }
   /* v4: fall back to the stored ISO key, and say so out loud instead of
@@ -2940,8 +3202,10 @@ async function doPush(state, explicit) {
         .update(Object.assign({}, base, { rev: mtg.rev + 1 }))
         .eq('id', mtg.id).eq('rev', mtg.rev).select('id, rev');
       if (error) throw error;
-      if (!data || !data.length) { await raiseConflict(iso); return { ok:false, conflict:true }; }
-      mtg.rev = data[0].rev; mtg.offline = false;
+      /* The compare-and-swap matched nothing: someone saved since this tab
+         last synced. Merge rather than ask somebody to lose their work. */
+      if (!data || !data.length) return await reconcile(iso, state, explicit, attempt || 0);
+      mtg.rev = data[0].rev; mtg.base = clone(state); mtg.offline = false;
       dirty = false; setSaveState('Saved');
       return { ok:true };
     }
@@ -2955,7 +3219,7 @@ async function doPush(state, explicit) {
       if (error.code === '23505') { await raiseConflict(iso); return { ok:false, conflict:true }; }
       throw error;
     }
-    mtg.id = data.id; mtg.rev = data.rev; mtg.dateISO = iso; mtg.offline = false;
+    mtg.id = data.id; mtg.rev = data.rev; mtg.dateISO = iso; mtg.base = clone(state); mtg.offline = false;
     dirty = false; setSaveState('Saved');
     return { ok:true };
   } catch (e) {
@@ -2963,6 +3227,170 @@ async function doPush(state, explicit) {
     mtg.offline = true; setSaveState('Offline', 'err');
     return { ok:false, error:e };
   }
+}
+
+/* ── reconcile a failed compare-and-swap ────────────────────────────────
+   Pull their row, merge this tab's pending state into it, then write the
+   result on top of their revision. Three attempts — if the row keeps moving
+   under us, fall back to the banner rather than spin. */
+async function reconcile(iso, mine, explicit, attempt) {
+  if (attempt >= 3 || !mtg.base) { await raiseConflict(iso); return { ok:false, conflict:true }; }
+
+  let row = null;
+  try {
+    const { data } = await trackerSB.from('meetings').select('*').eq('meeting_date', iso).maybeSingle();
+    row = data || null;
+  } catch (e) {}
+  const theirs = row ? migrateState(row.state) : null;
+  if (!theirs) { await raiseConflict(iso); return { ok:false, conflict:true }; }
+
+  const merged = mergeStates(mtg.base, mine, theirs);
+  mtg.id = row.id; mtg.rev = row.rev; mtg.dateISO = row.meeting_date;
+  mtg.base = clone(theirs);
+  S = merged.state;                       // the merge is this tab's truth now
+  renderIfIdle();
+
+  const res = await doPush(snapshot(), explicit, attempt + 1);
+  if (res && res.ok) {
+    const who = row.updated_by || 'someone else';
+    toast(merged.clashes.length
+      ? `⇄ Merged with ${who} — you both edited ${merged.clashes.slice(0,2).join(' and ')}, so their wording stands`
+      : `⇄ Merged ${who}'s changes in`, merged.clashes.length ? 7000 : 4000);
+  }
+  return res;
+}
+
+/* ── live pull ──────────────────────────────────────────────────────────
+   Everyone in the room should be looking at the same agenda without anyone
+   reloading, so this tab checks for a newer revision every 8 seconds and
+   folds it in: adopted outright when this tab has nothing pending, merged
+   when it does.
+
+   Nothing is re-rendered while a field has focus — re-rendering would move
+   somebody's caret mid-sentence — so a pending render waits for the field to
+   be left. */
+const PULL_MS = 8000;
+const TYPING_MS = 2500;        // a field counts as "in use" this long after a keystroke
+let pullTimer = null, pullBusy = false, renderPending = false, retryTimer = null;
+let lastKeyAt = 0;
+document.addEventListener('keydown', () => { lastKeyAt = Date.now(); }, true);
+
+function editingNow() {
+  const el = document.activeElement;
+  if (!el || el === document.body) return false;
+  if (el.isContentEditable) return true;
+  return /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+}
+/* Mid-sentence is the only moment a re-render is unwelcome. A field that merely
+   HAS focus does not block it — people click into a cell and then just look at
+   the screen, and a render deferred on that would leave them staring at a stale
+   agenda for the rest of the meeting. */
+function typingNow() { return editingNow() && (Date.now() - lastKeyAt) < TYPING_MS; }
+
+/* Put the cursor back where it was. renderAll() rebuilds the markup, so the
+   field is found again by the row id and column it belongs to. */
+function captureFocus() {
+  const el = document.activeElement;
+  if (!el || !el.getAttribute || !el.getAttribute('data-mid')) return null;
+  const f = { mid: el.getAttribute('data-mid'), field: el.getAttribute('data-field'), start: null };
+  try {
+    if (el.isContentEditable) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) f.start = sel.getRangeAt(0).startOffset;
+      f.text = el.textContent;
+    } else if (el.selectionStart != null) { f.start = el.selectionStart; f.text = el.value; }
+  } catch (e) {}
+  return f;
+}
+function restoreFocus(f) {
+  if (!f) return;
+  const el = document.querySelector('[data-mid="' + f.mid + '"][data-field="' + f.field + '"]');
+  if (!el) return;
+  const now = el.isContentEditable ? el.textContent : el.value;
+  try {
+    el.focus({ preventScroll:true });
+    /* Only restore the caret when the text is still what it was. If the pull
+       changed this very field, dropping the caret somewhere inside somebody
+       else's wording would be worse than leaving it at the end. */
+    if (f.start != null && now === f.text) {
+      if (el.isContentEditable) {
+        const node = el.firstChild;
+        if (node) {
+          const r = document.createRange();
+          r.setStart(node, Math.min(f.start, node.length || 0));
+          r.collapse(true);
+          const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        }
+      } else if (el.setSelectionRange) {
+        el.setSelectionRange(f.start, f.start);
+      }
+    }
+  } catch (e) {}
+}
+
+function renderIfIdle() {
+  if (typingNow()) {
+    renderPending = true;
+    /* Always self-resolving: a deferral can never leave this tab stale. */
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => { if (renderPending) renderIfIdle(); }, TYPING_MS);
+    return;
+  }
+  renderPending = false;
+  clearTimeout(retryTimer); retryTimer = null;
+  const f = captureFocus();
+  renderAll();
+  restoreFocus(f);
+}
+
+async function doPull() {
+  if (readOnly || !trackerSB || !mtg.id || document.hidden || pullBusy) return;
+  pullBusy = true;
+  try {
+    const { data, error } = await trackerSB.from('meetings')
+      .select('id, rev, state, meeting_date, updated_by, updated_at').eq('id', mtg.id).maybeSingle();
+    if (error) throw error;
+    if (!data || data.rev == null || data.rev <= mtg.rev) return;
+    const theirs = migrateState(data.state);
+    if (!theirs) return;
+    const who = data.updated_by || 'someone else';
+
+    if (!dirty) {
+      S = theirs;
+      mtg.rev = data.rev; mtg.base = clone(theirs); mtg.dateISO = data.meeting_date;
+      renderIfIdle();
+      toast(`↻ ${who}'s edits pulled in`, 3000);
+    } else {
+      /* Their revision becomes the base; this tab's pending work rides on top
+         and goes up with the next autosave. */
+      const merged = mergeStates(mtg.base, snapshot(), theirs);
+      S = merged.state;
+      mtg.rev = data.rev; mtg.base = clone(theirs); mtg.dateISO = data.meeting_date;
+      renderIfIdle();
+      markDirty();
+      toast(`⇄ Merged ${who}'s edits` + (merged.clashes.length ? ` — check ${merged.clashes.slice(0,2).join(' and ')}` : ''), 5000);
+    }
+  } catch (e) {
+    /* Offline is reported by the save path; a failed poll just waits. */
+  } finally { pullBusy = false; }
+}
+
+/* Serialised with the pushes so a pull can never interleave with a save. */
+function livePull() {
+  pushChain = pushChain.then(doPull).catch(e => { console.warn('[meetings] pull error:', e); });
+  return pushChain;
+}
+
+function startLivePull() {
+  if (pullTimer) return;
+  pullTimer = setInterval(livePull, PULL_MS);
+  /* Coming back to the tab is the moment the agenda is most likely stale. */
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) livePull(); });
+  /* A render deferred because someone was typing lands as soon as they stop. */
+  document.addEventListener('focusout', () => {
+    if (!renderPending) return;
+    setTimeout(() => { if (renderPending) renderIfIdle(); }, 150);
+  });
 }
 
 async function raiseConflict(iso) {
@@ -2975,27 +3403,41 @@ async function raiseConflict(iso) {
   if (!b) return;
   const who = (conflictRow && conflictRow.updated_by) || 'someone else';
   const when = conflictRow && conflictRow.updated_at ? new Date(conflictRow.updated_at).toLocaleTimeString('en-US',{ hour:'numeric', minute:'2-digit' }) : '';
-  $('#syncBannerMsg').textContent = `⚠ ${who} saved this meeting${when ? ' at ' + when : ''}. Your changes aren't on the server yet.`;
+  $('#syncBannerMsg').textContent = `⚠ ${who} saved this meeting${when ? ' at ' + when : ''} and it couldn't be merged automatically. Your changes aren't on the server yet.`;
   b.style.display = 'flex';
   setSaveState('Conflict', 'err');
 }
 
-async function resolveConflict(loadTheirs) {
+/* mode: true = load theirs · false = keep mine · 'merge' = keep both.
+   The banner is now only reached when an automatic merge wasn't possible, so
+   "keep both" is the recommended answer and is additive by construction: the
+   server copy stands and this tab's rows are added to it. */
+async function resolveConflict(mode) {
   const b = $('#syncBanner');
-  if (loadTheirs && conflictRow) {
-    const st = migrateState(conflictRow.state);
-    if (st) {
-      S = st;
-      mtg.id = conflictRow.id; mtg.rev = conflictRow.rev; mtg.dateISO = conflictRow.meeting_date;
-      renderAll(); toast('↩ Loaded their version');
-    }
-  } else if (conflictRow) {
-    /* Keep mine: adopt their rev so the next write lands on top of it. */
+  if (conflictRow) {
+    const theirs = migrateState(conflictRow.state);
     mtg.id = conflictRow.id; mtg.rev = conflictRow.rev; mtg.dateISO = conflictRow.meeting_date;
-    const st = snapshot();
-    writeBuffer(st);
-    await pushMeetingToServer(st, true);
-    toast('✓ Your version saved over theirs');
+    mtg.base = theirs ? clone(theirs) : null;
+
+    if (mode === true && theirs) {
+      S = theirs;
+      renderAll(); toast('↩ Loaded their version');
+      dirty = false; setSaveState('Saved');
+    } else if (mode === 'merge' && theirs) {
+      const r = adoptAdditions(theirs, snapshot());
+      S = r.state;
+      renderAll();
+      const st = snapshot();
+      writeBuffer(st);
+      await pushMeetingToServer(st, true);
+      toast(r.added ? `⇄ Kept both — ${r.added} of your row${r.added === 1 ? '' : 's'} added to their copy` : '⇄ Nothing of yours was missing from their copy', 6000);
+    } else {
+      /* Keep mine: adopt their rev so the next write lands on top of it. */
+      const st = snapshot();
+      writeBuffer(st);
+      await pushMeetingToServer(st, true);
+      toast('✓ Your version saved over theirs');
+    }
   }
   if (b) b.style.display = 'none';
   conflictRow = null;
@@ -3238,7 +3680,7 @@ async function confirmRollForward() {
 
   /* 2 · swap in next week and start a new server row for it */
   S = next;
-  mtg.id = null; mtg.rev = 0; mtg.dateISO = null; mtg.editedToday = false;
+  mtg.id = null; mtg.rev = 0; mtg.dateISO = null; mtg.editedToday = false; mtg.base = null;
   readOnly = false;                       // v4: rolling forward always unlocks
   document.body.classList.remove('read-only');
   const rb = $('#roBanner'); if (rb) rb.classList.remove('show');
@@ -3364,6 +3806,19 @@ function fallbackCopy(text, done) {
   document.body.removeChild(ta);
 }
 
+/* Outlook on Windows is the mail client here, and it separates recipients with
+   a SEMICOLON. A comma-separated list arrives as one malformed address: the
+   draft opens looking fine and then refuses to send. So the list is normalised
+   to semicolons, and '@' and ';' are left literal — percent-encoding them is
+   legal per RFC 6068 but Outlook is reliably happier with the plain form. */
+function mailtoRecipients(to) {
+  return String(to || '')
+    .split(/[;,]/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .join(';');
+}
+
 /* mailto: is capped by the OS/mail client (~2000 chars is the safe ceiling).
    Long lists get trimmed in the draft with a pointer to the Copy button, so
    a big week never produces a silently truncated email. */
@@ -3374,7 +3829,7 @@ function mailtoLink(to, subject, body) {
     while (encodeURIComponent(b).length > MAX - 120 && b.length > 200) b = b.slice(0, Math.floor(b.length * 0.9));
     b = b.replace(/\n[^\n]*$/, '') + '\n\n… list trimmed to fit the email draft — use "Copy" on the meeting page for the full list.';
   }
-  return 'mailto:' + encodeURIComponent(to||'') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(b);
+  return 'mailto:' + mailtoRecipients(to) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(b);
 }
 
 function renderSendPanel() {
@@ -3440,7 +3895,12 @@ function copyAllAssignments() {
   copyText(allPlainText(sendBuckets), '📋 Full list copied');
 }
 function emailEveryone() {
-  const to = sendBuckets.map(b => b.email).filter(Boolean).join(',');
+  const seen = new Set();
+  const to = sendBuckets.map(b => b.email).filter(e => {
+    const k = String(e || '').trim().toLowerCase();
+    if (!k || seen.has(k)) return false;
+    seen.add(k); return true;
+  }).join(';');
   if (!to) { alert('No email addresses on file yet.\n\nAdd them to the TEAM list at the top of meeting.html (or to VBH_CONFIG.team in vbh-config.js) and they\'ll show up here.'); return; }
   window.location.href = mailtoLink(to, `Action items — ${meetingLabel()}`, allPlainText(sendBuckets));
 }
@@ -3522,7 +3982,7 @@ async function deleteArchive(idx, e) {
     try {
       const { error } = await trackerSB.from('meetings').delete().eq('id', entry.id);
       if (error) throw error;
-      if (mtg.id === entry.id) { mtg.id = null; mtg.rev = 0; mtg.dateISO = null; }
+      if (mtg.id === entry.id) { mtg.id = null; mtg.rev = 0; mtg.dateISO = null; mtg.base = null; }
     } catch (err) { alert('Delete failed: ' + (err.message || err)); return; }
   } else {
     try {
@@ -3670,6 +4130,7 @@ function setReadOnly(on, label) {
 }
 function enableEditing() {
   setReadOnly(false);
+  if (trackerSB) startLivePull();          // v10: unlocked for editing = worth watching
   setSaveState(mtg.offline ? 'Offline' : 'Saved', mtg.offline ? 'err' : '');
   toast('✏️ Editing unlocked — changes to this meeting will be saved', 3200);
 }
@@ -3733,9 +4194,36 @@ async function loadCurrentMeeting() {
   const lastEdit = src.from === 'server' ? (row && row.updated_at) : (buffer && buffer.savedAt);
   mtg.editedToday = !!(lastEdit && isoDayKey(new Date(lastEdit).toDateString()) === today);
 
-  if (row && rowISO === src.iso) { mtg.id = row.id; mtg.rev = row.rev; mtg.dateISO = rowISO; }
+  if (row && rowISO === src.iso) {
+    mtg.id = row.id; mtg.rev = row.rev; mtg.dateISO = rowISO;
+    mtg.base = migrateState(row.state) || null;      // v10: what the server holds right now
+  }
 
   S = st;
+
+  /* v10 — the draft buffer is NOT automatically newer than the server row.
+     Every tab in this browser writes the same single localStorage slot, so a
+     tab holding an older state stamps the buffer on its next keystroke, the
+     buffer then wins the updated_at tie-break above, and the push at the end
+     of this function wrote it straight over a good save with a current
+     revision — the compare-and-swap never noticed, because the revision was
+     fine and only the state was stale. That is how a set of action-item due
+     dates went missing on 2026-09-25.
+
+     A draft is trusted outright only when it was built on the revision the
+     server still holds. Otherwise the server copy stands and the draft just
+     contributes rows the server has never seen. */
+  let recovered = 0, rebased = false;
+  if (src.from === 'buffer' && mtg.base) {
+    const builtOn = Number.isFinite(buffer && buffer.baseRev) ? buffer.baseRev : -1;
+    if (builtOn !== mtg.rev) {
+      const r = adoptAdditions(mtg.base, st);
+      S = r.state; recovered = r.added; rebased = true;
+      console.warn('[meetings] draft was built on rev ' + builtOn + ' but the server is at rev ' + mtg.rev +
+                   (buffer && buffer.tabId && buffer.tabId !== TAB_ID ? ' (written by another tab)' : '') +
+                   ' - kept the server copy and folded in ' + recovered + ' row(s) from the draft');
+    }
+  }
 
   /* A meeting whose date has passed is NOT auto-rolled — that was the old
      behaviour and it silently dropped completed work before anyone had
@@ -3745,7 +4233,10 @@ async function loadCurrentMeeting() {
   if (isPast) { mtg.id = row && rowISO === src.iso ? row.id : null; }
 
   renderAll();
-  if (src.from === 'buffer' && trackerSB && !isPast) pushMeetingToServer(snapshot(), false);
+  mtg.recovery = { rebased, recovered };
+  if (src.from === 'buffer' && trackerSB && !isPast && (!rebased || recovered > 0)) {
+    pushMeetingToServer(snapshot(), false);
+  }
   return isPast ? 'past' : src.from;
 }
 
@@ -3836,13 +4327,21 @@ window.addEventListener('load', async () => {
 
   if (!readOnly) setSaveState(mtg.offline ? 'Offline' : 'Saved', mtg.offline ? 'err' : '');
 
+  /* v10: keep every open copy of the agenda converged while the meeting runs. */
+  if (!readOnly && trackerSB) startLivePull();
+
   if (from === 'rolled') {
     toast(`⟳ Staged ${String(S.meetingDate||'').split('|')[0].trim()} from ${rolledFrom}` +
           (cardsAdded ? ` · ${cardsAdded} job card${cardsAdded === 1 ? '' : 's'} added from the tracker` : ''), 7000);
   } else if (from === 'past') {
     toast('📅 ' + meetingLabel() + ' is read-only — roll it forward to start this week', 6000);
   } else if (from === 'buffer') {
-    toast('↩ Recovered unsaved work' + (cardsAdded ? ` · ${cardsAdded} card(s) added from the tracker` : ''));
+    const rec = mtg.recovery || {};
+    toast(rec.rebased
+      ? (rec.recovered
+          ? `↩ A newer copy was on the server — kept it and folded ${rec.recovered} unsaved row${rec.recovered === 1 ? '' : 's'} back in`
+          : '↩ The server already had everything from the unsaved draft')
+      : '↩ Recovered unsaved work' + (cardsAdded ? ` · ${cardsAdded} card(s) added from the tracker` : ''), rec.rebased ? 7000 : 3500);
   } else if (from === 'server') {
     toast('↩ Loaded from server' + (cardsAdded ? ` · ${cardsAdded} card(s) added from the tracker` : ''));
   }

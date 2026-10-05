@@ -33,7 +33,12 @@ try {
       $bytes = [IO.File]::ReadAllBytes($full)
     }
     $ctx.Response.ContentLength64 = $bytes.Length
-    $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+    # HEAD must carry the headers and no body. Writing one throws
+    # ProtocolViolationException and used to take the whole listener down.
+    if ($ctx.Request.HttpMethod -ne 'HEAD') {
+      try { $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length) }
+      catch { Write-Host ("  (client went away: {0})" -f $_.Exception.Message) }
+    }
     $ctx.Response.OutputStream.Close()
     Write-Host ("{0} {1} {2}" -f $ctx.Response.StatusCode, $ctx.Request.HttpMethod, $path)
   }

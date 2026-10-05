@@ -35,7 +35,9 @@ One shared password, `VBH.PASSWORD`, checked by the shell gate and remembered in
 ## Pages (all in `public/`)
 
 - `hub.html` — landing page; tiles render from `VBH.PAGES`
-- `meeting.html` — weekly production meeting agenda (build `meeting-v7`), Supabase-backed (`meetings` JSON snapshots, `project_updates` history). Keeps its own toolbar under the shared nav. State object `S` is the only source of truth; the DOM is a projection. Read its architecture comment before touching it.
+- `meeting.html` — weekly production meeting agenda (build `meeting-v10`), Supabase-backed (`meetings` JSON snapshots, `project_updates` history). Keeps its own toolbar under the shared nav. State object `S` is the only source of truth; the DOM is a projection. Read its architecture comment before touching it.
+  - **Concurrent editing (v10).** Several people have this open during the meeting. Saves are a compare-and-swap on `meetings.rev`; a failed swap is resolved by a three-way merge against `mtg.base` (the state this tab shares with the server), not by asking someone to discard their work. Every tab also polls for a newer revision every 8s and folds it in. Anything added to the state object needs a merge rule in `mergeStates()`, or it will silently take the server's copy.
+  - **Removing a job card is remembered.** `ensureActiveProjectCards()` adds a card for every tracker project in a `solds`/`escrow`/`model` stage, so a removal used to last only until the next page load. Removals are now recorded in `state.dropped` against the project plus the stage it was in, and the card returns only when that project changes stage.
 - `projects.html` — project tracker (`projects`)
 - `leads.html` — pipeline with probability pills and archive (`leads`)
 - `weeklyupdate.html` — exec briefing for ownership (no hyphen in the filename); recipients/sender come from `VBH.EXEC_UPDATE`
