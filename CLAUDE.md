@@ -45,7 +45,9 @@ One shared password, `VBH.PASSWORD`, checked by the shell gate and remembered in
 - `intake.html` — client intake form (writes to `leads`)
 - `archive/` (repo root, not deployed) — retired one-time migration tools, and `work-orders-retired-2026-10-05/` holding the 34 exported work-order records.
 
-**Retired 2026-10-05:** the development-maintenance work-order form (`index.html`), dispatch board (`dashboard.html`), `db.js`, their manifests and icons, the `VBH.WORK_ORDERS` roster, and the `work_orders` table (migration 022) — that side of the business wound down. Records are in `archive/`. Dropping the table also removed the last three `Public insert/read/update` policies on the project.
+**Retired 2026-10-05/06:** the development-maintenance work-order form (`index.html`), dispatch board (`dashboard.html`), `db.js`, their manifests and icons, the `VBH.WORK_ORDERS` roster, and the `work_orders` table (migration 022) — that side of the business wound down. Records are in `archive/`. Dropping the table also removed the last three `Public insert/read/update` policies on the project. The 24 `dev_maint` projects were then moved to `closed` (migration 023, exported first); `projects.stage` now holds only `solds`, `model` and `closed`, and `dev_maint` is a dead category kept in `projects.html`'s UI the same way `escrow` is — it simply counts 0.
+
+`projects.stage` drives what counts as active: `ensureActiveProjectCards()` on the meeting page, `v_bt_client_update_cadence` and `v_bt_daily_log_cadence` all read `solds` / `escrow` / `model`. Note that **`v_active_projects` does not filter by stage despite its name** — it is `projects` plus each project's most recent `project_updates` row, and `projects.html` filters by stage client-side.
 
 Don't restructure a page's working area unless the task says so; chrome changes go in the shell, not in pages.
 
