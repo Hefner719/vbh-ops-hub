@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 · meeting-v10 -->
+<!-- build:shell-v1 · meeting-v11 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -258,6 +258,34 @@ tr:hover .row-del { opacity:1; }
 .btn-solid:hover { background:var(--navy-dk); }
 
 /* ─────────────── WINS ─────────────── */
+/* ─────────────── v11 · CALENDAR OF EVENTS ─────────────── */
+.cal-list { display:flex; flex-direction:column; gap:7px; }
+.cal-row {
+  display:grid; grid-template-columns:138px 1fr 150px 22px; gap:12px; align-items:start;
+  padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface);
+}
+.cal-row.soon { border-color:var(--gold); background:linear-gradient(180deg,#fffdf5 0%,var(--surface) 100%); }
+.cal-row.past { opacity:.55; }
+.cal-when { display:flex; flex-direction:column; gap:3px; }
+.cal-date {
+  font-family:inherit; font-size:.78rem; padding:4px 6px; border:1px solid var(--line);
+  border-radius:6px; background:#fff; color:var(--ink); width:100%;
+}
+.cal-rel { font-size:.68rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--steel); }
+.cal-row.soon .cal-rel { color:var(--gold-dk); }
+.cal-rel.need { color:var(--amber); }
+.cal-main { min-width:0; }
+.cal-text { font-size:.9rem; font-weight:600; color:var(--ink); line-height:1.35; }
+.cal-sub  { font-size:.78rem; color:var(--ink-soft); line-height:1.4; margin-top:2px; }
+.cal-row .row-del { opacity:0; cursor:pointer; color:var(--ink-faint); align-self:center; }
+.cal-row:hover .row-del { opacity:1; }
+.cal-row .row-del:hover { color:var(--red); }
+@media (max-width:720px) {
+  .cal-row { grid-template-columns:1fr 22px; gap:7px; }
+  .cal-when { flex-direction:row; align-items:center; gap:8px; }
+  .cal-date { width:auto; }
+}
+
 .wins-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:9px; }
 .win-row {
   display:flex; align-items:stretch; gap:0; border:1px solid var(--line); border-radius:var(--radius-sm);
@@ -856,38 +884,20 @@ body.read-only [contenteditable] { background:var(--surface-2); }
       </div>
     </div>
 
-    <!-- ══ 1 · OPEN & WINS ══ -->
+    <!-- ══ 1 · ACTIVE JOBS ══ -->
     <div class="section-card" id="sec1">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="sh-left">
           <div class="section-num">1</div>
-          <div class="section-title">Open &amp; Wins</div>
-        </div>
-        <div class="sh-right">
-          <div class="section-time" id="sec1t">9:00 – 9:05 &nbsp;(5 min)</div>
-          <div class="section-toggle">▾</div>
-        </div>
-      </div>
-      <div class="section-body">
-        <div class="section-note">Quick round-robin — one recent win, milestone, or piece of positive client feedback each.</div>
-        <div class="wins-grid" id="winsGrid"></div>
-      </div>
-    </div>
-
-    <!-- ══ 2 · ACTIVE JOBS ══ -->
-    <div class="section-card" id="sec2">
-      <div class="section-header" onclick="toggleSection(this)">
-        <div class="sh-left">
-          <div class="section-num">2</div>
           <div class="section-title">Active Jobs</div>
         </div>
         <div class="sh-right">
-          <div class="section-time" id="sec2t">9:05 – 9:25 &nbsp;(20 min)</div>
+          <div class="section-time" id="sec1t">9:00 – 9:30 &nbsp;(30 min)</div>
           <div class="section-toggle">▾</div>
         </div>
       </div>
       <div class="section-body">
-        <div class="section-note">≤ 2 min per job. Next 2-week goals + active blockers only. Past progress lives in Buildertrend.</div>
+        <div class="section-note">≤ 2 min per job. What&rsquo;s next, and what&rsquo;s in the way. Past progress lives in Buildertrend.</div>
 
         <div class="job-toolbar">
           <input class="job-search" id="jobSearch" type="search" placeholder="Filter jobs — address, job #, client…" oninput="renderJobs()"/>
@@ -909,55 +919,20 @@ body.read-only [contenteditable] { background:var(--surface-2); }
       </div>
     </div>
 
-    <!-- ══ 3 · START LIST & PIPELINE ══ -->
-    <div class="section-card" id="sec3">
+    <!-- ══ 2 · ACTION ITEMS ══ -->
+    <div class="section-card" id="sec2">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="sh-left">
-          <div class="section-num">3</div>
-          <div class="section-title">Start List &amp; Pipeline</div>
-        </div>
-        <div class="sh-right">
-          <div class="section-time" id="sec3t">9:25 – 9:35 &nbsp;(10 min)</div>
-          <div class="section-toggle">▾</div>
-        </div>
-      </div>
-      <div class="section-body">
-        <div class="section-note">Confirm starts within 6 weeks. Flag HOLDs needing resolution. <span class="hl">Start List refreshes from the Projects tracker on load; Pipeline auto-fills from Leads. Manual rows stay put.</span></div>
-
-        <div class="job-col-label" style="margin-bottom:6px">🚀 Start List <span class="goal-hint">— upcoming projects starting within 6 weeks</span></div>
-        <div class="table-scroll">
-        <table class="ag-table" id="startTable">
-          <thead><tr><th>Project</th><th class="date-cell">Target Start</th><th class="status-cell">Status</th><th class="owner-cell">Owner</th><th class="row-del"></th></tr></thead>
-          <tbody></tbody>
-        </table>
-        </div>
-        <button class="add-row-btn" onclick="addRow('startManual')">+ Add Start (manual)</button>
-
-        <div class="job-col-label" style="margin:20px 0 6px">📈 Pipeline <span class="goal-hint">— leads ≥ 75% probability with a tentative start</span></div>
-        <div class="table-scroll">
-        <table class="ag-table" id="pipelineTable">
-          <thead><tr><th>Prospect</th><th class="date-cell">Tentative Start</th><th class="status-cell">Probability</th><th class="owner-cell">Rep</th><th class="row-del"></th></tr></thead>
-          <tbody></tbody>
-        </table>
-        </div>
-        <button class="add-row-btn" onclick="addRow('pipelineManual')">+ Add Pipeline (manual)</button>
-      </div>
-    </div>
-
-    <!-- ══ 4 · ACTION ITEMS ══ -->
-    <div class="section-card" id="sec4">
-      <div class="section-header" onclick="toggleSection(this)">
-        <div class="sh-left">
-          <div class="section-num">4</div>
+          <div class="section-num">2</div>
           <div class="section-title">Action Items</div>
         </div>
         <div class="sh-right">
-          <div class="section-time" id="sec4t">9:35 – 9:45 &nbsp;(10 min)</div>
+          <div class="section-time" id="sec2t">9:30 – 9:45 &nbsp;(15 min)</div>
           <div class="section-toggle">▾</div>
         </div>
       </div>
       <div class="section-body">
-        <div class="section-note">Everything assigned this week lives here. Check it off when it's done — completed items drop off at rollover and stay in the archive.</div>
+        <div class="section-note">Everything assigned this week lives here. Every item needs an owner and a due date — that is what makes the send-out worth reading. Tick it off when it&rsquo;s done; completed items drop at rollover and stay in the archive.</div>
 
         <div class="quick-add">
           <input class="qa-text" id="qaText" type="text" placeholder="Add an action item…  e.g.  @justin Obtain updated CO for 171 Village fri"/>
@@ -969,19 +944,22 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 
         <div class="filter-bar" id="actionFilters"></div>
         <div class="action-list" id="actionList"></div>
-        <button class="add-row-btn" onclick="addRow('action')">+ Add blank row</button>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="add-row-btn" onclick="addRow('action')">+ Add blank row</button>
+          <button class="btn-solid" onclick="openSendPanel()">✉️ Send action items</button>
+        </div>
       </div>
     </div>
 
-    <!-- ══ 5 · WARRANTY ══ -->
-    <div class="section-card" id="sec5">
+    <!-- ══ 3 · WARRANTY & SERVICE ══ -->
+    <div class="section-card" id="sec3">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="sh-left">
-          <div class="section-num">5</div>
-          <div class="section-title">Warranty</div>
+          <div class="section-num">3</div>
+          <div class="section-title">Warranty &amp; Service</div>
         </div>
         <div class="sh-right">
-          <div class="section-time" id="sec5t">9:45 – 9:50 &nbsp;(5 min)</div>
+          <div class="section-time" id="sec3t">9:45 – 9:52 &nbsp;(7 min)</div>
           <div class="section-toggle">▾</div>
         </div>
       </div>
@@ -997,50 +975,37 @@ body.read-only [contenteditable] { background:var(--surface-2); }
       </div>
     </div>
 
-    <!-- ══ 6 · OPS ROUNDTABLE ══ -->
-    <div class="section-card" id="sec6">
+    <!-- ══ 4 · CALENDAR OF EVENTS ══ -->
+    <div class="section-card" id="sec4">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="sh-left">
-          <div class="section-num">6</div>
-          <div class="section-title">Ops Roundtable</div>
+          <div class="section-num">4</div>
+          <div class="section-title">Calendar of Events</div>
         </div>
         <div class="sh-right">
-          <div class="section-time" id="sec6t">9:50 – 9:57 &nbsp;(7 min)</div>
+          <div class="section-time" id="sec4t">9:52 – 10:00 &nbsp;(8 min)</div>
           <div class="section-toggle">▾</div>
         </div>
       </div>
       <div class="section-body">
-        <div class="section-note">Events, equipment, signage, misc. Keep it brief — decisions only.</div>
-
-        <div class="job-col-label" style="margin-bottom:6px">Upcoming Events</div>
-        <div class="table-scroll">
-        <table class="ag-table" id="eventsTable">
-          <thead><tr><th class="check-cell">✓</th><th>Event</th><th class="date-cell">Date / Time</th><th class="owner-cell">Action Needed</th><th class="row-del"></th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="section-note">Parades, galas, tours, deadlines. Set the date and it sorts itself — anything past drops out of the list automatically.</div>
+        <div class="cal-list" id="calList"></div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="add-row-btn" onclick="addEvent()">+ Add Event</button>
+          <button class="add-row-btn" id="calPastBtn" onclick="toggleCalPast()">Show past events</button>
         </div>
-        <button class="add-row-btn" onclick="addRow('events')" style="margin-bottom:18px">+ Add Event</button>
-
-        <div class="job-col-label" style="margin-bottom:6px">Misc Notes</div>
-        <div class="table-scroll">
-        <table class="ag-table" id="miscTable">
-          <thead><tr><th class="check-cell">✓</th><th>Item</th><th class="owner-cell">Owner</th><th class="row-del"></th></tr></thead>
-          <tbody></tbody>
-        </table>
-        </div>
-        <button class="add-row-btn" onclick="addRow('misc')">+ Add Misc Item</button>
       </div>
     </div>
 
-    <!-- ══ 7 · WRAP-UP ══ -->
-    <div class="section-card" id="sec7">
+    <!-- ══ 5 · WRAP-UP ══ -->
+    <div class="section-card" id="sec5">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="sh-left">
-          <div class="section-num">7</div>
+          <div class="section-num">5</div>
           <div class="section-title">Wrap-Up &amp; Send</div>
         </div>
         <div class="sh-right">
-          <div class="section-time" id="sec7t">9:57 – 10:00 &nbsp;(3 min)</div>
+          <div class="section-time" id="sec5t">9:57 – 10:00 &nbsp;(3 min)</div>
           <div class="section-toggle">▾</div>
         </div>
       </div>
@@ -1228,14 +1193,16 @@ const MEETING_TIME = (window.VBH_CONFIG && window.VBH_CONFIG.meetingTime) || '9:
    literal text in the markup, once in renderNav), so moving the meeting left
    every section still reading 9:00. Now both are computed from the start time
    in MEETING_TIME plus these durations. Change the time, everything follows. */
+/* v11 — five sections, down from seven. "Open & Wins" was six empty boxes every
+   week and "Start List & Pipeline" had never held a single row, so both were
+   taking agenda time for nothing. The time they used goes to the jobs and to
+   the action items, which are the two things this meeting is actually for. */
 const SECTIONS = (window.VBH_CONFIG && window.VBH_CONFIG.sections) || [
-  { id:'sec1', label:'Open & Wins',  min:5  },
-  { id:'sec2', label:'Active Jobs',  min:20 },
-  { id:'sec3', label:'Start List',   min:10 },
-  { id:'sec4', label:'Action Items', min:10 },
-  { id:'sec5', label:'Warranty',     min:5  },
-  { id:'sec6', label:'Ops',          min:7  },
-  { id:'sec7', label:'Wrap-Up',      min:3  }
+  { id:'sec1', label:'Active Jobs',  min:30 },
+  { id:'sec2', label:'Action Items', min:15 },
+  { id:'sec3', label:'Warranty',     min:7  },
+  { id:'sec4', label:'Calendar',     min:5  },
+  { id:'sec5', label:'Wrap-Up',      min:3  }
 ];
 
 /* "9:00 - 10:00 AM" -> minutes past midnight for the start. Falls back to 9am. */
@@ -1294,7 +1261,7 @@ const DRAFT_KEY   = 'vbh_meeting_draft';
 const EDITOR_KEY  = 'vbh_editor_name';
 const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
 const STATE_VERSION = 3;
-const BUILD = 'meeting-v10';
+const BUILD = 'meeting-v11';
 
 /* ─────────────────────────────────────────────────────────────────────
    ③ SMALL UTILITIES
@@ -1417,15 +1384,19 @@ function dueTone(iso) {
 
 /* Every list in the state, with the fields each row carries. Render,
    migration and the archive viewer all read this — one place to change. */
+/* v11 — `wins`, `misc`, `startManual` and `pipelineManual` are gone from the
+   agenda. Four meetings running, wins held six blank boxes, misc held the same
+   two stale notes, and the two manual lists held nothing at all. Rows already
+   saved in old meetings are NOT deleted: they stay in the state JSON and in the
+   archive, they simply stop taking up room on the page. Putting one back is a
+   line here plus its markup. */
 const LISTS = {
-  wins:           { fields:['name','text'] },
   jobs:           { fields:[] },
   action:         { fields:['text','owner','due','job'], check:true },
   warranty:       { fields:['address','items','owner','due'], check:true },
-  events:         { fields:['text','date','owner'], check:true },
-  misc:           { fields:['text','owner'], check:true },
-  startManual:    { fields:['name','date','status','owner'] },
-  pipelineManual: { fields:['name','date','prob','owner'] }
+  /* `on` is the real date the calendar sorts and expires on; `date` stays the
+     free text people actually write ("Fri–Sun 12–6 PM", "May 8-16 2027"). */
+  events:         { fields:['text','date','owner','on'], check:true }
 };
 
 function blankState() {
@@ -1437,10 +1408,8 @@ function blankState() {
     meetingDate: headerFor(now),
     nextMeeting: headerFor(next),
     dateKey: toISODate(now),
-    wins: TEAM.filter(p => p.wins).map(p => ({ id:uid('w'), name:p.name, text:'' })),
     jobs: [],
-    action: [], warranty: [], events: [], misc: [],
-    startManual: [], pipelineManual: [],
+    action: [], warranty: [], events: [],
     /* v10: projects deliberately taken off the agenda. Without this, removing
        a card only lasted until the next page load — see dropProject(). */
     dropped: []
@@ -1570,10 +1539,16 @@ function migrateState(raw) {
     id: j.id || uid('j'),
     goals: (Array.isArray(j.goals) ? j.goals : []).map(g => ({ id: g.id || uid('g'), text: g.text || '', done: !!g.done }))
   }));
-  /* Wins roster: keep saved entries, add any TEAM member missing from them. */
-  const haveWins = new Set(st.wins.map(w => (w.name||'').toLowerCase()));
-  TEAM.filter(p => p.wins && !haveWins.has(p.name.toLowerCase()))
-      .forEach(p => st.wins.push({ id:uid('w'), name:p.name, text:'' }));
+  /* v11 — retired lists are carried through untouched so nothing saved is ever
+     lost, they are just no longer rendered. */
+  ['wins','misc','startManual','pipelineManual'].forEach(k => {
+    if (Array.isArray(snap[k]) && snap[k].length) st[k] = snap[k];
+  });
+  /* v11 — give every event a real date to sort on. The old rows only had free
+     text ("Nov 13, 5:30–11 PM"), which is why the calendar never ordered itself
+     and never dropped anything that had been and gone. */
+  st.events = (st.events || []).map(r =>
+    Object.assign({}, r, { on: r.on || guessEventDate(r.date, st.dateKey) || '' }));
   st.dropped = (Array.isArray(snap.dropped) ? snap.dropped : [])
     .filter(d => d && (d.projectId || d.jobNumber));
   st.dateKey = isoDayKey(st.meetingDate) || todayISO();
@@ -1588,14 +1563,10 @@ let sendScope    = 'open';        // 'open' | 'all'
 
 function renderAll() {
   renderHeader();
-  renderWins();
   renderJobs();
-  renderTable('warranty');
-  renderTable('events');
-  renderTable('misc');
-  renderTable('startManual');
-  renderTable('pipelineManual');
   renderActions();
+  renderTable('warranty');
+  renderCalendar();
   renderWrapSummary();
   renderNav();
 }
@@ -1616,9 +1587,10 @@ function renderNav() {
   const openWarr    = (S.warranty||[]).filter(r => !r.done && (r.address||r.items||'').trim()).length;
   const blockers    = (S.jobs||[]).filter(j => (j.blockers||'').trim()).length;
   /* v4: times come from the shared schedule, not hard-coded strings. */
-  const counts = { sec2:(S.jobs||[]).length, sec4:openActions, sec5:openWarr };
+  const upcoming = (S.events||[]).filter(e => !e.on || e.on >= toISODate(startOfDay(new Date()))).length;
+  const counts = { sec1:(S.jobs||[]).length, sec2:openActions, sec3:openWarr, sec4:upcoming };
   const items = sectionSchedule().map(s =>
-    ({ id:s.id, label:s.label, time:s.start, n:counts[s.id], warn:(s.id === 'sec2' ? blockers : 0) }));
+    ({ id:s.id, label:s.label, time:s.start, n:counts[s.id], warn:(s.id === 'sec1' ? blockers : 0) }));
   const bar = $('#navBar');
   if (!bar) return;
   bar.innerHTML = items.map(it =>
@@ -1631,14 +1603,120 @@ function renderNav() {
 }
 
 /* ── 1 · WINS ── */
-function renderWins() {
-  const grid = $('#winsGrid');
-  if (!grid) return;
-  grid.innerHTML = (S.wins||[]).map(w => `
-    <div class="win-row">
-      <div class="win-name"><span class="owner-chip"><span class="av">${escHtml(initials(w.name))}</span></span>${escHtml(w.name)}</div>
-      <div class="win-text" contenteditable="true" data-mid="${w.id}" data-field="text" data-ph="…">${textToHtml(w.text)}</div>
-    </div>`).join('');
+/* ─────────────────────────────────────────────────────────────────────
+   CALENDAR OF EVENTS (v11)
+
+   This used to be a plain table at the bottom of "Ops Roundtable", scheduled
+   for the last seven minutes behind Misc Notes. Nothing sorted it and nothing
+   expired it, so on 2026-11-09 it was still leading with the Artisan Home Tour
+   from 9 October while the HBA Gala four days away sat underneath.
+
+   Now it is its own section: ordered by date, the next thing first, and
+   anything that has been and gone drops out of the list (kept, not deleted —
+   "Show past events" brings them back).
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Read a date out of whatever someone typed. Returns ISO or ''. Handles
+   "Nov 13, 5:30–11 PM", "May 8-16 2027", "Oct 9–25", "3/14", "2027-05-08".
+   A bare month/day with no year is read against the meeting it belongs to,
+   rolling to next year only when that would otherwise be far in the past. */
+const CAL_MONTHS = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11 };
+function guessEventDate(text, refISO) {
+  const s = String(text || '').trim();
+  if (!s) return '';
+  const ref = refISO ? new Date(refISO + 'T00:00:00') : new Date();
+  const refY = ref.getFullYear();
+
+  let m = s.match(/(\d{4})-(\d{2})-(\d{2})/);                       // 2027-05-08
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+
+  m = s.match(/([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:\s*[-–—]\s*\d{1,2})?(?:,?\s*(\d{4}))?/);  // May 8-16 2027
+  if (m && CAL_MONTHS[m[1].slice(0,3).toLowerCase()] != null) {
+    const mo = CAL_MONTHS[m[1].slice(0,3).toLowerCase()];
+    const d  = parseInt(m[2], 10);
+    let y = m[3] ? parseInt(m[3], 10) : refY;
+    if (!m[3]) { const cand = new Date(y, mo, d); if (cand < ref && (ref - cand) > 180 * 86400000) y += 1; }
+    return toISODate(new Date(y, mo, d));
+  }
+
+  m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);              // 3/14 or 3/14/27
+  if (m) {
+    const mo = parseInt(m[1],10) - 1, d = parseInt(m[2],10);
+    let y = m[3] ? parseInt(m[3],10) : refY;
+    if (y < 100) y += 2000;
+    if (!m[3]) { const cand = new Date(y, mo, d); if (cand < ref && (ref - cand) > 180 * 86400000) y += 1; }
+    return toISODate(new Date(y, mo, d));
+  }
+  return '';
+}
+
+let showPastEvents = false;
+function toggleCalPast() {
+  showPastEvents = !showPastEvents;
+  const b = $('#calPastBtn');
+  if (b) b.textContent = showPastEvents ? 'Hide past events' : 'Show past events';
+  renderCalendar();
+}
+
+function addEvent() {
+  (S.events = S.events || []).push({ id:uid('e'), text:'', date:'', owner:'', on:'', done:false });
+  renderCalendar(); markDirty();
+  setTimeout(() => {
+    const rows = $$('#calList .cal-row');
+    const last = rows[rows.length - 1];
+    const f = last && last.querySelector('[data-field="text"]');
+    if (f) f.focus();
+  }, 30);
+}
+
+function renderCalendar() {
+  const box = $('#calList');
+  if (!box) return;
+  const today = toISODate(startOfDay(new Date()));
+  const all = (S.events || []).slice();
+
+  /* Undated events can't be ordered or expired, so they sit at the top where
+     someone will notice they need a date rather than quietly disappearing. */
+  const dated   = all.filter(e => e.on).sort((a,b) => String(a.on).localeCompare(String(b.on)));
+  const undated = all.filter(e => !e.on);
+  const past    = dated.filter(e => e.on < today);
+  const ahead   = dated.filter(e => e.on >= today);
+  const shown   = undated.concat(ahead, showPastEvents ? past : []);
+
+  const btn = $('#calPastBtn');
+  if (btn) {
+    btn.style.display = past.length ? '' : 'none';
+    btn.textContent = showPastEvents ? 'Hide past events' : `Show ${past.length} past event${past.length === 1 ? '' : 's'}`;
+  }
+
+  if (!shown.length) {
+    box.innerHTML = '<div class="empty-note">Nothing on the calendar yet — use <b>+ Add Event</b>.</div>';
+    return;
+  }
+
+  box.innerHTML = shown.map(e => {
+    const isPast = e.on && e.on < today;
+    const days = e.on ? Math.round((new Date(e.on + 'T00:00:00') - startOfDay(new Date())) / 86400000) : null;
+    let when = '';
+    if (days != null) {
+      when = days === 0 ? 'Today' : days === 1 ? 'Tomorrow'
+           : days > 0   ? `in ${days} day${days === 1 ? '' : 's'}`
+                        : `${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`;
+    }
+    return `
+    <div class="cal-row${isPast ? ' past' : ''}${days != null && days >= 0 && days <= 7 ? ' soon' : ''}">
+      <div class="cal-when">
+        <input class="cal-date" type="date" data-mid="${e.id}" data-field="on" value="${escHtml(e.on||'')}"/>
+        ${when ? `<span class="cal-rel">${escHtml(when)}</span>` : '<span class="cal-rel need">set a date</span>'}
+      </div>
+      <div class="cal-main">
+        <div class="cal-text" contenteditable="true" data-mid="${e.id}" data-field="text" data-ph="Event…">${textToHtml(e.text)}</div>
+        <div class="cal-sub" contenteditable="true" data-mid="${e.id}" data-field="date" data-ph="Time / detail — e.g. Fri–Sun 12–6 PM">${textToHtml(e.date)}</div>
+      </div>
+      <div class="cal-owner">${ownerSelectHTML(e.id, 'owner', e.owner, 'ar-owner-sel')}</div>
+      <span class="row-del" onclick="deleteRow('events','${e.id}')" title="Remove">✕</span>
+    </div>`;
+  }).join('');
 }
 
 /* ── 2 · JOB CARDS ── */
@@ -1701,7 +1779,6 @@ function jobCardHTML(j) {
         <div class="job-metrics">
           ${total ? `<span class="goal-progress">${done}/${total} goals</span>` : ''}
           ${pct != null && !isNaN(pct) ? `<span class="metric-pill">${pct}%</span>` : ''}
-          ${!isNaN(sched) && j.sched !== '' ? `<span class="metric-pill ${sched >= 0 ? 'pos' : 'neg'}">${sched > 0 ? '+' : ''}${sched}d</span>` : ''}
           ${j.status ? `<span class="badge ${/behind|blocked/i.test(j.status) ? 'badge-late' : /risk|hold/i.test(j.status) ? 'badge-hold' : 'badge-active'}">${escHtml(j.status)}</span>` : ''}
         </div>
         <span class="job-kill" onclick="deleteJob(event,'${j.id}')" title="Remove this job card">✕</span>
@@ -1715,7 +1792,6 @@ function jobCardHTML(j) {
         <div><label>Phase</label><select class="tracker-phase" data-mid="${j.id}" data-field="phase">${phaseOptions(j.phase)}</select></div>
         <div><label>% Complete</label><input class="tracker-pct" type="number" min="0" max="100" placeholder="0–100" data-mid="${j.id}" data-field="pct" value="${escHtml(j.pct)}"/></div>
         <div><label>Status</label><select class="tracker-status" data-mid="${j.id}" data-field="status">${statusOptions(j.status)}</select></div>
-        <div><label>Sched ±days</label><input class="tracker-sched" type="number" step="1" placeholder="+3 / −5" title="Days ahead (+) or behind (−), from Buildertrend. Blank = not reported — clears the tracker value." data-mid="${j.id}" data-field="sched" value="${escHtml(j.sched)}"/></div>
       </div>
       ${p ? `<div class="tracker-proj-info">
         <span title="Address & client come from the Projects tracker — edit them there.">${escHtml([p.address,p.buyer_realtor].filter(Boolean).join(' · ') || p.job_number || '')}</span>
@@ -1727,25 +1803,14 @@ function jobCardHTML(j) {
 
     <div class="job-body">
       <div>
-        <div class="job-col-label">2-Week Goals <span class="goal-hint">(check = done)</span></div>
+        <div class="job-col-label">Goals <span class="goal-hint">(tick when done — anything unticked carries to next week)</span></div>
         <div class="goal-list">${goalsHTML}</div>
         <button class="add-goal-btn" onclick="addGoal('${j.id}')">+ goal</button>
       </div>
       <div>
-        <div class="job-col-label">Active Blockers</div>
-        <div class="job-blockers" contenteditable="true" data-mid="${j.id}" data-field="blockers" data-ph="Nothing blocking">${textToHtml(j.blockers)}</div>
+        <div class="job-col-label">Notes &amp; blockers</div>
+        <div class="job-blockers" contenteditable="true" data-mid="${j.id}" data-field="blockers" data-ph="What came up, what's in the way…">${textToHtml(j.blockers)}</div>
         <button class="add-goal-btn" onclick="addActionForJob('${j.id}')" title="Create an action item already tagged to this job">+ action item</button>
-      </div>
-    </div>
-
-    <div class="job-foot">
-      <div class="job-strip next">
-        <div class="job-strip-label"><span>Next 2-Week Goals</span><span class="goal-hint">carried into next week at rollover</span></div>
-        <div class="job-strip-text" contenteditable="true" data-mid="${j.id}" data-field="next" data-ph="One per line — these become next week's goals">${textToHtml(j.next)}</div>
-      </div>
-      <div class="job-strip notes">
-        <div class="job-strip-label"><span>Meeting Notes / Updates</span><span class="goal-hint">cleared at rollover · saved to tracker history</span></div>
-        <div class="job-strip-text" contenteditable="true" data-mid="${j.id}" data-field="notes" data-ph="This week's discussion…">${textToHtml(j.notes)}</div>
       </div>
     </div>
   </div>`;
@@ -1768,22 +1833,11 @@ function renderJobs() {
     : `<div class="empty-note">${q ? 'No jobs match that filter.' : 'No job cards yet — use <b>+ Add from Tracker</b> to pull in active projects.'}</div>`;
 }
 
-/* ── generic table renderer (warranty / events / misc / start / pipeline) ── */
+/* ── generic table renderer — warranty is the only table left (v11) ── */
 const TABLE_RENDER = {
   warranty: { table:'#warrantyTable', cells:[
       { f:'address', ph:'Address' }, { f:'items', ph:'Open items / next action' },
-      { f:'owner', cls:'owner-cell', kind:'owner' }, { f:'due', cls:'due-cell', kind:'date' } ] },
-  events: { table:'#eventsTable', cells:[
-      { f:'text', ph:'Event' }, { f:'date', cls:'date-cell', ph:'Date / time' },
-      { f:'owner', cls:'owner-cell', ph:'Action needed' } ] },
-  misc: { table:'#miscTable', cells:[
-      { f:'text', ph:'Item' }, { f:'owner', cls:'owner-cell', kind:'owner' } ] },
-  startManual: { table:'#startTable', cells:[
-      { f:'name', ph:'Project' }, { f:'date', cls:'date-cell', ph:'Target start' },
-      { f:'status', cls:'status-cell', ph:'Status' }, { f:'owner', cls:'owner-cell', kind:'owner' } ] },
-  pipelineManual: { table:'#pipelineTable', cells:[
-      { f:'name', ph:'Prospect' }, { f:'date', cls:'date-cell', ph:'Tentative start' },
-      { f:'prob', cls:'status-cell', ph:'Probability' }, { f:'owner', cls:'owner-cell', ph:'Rep' } ] }
+      { f:'owner', cls:'owner-cell', kind:'owner' }, { f:'due', cls:'due-cell', kind:'date' } ] }
 };
 
 function ownerSelectHTML(id, field, value, cls) {
@@ -1992,9 +2046,12 @@ document.addEventListener('change', e => {
   if (field === 'projectId') return;             // handled by onTrackerLinkChange
   writeField(mid, field, el.value);
   markDirty();
-  /* Header chips (phase / status / sched / %) and due-date tone need a repaint. */
-  if (['phase','status','sched','pct'].includes(field)) renderJobs();
+  /* Header chips (phase / status / %) and due-date tone need a repaint. */
+  if (['phase','status','pct'].includes(field)) renderJobs();
   if (field === 'owner' || field === 'due') { renderActions(); renderWrapSummary(); }
+  /* v11: dating an event re-sorts the calendar and may retire it. Re-render on
+     the next tick so the <input> this fired from is not torn out underneath. */
+  if (field === 'on') setTimeout(renderCalendar, 0);
 });
 
 /* v4: the checkboxes are styled spans, so Space/Enter has to be wired by hand
@@ -2031,7 +2088,9 @@ function toggleRow(id) {
 }
 function deleteRow(key, id) {
   S[key] = (S[key]||[]).filter(r => r.id !== id);
-  if (key === 'action') { renderActions(); renderWrapSummary(); } else renderTable(key);
+  if (key === 'action')      { renderActions(); renderWrapSummary(); }
+  else if (key === 'events') { renderCalendar(); }
+  else                       { renderTable(key); }
   renderNav(); markDirty();
 }
 function addRow(key) {
@@ -3154,13 +3213,28 @@ function renderBtUnmatched() {
    re-ordering a list never reads as a delete plus an add.
    ───────────────────────────────────────────────────────────────────── */
 
-const LIST_KEYS   = ['wins','action','warranty','events','misc','startManual','pipelineManual'];
+/* v11 — retired lists stay in LIST_KEYS so that a meeting saved before the
+   change still merges cleanly between two open tabs; they are simply no longer
+   rendered. Drop them from here and an old row could be silently lost. */
+const LIST_KEYS   = ['action','warranty','events','wins','misc','startManual','pipelineManual'];
 const SCALAR_KEYS = ['meetingDate','nextMeeting','dateKey'];
 const JOB_FIELDS  = ['projectId','name','date','blockers','next','notes','phase','pct','status','sched','collapsed'];
 const GOAL_FIELDS = ['text','done'];
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
-function listFields(key) { return ((LISTS[key] && LISTS[key].fields) || []).concat('done'); }
+/* Lists retired from the agenda in v11 still need their field list here, or a
+   merge between two tabs would compare only `done` and quietly take the
+   server's copy of everything else in an old meeting. */
+const RETIRED_FIELDS = {
+  wins:           ['name','text'],
+  misc:           ['text','owner'],
+  startManual:    ['name','date','status','owner'],
+  pipelineManual: ['name','date','prob','owner']
+};
+function listFields(key) {
+  const f = (LISTS[key] && LISTS[key].fields) || RETIRED_FIELDS[key] || [];
+  return f.concat('done');
+}
 
 function byId(arr) {
   const m = new Map();
@@ -3781,21 +3855,24 @@ function rollForward(state) {
   out.v = STATE_VERSION;
   out.savedAt = new Date().toISOString();
 
-  out.wins = (out.wins||[]).map(w => Object.assign({}, w, { id:uid('w'), text:'' }));
   out.action   = (out.action||[]).filter(r => !r.done && String(r.text||'').trim());
   out.warranty = (out.warranty||[]).filter(r => !r.done && (String(r.address||'').trim() || String(r.items||'').trim()));
-  out.misc     = (out.misc||[]).filter(r => !r.done && String(r.text||'').trim());
-  out.events   = (out.events||[]).filter(r => !r.done && String(r.text||'').trim());
+
+  /* v11 — the calendar keeps everything that has not happened yet, plus
+     anything still undated, and leaves the rest behind in the archive. */
+  const todayISOkey = toISODate(startOfDay(new Date()));
+  out.events = (out.events||[])
+    .filter(r => !r.done && String(r.text||'').trim())
+    .filter(r => !r.on || r.on >= todayISOkey);
 
   out.jobs = (out.jobs||[]).map(j => {
+    /* Unticked goals carry; ticked ones drop. That is the whole model now —
+       the old "Next 2-Week Goals" box fed this too, which meant two boxes
+       doing one job and neither reliably filled. */
     const goals = (j.goals||[]).filter(g => !g.done && String(g.text||'').trim())
                                .map(g => ({ id:uid('g'), text:g.text, done:false }));
-    String(j.next||'').split(/[\n·]/).forEach(t => {
-      t = t.trim();
-      if (t) goals.push({ id:uid('g'), text:t, done:false });
-    });
     if (!goals.length) goals.push({ id:uid('g'), text:'', done:false });
-    return Object.assign({}, j, { goals, next:'', notes:'' });
+    return Object.assign({}, j, { goals, blockers:'' });
   });
   return out;
 }
@@ -4517,9 +4594,10 @@ window.addEventListener('load', async () => {
   }
   renderAll();
 
-  detectNewStarts();
-  refreshStartList();
-  refreshPipeline();
+  detectNewStarts();            // still shown — the new-starts banner sits in Active Jobs
+  /* v11: refreshStartList() / refreshPipeline() filled the Start List and
+     Pipeline tables. Both tables are gone (they had never held a row), so the
+     calls are gone with them. The functions remain for reference. */
   loadBuildertrendActivity();                     // v6: read-only strip on each card
 
   if (!readOnly) setSaveState(mtg.offline ? 'Offline' : 'Saved', mtg.offline ? 'err' : '');
