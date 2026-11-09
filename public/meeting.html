@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 · meeting-v11 -->
+<!-- build:shell-v1 · meeting-v12 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -445,10 +445,21 @@ select.tracker-link:focus { outline:none; border-color:var(--steel); }
   font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer; white-space:nowrap; text-decoration:none;
 }
 .nsb-note { padding:6px 13px 9px; font-size:.72rem; color:var(--ink-soft); font-style:italic; border-top:1px solid var(--green-line); }
-#btUnmatched { border-color:var(--amber-line); background:var(--amber-bg); }
-#btUnmatched .nsb-head { color:var(--amber); }
-#btUnmatched .new-starts-row, #btUnmatched .nsb-note { border-top-color:var(--amber-line); }
-#btUnmatched .nsr-add { background:var(--amber); border-color:var(--amber); }
+/* ─────────────── v12 · JOB PICKER ─────────────── */
+.tp-tools { display:flex; gap:8px; align-items:center; padding:9px 12px; border-bottom:1px solid var(--line-soft); }
+.tp-search {
+  flex:1; font-family:inherit; font-size:.82rem; padding:6px 10px;
+  border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--ink);
+}
+.tp-search:focus { outline:none; border-color:var(--steel); }
+.tp-stage {
+  display:inline-block; margin-left:7px; padding:1px 7px; border-radius:999px;
+  font-size:.62rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+  background:var(--surface-3); color:var(--ink-soft); vertical-align:middle;
+}
+.tp-stage.closed { background:var(--surface-2); color:var(--ink-faint); }
+.tp-add.remove { background:var(--green); border-color:var(--green); color:#fff; }
+.tp-add.remove:hover { background:var(--red); border-color:var(--red); }
 
 /* ─────────────── v6 · BUILDERTREND STRIP (read-only, from bt_events) ─────────────── */
 .bt-strip {
@@ -907,13 +918,12 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 
         <div id="newStartsBanner" class="new-starts-banner" style="display:none"></div>
         <div id="btCadence" class="new-starts-banner" style="display:none"></div>
-        <div id="btUnmatched" class="new-starts-banner" style="display:none"></div>
         <div class="job-grid" id="jobGrid"></div>
 
         <div class="btn-row" style="margin-top:12px">
-          <button class="add-row-btn" onclick="addJobCard()">+ Add Job</button>
-          <button class="add-row-btn" onclick="openTrackerPicker()">+ Add from Tracker</button>
-          <button class="btn-solid" onclick="syncCardsFromTracker()" title="Rename linked cards to the standard Job # – Address – Client and drop any linked to a closed project">🔗 Sync from Tracker</button>
+          <button class="btn-solid" onclick="openTrackerPicker()">📋 Choose jobs for this agenda</button>
+          <button class="add-row-btn" onclick="addJobCard()">+ Add a job not in the tracker</button>
+          <button class="add-row-btn" onclick="syncCardsFromTracker()" title="Rename linked cards to the standard Job # – Address – Client and drop any linked to a closed project">🔗 Refresh names from tracker</button>
         </div>
         <div id="trackerPicker" class="tracker-picker" style="display:none"></div>
       </div>
@@ -1261,7 +1271,7 @@ const DRAFT_KEY   = 'vbh_meeting_draft';
 const EDITOR_KEY  = 'vbh_editor_name';
 const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
 const STATE_VERSION = 3;
-const BUILD = 'meeting-v11';
+const BUILD = 'meeting-v12';
 
 /* ─────────────────────────────────────────────────────────────────────
    ③ SMALL UTILITIES
@@ -2517,6 +2527,22 @@ function addStartToAgenda(projectId) {
 }
 
 /* ── Add from tracker picker ── */
+/* ─────────────────────────────────────────────────────────────────────
+   JOB PICKER (v12)
+
+   The agenda used to build itself: ensureActiveProjectCards() put a card on
+   the page for every tracker project in an active stage, whether or not it
+   belonged in that week's meeting. Choosing is now explicit — this is the one
+   place jobs go on or come off the agenda.
+
+   The old picker hid anything closed AND anything without a start date, which
+   meant a project could sit in the tracker and still be impossible to pick.
+   It now lists everything, searchable, with closed jobs one toggle away.
+   ───────────────────────────────────────────────────────────────────── */
+let trackerPickerAll = [];
+let pickerShowClosed = false;
+let pickerQuery = '';
+
 async function openTrackerPicker() {
   const box = $('#trackerPicker');
   if (!box) return;
@@ -2525,42 +2551,81 @@ async function openTrackerPicker() {
   box.innerHTML = '<div class="tp-empty">Loading projects…</div>';
   if (!trackerSB) { box.innerHTML = '<div class="tp-empty">Tracker not connected.</div>'; return; }
 
-  const today = startOfDay(new Date());
-  let rows = [];
   try {
     const { data, error } = await trackerSB.from('projects')
       .select('id, job_number, address, buyer_realtor, stage, status, start_date, phase_note, pct_complete, schedule_days')
-      .order('start_date', { ascending:false });
+      .order('job_number', { ascending:true });
     if (error) throw error;
-    rows = (data||[]).filter(p => {
-      if ((p.stage||'') === 'closed') return false;
-      if (!p.start_date) return false;
-      const d = startOfDay(new Date(p.start_date));
-      return !isNaN(d.getTime()) && d <= today;
-    });
+    trackerPickerAll = data || [];
   } catch (e) {
     box.innerHTML = `<div class="tp-empty">Couldn't load projects: ${escHtml(e.message || String(e))}</div>`;
     return;
   }
-  trackerPickerRows = rows;
+  trackerPickerRows = trackerPickerAll;
+  renderTrackerPicker();
+}
+
+function pickerFilter(v) { pickerQuery = String(v||'').trim().toLowerCase(); renderTrackerPicker(true); }
+function pickerToggleClosed() { pickerShowClosed = !pickerShowClosed; renderTrackerPicker(); }
+
+function renderTrackerPicker(keepFocus) {
+  const box = $('#trackerPicker');
+  if (!box) return;
   const linked = new Set((S.jobs||[]).map(j => j.projectId).filter(Boolean));
 
+  let rows = trackerPickerAll.filter(p => pickerShowClosed || String(p.stage||'').toLowerCase() !== 'closed');
+  if (pickerQuery) {
+    rows = rows.filter(p => [p.job_number, p.address, p.buyer_realtor, p.stage]
+      .filter(Boolean).join(' ').toLowerCase().includes(pickerQuery));
+  }
+  /* On the agenda first — that is the list being edited. */
+  rows = rows.slice().sort((a, b) => (linked.has(b.id) ? 1 : 0) - (linked.has(a.id) ? 1 : 0)
+                                  || String(a.job_number||'').localeCompare(String(b.job_number||'')));
+  const closedCount = trackerPickerAll.filter(p => String(p.stage||'').toLowerCase() === 'closed').length;
+
   box.innerHTML =
-    '<div class="tp-head">In-progress projects <span class="tp-close" onclick="closeTrackerPicker()">✕</span></div>' +
+    `<div class="tp-head">Jobs on this agenda — ${linked.size} selected
+       <span class="tp-close" onclick="closeTrackerPicker()">✕</span></div>
+     <div class="tp-tools">
+       <input class="tp-search" id="tpSearch" type="search" placeholder="Search job #, address, client…" value="${escHtml(pickerQuery)}" oninput="pickerFilter(this.value)"/>
+       <button class="add-row-btn" onclick="pickerToggleClosed()">${pickerShowClosed ? 'Hide closed' : `Show closed (${closedCount})`}</button>
+     </div>` +
     (rows.length ? rows.map(p => {
       const on = linked.has(p.id);
+      const stage = String(p.stage||'').toLowerCase();
       return `<div class="tp-row${on ? ' on-agenda' : ''}">
-        <div class="tp-info"><b>${escHtml(p.job_number || '—')}</b>${p.address ? ` <span>${escHtml(p.address)}</span>` : ''}${p.buyer_realtor ? ` · ${escHtml(p.buyer_realtor)}` : ''}</div>
-        <button class="tp-add" onclick="addTrackerCardToAgenda('${p.id}')" ${on ? 'disabled' : ''}>${on ? 'On agenda' : '+ Add card'}</button>
+        <div class="tp-info">
+          <b>${escHtml(p.job_number || '—')}</b>${p.address ? ` <span>${escHtml(p.address)}</span>` : ''}${p.buyer_realtor ? ` · ${escHtml(p.buyer_realtor)}` : ''}
+          ${stage ? `<span class="tp-stage${stage === 'closed' ? ' closed' : ''}">${escHtml(stage)}</span>` : ''}
+        </div>
+        <button class="tp-add${on ? ' remove' : ''}" onclick="${on ? `removeTrackerCardFromAgenda('${p.id}')` : `addTrackerCardToAgenda('${p.id}')`}">${on ? '✓ On agenda' : '+ Add'}</button>
       </div>`;
-    }).join('') : '<div class="tp-empty">No started projects found in the tracker.</div>');
+    }).join('') : '<div class="tp-empty">No projects match that search.</div>');
+
+  if (keepFocus) {
+    const s = $('#tpSearch');
+    if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+  }
 }
 function closeTrackerPicker() { const b = $('#trackerPicker'); if (b) b.style.display = 'none'; }
 
+/* Taking a job off from inside the picker goes through the same path as the ✕
+   on the card, so the removal is remembered the same way. */
+function removeTrackerCardFromAgenda(projectId) {
+  const j = (S.jobs||[]).find(x => x.projectId === projectId);
+  if (!j) return;
+  dropProject(j);
+  S.jobs = (S.jobs||[]).filter(x => x.id !== j.id);
+  renderJobs(); renderNav(); markDirty();
+  renderTrackerPicker();
+}
+
 function addTrackerCardToAgenda(projectId) {
-  const p = trackerPickerRows.find(x => x.id === projectId);
+  const p = (trackerPickerAll.length ? trackerPickerAll : trackerPickerRows).find(x => x.id === projectId);
   if (!p) return;
   cacheProject(p);
+  /* Picking it back deliberately cancels any earlier removal note. */
+  undropProject(p.id, p.job_number);
   addJobCard({
     projectId: p.id,
     name: vbhProjectLabel(p),
@@ -2570,9 +2635,10 @@ function addTrackerCardToAgenda(projectId) {
     pct: p.pct_complete != null ? String(Math.round(p.pct_complete * 100)) : '',
     sched: p.schedule_days != null ? String(p.schedule_days) : ''
   });
-  const box = $('#trackerPicker');
-  if (box && box.style.display === 'block') { box.style.display = 'none'; openTrackerPicker(); }
-  toast(`✓ ${p.job_number || 'Project'} card added`);
+  /* Repaint in place rather than reopening — reopening refetched the whole
+     list and threw away the search the user had typed. */
+  renderTrackerPicker();
+  toast(`✓ ${p.job_number || 'Project'} added to the agenda`);
 }
 
 /* ── Live Start List + Pipeline (auto rows, never persisted) ── */
@@ -2818,7 +2884,6 @@ function fridaysSince(since) {
   return n;
 }
 let btByJob = new Map();              // job_number → { recent:[], latestUpdate }
-let btUnmatched = [];
 let btLoaded = false;
 
 function jobNumberOf(j) {
@@ -2837,11 +2902,10 @@ async function loadBuildertrendActivity() {
     /* Emails imported from an Outlook CSV carry no timestamp (occurred_at is
        null), so a plain date filter would hide them. Fetch them separately and
        list them after the dated items. Live (Graph) ingest always has a date. */
-    const [recent, undated, latest, unmatched, owing, cadence, logs] = await Promise.all([
+    const [recent, undated, latest, owing, cadence, logs] = await Promise.all([
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).gte('occurred_at', since).order('occurred_at', { ascending: false }).limit(2000) : { data: [] },
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).is('occurred_at', null).neq('event_type', 'client_update').order('id', { ascending: false }) : { data: [] },
       nums.length ? trackerSB.from('v_bt_events').select(cols).in('job_number', nums).eq('event_type', 'client_update').order('occurred_at', { ascending: false }) : { data: [] },
-      trackerSB.from('v_bt_unmatched_jobs').select('job_number,job_name,events,last_seen,event_types'),
       /* v10: bills still owed, not every bill ever marked ready. The ready →
          paid matching lives in v_bt_bill_status, not here — one home per
          thing, and the page just reads the answer. */
@@ -2861,7 +2925,6 @@ async function loadBuildertrendActivity() {
     (latest.data || []).forEach(e => { const b = map.get(e.job_number); if (b && !b.latestUpdate) b.latestUpdate = e; });
     if (!owing.error) (owing.data || []).forEach(r => { const b = map.get(r.job_number); if (b) b.owing.push(r); });
     btByJob = map;
-    btUnmatched = unmatched.error ? [] : (unmatched.data || []);
     btCadence   = cadence.error   ? [] : (cadence.data || []);
     btLogs      = logs.error      ? [] : (logs.data || []);
     btLoaded = true;
@@ -2871,7 +2934,6 @@ async function loadBuildertrendActivity() {
   }
   renderJobs();
   renderBtCadence();
-  renderBtUnmatched();
 }
 
 function fmtBtDate(iso) {
@@ -3168,19 +3230,10 @@ function renderBtCadence() {
   box.style.display = 'block';
 }
 
-function renderBtUnmatched() {
-  const box = $('#btUnmatched');
-  if (!box) return;
-  if (!btUnmatched.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  box.innerHTML =
-    `<div class="nsb-head">🔗 In Buildertrend, not in the Projects tracker (${btUnmatched.length})</div>` +
-    btUnmatched.map(u => `<div class="new-starts-row">
-      <div class="nsr-info"><b>${escHtml(u.job_number)}</b> <span>${escHtml(String(u.job_name||'').replace(/^[RM]\d+\s*-\s*/i, ''))}</span> · ${u.events} notification${u.events === 1 ? '' : 's'}${u.last_seen ? ', last ' + escHtml(fmtBtDate(u.last_seen)) : ''}</div>
-      <a class="nsr-add" href="/projects?q=${encodeURIComponent(u.job_number)}" target="_blank" rel="noopener">Add in Projects ↗</a>
-    </div>`).join('') +
-    `<div class="nsb-note">Add the project in the tracker and it joins the agenda automatically.</div>`;
-  box.style.display = 'block';
-}
+/* v12: the "In Buildertrend, not in the Projects tracker" banner is gone from
+   the agenda. It listed 22 job numbers — most of them overhead and marketing
+   cost buckets rather than homes — on a page meant for this week's work. The
+   same list still lives on digest.html, which is where it belongs. */
 
 /* ─────────────────────────────────────────────────────────────────────
    ⑨ PERSISTENCE — Supabase `meetings`, one row per meeting day.
@@ -4590,7 +4643,11 @@ window.addEventListener('load', async () => {
     removeClosedProjectJobs();
     syncCardsFromTracker({ silent:true });
     refreshJobsFromTracker();
-    cardsAdded = ensureActiveProjectCards();     // v6: every active tracker project has a card
+    /* v12: the agenda no longer builds itself. ensureActiveProjectCards() put
+       a card up for every tracker project in an active stage, which is how
+       jobs nobody had chosen kept appearing — and why a removal needed a
+       `dropped` note to stick. Jobs now go on the agenda only when someone
+       picks them, and carry forward week to week from there. */
   }
   renderAll();
 
