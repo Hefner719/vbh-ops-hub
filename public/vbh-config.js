@@ -8,7 +8,7 @@
      1. connection + build
      2. PAGES registry   → drives the site nav, page headers, gate, hub tiles
      3. option lists     → dropdowns across leads / intake / projects
-     4. roles & rosters  → work-order requestors, crew, meeting team
+     4. roles & rosters  → project managers, meeting team
      5. window.VBH_CONFIG (read by meeting.html) and legacy globals
    ═══════════════════════════════════════════════════════════════════════════ */
 /* Named roles. Pages reference roles, never people, so a personnel change is
@@ -73,8 +73,8 @@ const VBH = {
       tile:{ icon:'⟲', accent:'gold', blurb:'Every Buildertrend notification since last meeting, grouped by job: client updates, change orders with dollars, comments, and who has gone quiet. Copy or email it to the team.' } },
 
     { id:'projects',     path:'/projects',     nav:'Projects',     group:'ops',   protected:true,
-      title:'Projects Tracker', sub:'Live pipeline · Solds · Escrow · Models · Maintenance',
-      tile:{ icon:'🏠', accent:'gold', blurb:'Every active build with phase, % complete, schedule variance, and the latest note. The tracker the meeting and the exec update read from.' } },
+      title:'Projects Tracker', sub:'Live pipeline · Solds · Spec Homes · Pre-Construction',
+      tile:{ icon:'🏠', accent:'gold', blurb:'Every active build with its PM, phase, % complete, schedule variance, and the latest note — sold, spec, and not yet started. Kept in step with the production meeting both ways.' } },
 
     { id:'gantt',        path:'/gantt',        nav:'Timeline',     group:'ops',   protected:true,
       title:'Build Timeline', sub:'New starts on one Gantt · Solds · Models · Prospects',
@@ -133,6 +133,12 @@ const VBH = {
   DEPOSIT_STATUSES: ['Not Received','Partial','Received'],
 
   /* ── 4 · roles & rosters ──────────────────────────────────────────────── */
+  /* Active project managers — the PM dropdown on the Projects tracker and on
+     each meeting job card. Order is dropdown order. Taking someone off this
+     list removes them from the dropdown only; jobs already assigned to them
+     keep the name until someone picks a new PM. */
+  PROJECT_MANAGERS: ['Jordan Hefner', 'Sydney Van Well'],
+
   /* The development-maintenance work-order form, dashboard and `work_orders`
      table were retired 2026-10-05 when that side of the business wound down.
      The 34 records are kept at archive/work-orders-retired-2026-10-05/. */

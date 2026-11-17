@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 -->
+<!-- build:shell-v1 · leads-v3 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -159,7 +159,7 @@ body { color: var(--navy); min-height: 100vh; display: flex; flex-direction: col
 .toast.show { transform: translateY(0); opacity: 1; }
 </style>
 </head>
-<body data-vbh-page="leads" data-vbh-build="leads-v2">
+<body data-vbh-page="leads" data-vbh-build="leads-v3">
 
 <!-- APP -->
 <div id="app">
@@ -446,7 +446,7 @@ function renderCards() {
       ${l.sales_rep?`<div class="card-detail">👤 ${l.sales_rep}</div>`:''}
       ${l.job_number?`<div class="card-detail">🔑 ${l.job_number}</div>`:''}
       <div class="card-badges">
-        ${(l.archived && (l.status||'')==='Closed Won')?`<span class="badge" style="background:#16341f;color:#bbf7d0;border-color:#16a34a;font-weight:900">✓ Converted to Project</span>`:''}
+        ${(l.archived && /^closed\s*-?\s*won$/i.test(l.status||''))?`<span class="badge" style="background:#16341f;color:#bbf7d0;border-color:#16a34a;font-weight:900">✓ Converted to Project</span>`:''}
         ${l.lead_temp?`<span class="badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">${l.lead_temp}</span>`:''}
         ${l.lead_grade?`<span class="badge" style="background:#ede9fe;color:#4c1d95;border-color:#c4b5fd">Grade ${l.lead_grade}</span>`:''}
         ${l.timeline_urgency?`<span class="badge" style="background:#f1f5f9;color:#475569;border-color:#cbd5e1">${l.timeline_urgency}</span>`:''}
@@ -458,8 +458,8 @@ function renderCards() {
         <button class="convert-btn" onclick="event.stopPropagation(); toggleConvert('${l.id}')">→ Convert to Project</button>
         <div class="convert-pick" id="cp-${l.id}" style="display:none">
           <span class="cp-label">Convert as:</span>
-          <button class="cp-btn cp-sold"  onclick="event.stopPropagation(); convertLead('${l.id}','solds')">Sold</button>
-          <button class="cp-btn cp-model" onclick="event.stopPropagation(); convertLead('${l.id}','model')">Model</button>
+          <button class="cp-btn cp-sold"  onclick="event.stopPropagation(); convertLead('${l.id}','sold')">Sold</button>
+          <button class="cp-btn cp-model" onclick="event.stopPropagation(); convertLead('${l.id}','spec')">Spec</button>
         </div>
       </div>`}
     </div>`;
@@ -578,23 +578,25 @@ async function archiveLead() {
 }
 
 // ── CONVERT LEAD → PROJECT ──
-// Maps a lead row into the projects table (stage = solds | model — chosen on
-// the card), flags it so the meeting page can auto-detect the new start, then
-// marks the lead Closed Won + archived. Blocks if no job number; warns on
-// duplicate job number.
+// Maps a lead row into the projects table, flags it so the meeting page can
+// auto-detect the new start, then marks the lead Closed - Won + archived.
+// Blocks if no job number; warns on duplicate job number.
+// v3: a converted lead has not broken ground, so it lands in Pre-Construction
+// (stage 'precon') with precon_type 'sold' or 'spec' — chosen on the card. It
+// moves to Solds / Spec Homes in the tracker when construction starts.
 
-// Reveal the Sold/Model picker on a card (collapses any other open picker).
+// Reveal the Sold/Spec picker on a card (collapses any other open picker).
 function toggleConvert(id) {
   document.querySelectorAll('.convert-pick').forEach(p => {
     p.style.display = (p.id === `cp-${id}` && p.style.display === 'none') ? 'flex' : 'none';
   });
 }
 
-async function convertLead(id, stage) {
-  if (stage !== 'solds' && stage !== 'model') { toast('Pick Sold or Model','#ef4444'); return; }
+async function convertLead(id, kind) {
+  if (kind !== 'sold' && kind !== 'spec') { toast('Pick Sold or Spec','#ef4444'); return; }
   const l = leads.find(x => x.id === id);
   if (!l) { toast('Lead not found','#ef4444'); return; }
-  const stageLabel = stage === 'model' ? 'Model' : 'Sold';
+  const stageLabel = kind === 'spec' ? 'Pre-Construction (Spec)' : 'Pre-Construction (Sold)';
 
   // 1) require a job number
   let job = (l.job_number || '').trim();
@@ -636,7 +638,8 @@ async function convertLead(id, stage) {
   const addr  = l.tentative_address || l.other_location || l.neighborhood || '';
   const proj = {
     job_number:   job,
-    stage:        stage,
+    stage:        'precon',
+    precon_type:  kind,
     address:      addr,
     buyer_realtor: buyer,
     phase_note:   'Pre-Construction',
@@ -665,7 +668,9 @@ async function convertLead(id, stage) {
   }
 
   // 5) close + archive the lead (write job # back if we prompted for one)
-  const leadPatch = { status: 'Closed Won', archived: true };
+  // 'Closed - Won' is the spelling in VBH.LEADS.STATUSES and on every won lead;
+  // this used to write 'Closed Won', which no status pill or filter matched.
+  const leadPatch = { status: 'Closed - Won', archived: true };
   if (!l.job_number) leadPatch.job_number = job;
   try {
     const { error: updErr } = await sb.from('leads').update(leadPatch).eq('id', id);

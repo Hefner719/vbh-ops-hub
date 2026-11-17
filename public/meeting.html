@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 · meeting-v12 -->
+<!-- build:shell-v1 · meeting-v13 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -846,7 +846,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 }
 </style>
 </head>
-<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v9">
+<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v13">
 
 
 <!-- ══════════ APP ══════════ -->
@@ -1271,7 +1271,7 @@ const DRAFT_KEY   = 'vbh_meeting_draft';
 const EDITOR_KEY  = 'vbh_editor_name';
 const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
 const STATE_VERSION = 3;
-const BUILD = 'meeting-v12';
+const BUILD = 'meeting-v13';
 
 /* ─────────────────────────────────────────────────────────────────────
    ③ SMALL UTILITIES
@@ -1753,6 +1753,16 @@ function statusOptions(current) {
     `<option value="${escHtml(s)}"${String(current||'').toLowerCase() === s.toLowerCase() ? ' selected' : ''}>${escHtml(s)}</option>`
   ).join('');
 }
+/* v13: active PMs come from VBH.PROJECT_MANAGERS (vbh-config.js). A name no
+   longer on the roster still shows on the card it was set on. */
+function pmOptions(current) {
+  const roster = (typeof VBH !== 'undefined' && VBH.PROJECT_MANAGERS) || [];   // VBH is a top-level const, not a window property
+  const list = roster.slice();
+  if (current && !list.includes(current)) list.push(current);
+  return '<option value="">— PM —</option>' + list.map(n =>
+    `<option value="${escHtml(n)}"${n === current ? ' selected' : ''}>${escHtml(n)}${roster.includes(n) ? '' : ' (former)'}</option>`
+  ).join('');
+}
 function trackerLinkOptions(current) {
   const inList = current && trackerProjects.some(p => p.id === current);
   const orphan = (current && !inList) ? `<option value="${escHtml(current)}" selected>↳ linked (project loading…)</option>` : '';
@@ -1796,12 +1806,13 @@ function jobCardHTML(j) {
     </div>
 
     <div class="tracker-sync">
-      <div class="tracker-sync-label">📊 Tracker Link <span class="tracker-hint">(writes to the projects tracker on Save)</span></div>
+      <div class="tracker-sync-label">📊 Tracker Link <span class="tracker-hint">${j.projectId ? '(kept in step with the Projects tracker both ways)' : '(link a project to sync with the tracker)'}</span></div>
       <select class="tracker-link" data-mid="${j.id}" data-field="projectId" onchange="onTrackerLinkChange(this)">${trackerLinkOptions(j.projectId)}</select>
       <div class="tracker-fields">
         <div><label>Phase</label><select class="tracker-phase" data-mid="${j.id}" data-field="phase">${phaseOptions(j.phase)}</select></div>
         <div><label>% Complete</label><input class="tracker-pct" type="number" min="0" max="100" placeholder="0–100" data-mid="${j.id}" data-field="pct" value="${escHtml(j.pct)}"/></div>
         <div><label>Status</label><select class="tracker-status" data-mid="${j.id}" data-field="status">${statusOptions(j.status)}</select></div>
+        <div><label>PM</label><select class="tracker-pm" data-mid="${j.id}" data-field="pm">${pmOptions(j.pm)}</select></div>
       </div>
       ${p ? `<div class="tracker-proj-info">
         <span title="Address & client come from the Projects tracker — edit them there.">${escHtml([p.address,p.buyer_realtor].filter(Boolean).join(' · ') || p.job_number || '')}</span>
@@ -2056,6 +2067,11 @@ document.addEventListener('change', e => {
   if (field === 'projectId') return;             // handled by onTrackerLinkChange
   writeField(mid, field, el.value);
   markDirty();
+  /* v13: a linked card's tracker fields go to the Projects tracker right away. */
+  if (TRACKER_FIELD_BY_CARD.has(field)) {
+    const j = (S.jobs||[]).find(x => x.id === mid);
+    if (j && j.projectId) pushTrackerField(j, field);
+  }
   /* Header chips (phase / status / %) and due-date tone need a repaint. */
   if (['phase','status','pct'].includes(field)) renderJobs();
   if (field === 'owner' || field === 'due') { renderActions(); renderWrapSummary(); }
@@ -2142,7 +2158,7 @@ function deleteGoal(jid, gid) {
 function addJobCard(seed) {
   const j = Object.assign({
     id: uid('j'), projectId:null, name:'', date:'', goals:[{ id:uid('g'), text:'', done:false }],
-    blockers:'', next:'', notes:'', phase:'', pct:'', status:'', sched:'', collapsed:false
+    blockers:'', next:'', notes:'', phase:'', pct:'', status:'', sched:'', pm:'', collapsed:false
   }, seed || {});
   (S.jobs = S.jobs || []).push(j);
   renderJobs(); renderNav(); markDirty();
@@ -2314,10 +2330,21 @@ function addActionForJob(jid) {
 function setActionFilter(f) { actionFilter = f; renderActions(); }
 /* ─────────────────────────────────────────────────────────────────────
    ⑧ TRACKER SYNC (Supabase)
-   On Save, linked job cards write two places:
-     projects        — current truth (phase/status/%/schedule; empty = null)
+   v13 · two-way, live. A linked card and its tracker project are the same
+   job, so the tracker fields stay in step whichever page they are edited on:
+
+     card → tracker  as each field changes (pushTrackerField): phase, %,
+                     status, PM. A deliberate blank clears the tracker value.
+     tracker → card  every 30s while the agenda is open (liveTrackerRefresh):
+                     any field that changed in the tracker since this tab last
+                     looked is copied onto the card, as are renames and closes.
+
+   Neither direction is gated on Save any more. Save still writes the weekly
+   history row too:
+     projects        — current truth (phase/status/%/schedule/PM)
      project_updates — weekly history, one row per (project, meeting date)
    projects.notes is standing context only and is never written from here.
+   An archived (read-only) meeting never writes and is never refreshed.
    ───────────────────────────────────────────────────────────────────── */
 
 let trackerProjects = [];
@@ -2332,20 +2359,110 @@ function vbhProjectLabel(p) {
     .map(x => (x == null ? '' : String(x).trim())).filter(Boolean).join(' - ');
 }
 
+/* projects.stage values as people say them (the picker shows these). */
+const STAGE_LABELS = { solds:'sold', escrow:'escrow', model:'spec', precon:'pre-con', dev_maint:'dev maint', closed:'closed' };
+
+const TRACKER_COLS ='id, job_number, address, buyer_realtor, stage, status, phase_note, pct_complete, schedule_days, schedule_updated_at, start_date, project_manager';
+function trackerRow(p) {
+  return {
+    id:p.id, job_number:p.job_number||'', stage:p.stage||'', address:p.address||'',
+    buyer_realtor:p.buyer_realtor||'', status:p.status||'', phase_note:p.phase_note||'',
+    pct_complete:p.pct_complete, schedule_days:p.schedule_days,
+    schedule_updated_at:p.schedule_updated_at, start_date:p.start_date||null,
+    project_manager:p.project_manager||'', label:vbhProjectLabel(p)
+  };
+}
+async function fetchTrackerProjects() {
+  const { data, error } = await trackerSB.from('projects').select(TRACKER_COLS)
+    .order('job_number', { ascending: true });
+  if (error) throw error;
+  return (data||[]).map(trackerRow);
+}
+
 async function loadTrackerProjects() {
   if (!trackerSB) return;
+  try { trackerProjects = await fetchTrackerProjects(); }
+  catch (e) { console.warn('Tracker load failed:', e.message || e); }
+}
+
+/* The card fields that mirror a tracker column, and how each converts.
+   One table drives the push, the pull and the live refresh, so a field can
+   never sync in one direction and not the other. */
+const TRACKER_FIELDS = [
+  { card:'phase',  col:'phase_note',      toCard:v => v || '',                                         toCol:v => v || null },
+  { card:'status', col:'status',          toCard:v => v || '',                                         toCol:v => v || null },
+  { card:'pct',    col:'pct_complete',    toCard:v => v != null ? String(Math.round(v * 100)) : '',    toCol:v => { const n = parseFloat(v); return isNaN(n) ? null : Math.max(0, Math.min(100, n)) / 100; } },
+  { card:'sched',  col:'schedule_days',   toCard:v => v != null ? String(v) : '',                      toCol:v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; } },
+  { card:'pm',     col:'project_manager', toCard:v => v || '',                                         toCol:v => v || null }
+];
+const TRACKER_FIELD_BY_CARD = new Map(TRACKER_FIELDS.map(f => [f.card, f]));
+
+/* Card → tracker, one field, as soon as it changes. Not for archived meetings,
+   and not for a past week: an old agenda must never overwrite current truth. */
+async function pushTrackerField(j, cardField) {
+  const f = TRACKER_FIELD_BY_CARD.get(cardField);
+  if (!f || !trackerSB || readOnly || !j || !j.projectId) return;
+  const iso = isoDayKey(S.meetingDate) || S.dateKey || todayISO();
+  if (iso < todayISO()) return;
+  const value = f.toCol(String(j[cardField] == null ? '' : j[cardField]).trim());
+  const patch = { [f.col]: value, updated_by: 'Weekly Meeting · ' + iso };
+  if (f.col === 'schedule_days') {
+    patch.schedule_updated_at = value == null ? null : new Date().toISOString();
+    patch.schedule_updated_by = value == null ? null : editorLabel();
+  }
   try {
-    const { data, error } = await trackerSB.from('projects')
-      .select('id, job_number, address, buyer_realtor, stage, status, phase_note, pct_complete, schedule_days, schedule_updated_at, start_date')
-      .order('job_number', { ascending: true });
-    if (error) { console.warn('Tracker load failed:', error.message); return; }
-    trackerProjects = (data||[]).map(p => ({
-      id:p.id, job_number:p.job_number||'', stage:p.stage||'', address:p.address||'',
-      buyer_realtor:p.buyer_realtor||'', status:p.status||'', phase_note:p.phase_note||'',
-      pct_complete:p.pct_complete, schedule_days:p.schedule_days,
-      schedule_updated_at:p.schedule_updated_at, start_date:p.start_date||null, label:vbhProjectLabel(p)
-    }));
-  } catch (e) { console.warn('Tracker load error:', e); }
+    const { error } = await trackerSB.from('projects').update(patch).eq('id', j.projectId);
+    if (error) throw error;
+    /* Record it in the cache, or the next live refresh would read our own
+       write as a tracker-side change and copy it back onto the card. */
+    const cached = trackerProjects.find(tp => tp.id === j.projectId);
+    if (cached) Object.assign(cached, patch);
+  } catch (e) {
+    console.warn('[tracker] field push failed:', e.message || e);
+    toast('⚠ Couldn’t update the Projects tracker — it will be retried on Save', 4000);
+  }
+}
+
+/* Tracker → card, live. Runs every 30s beside the 8s meeting pull. A field is
+   copied only if the TRACKER changed it since this tab last looked; a value
+   the meeting set itself has already been pushed and cached, so it is never
+   bounced back. Also picks up renames (job #, address, client) and drops a
+   card whose project has been closed. */
+const TRACKER_REFRESH_MS = 30000;
+let trackerRefreshTimer = null, trackerRefreshBusy = false;
+async function liveTrackerRefresh() {
+  if (readOnly || !trackerSB || document.hidden || trackerRefreshBusy) return;
+  trackerRefreshBusy = true;
+  try {
+    const fresh = await fetchTrackerProjects();
+    const old = new Map(trackerProjects.map(p => [p.id, p]));
+    trackerProjects = fresh;
+    let changed = 0;
+    (S.jobs || []).forEach(j => {
+      const p = j.projectId && fresh.find(tp => tp.id === j.projectId);
+      const was = p && old.get(p.id);
+      if (!p || !was) return;
+      TRACKER_FIELDS.forEach(f => {
+        if (same(p[f.col], was[f.col])) return;          // tracker didn't change it
+        const v = f.toCard(p[f.col]);
+        if (!same(j[f.card], v)) { j[f.card] = v; changed++; }
+      });
+      if (p.label && p.label !== was.label && String(j.name || '').trim() !== p.label) { j.name = p.label; changed++; }
+    });
+    changed += removeClosedProjectJobs();
+    if (changed) {
+      console.log('[tracker] live refresh: ' + changed + ' change(s) from the Projects tracker');
+      markDirty();
+      renderIfIdle();
+    }
+  } catch (e) {
+    /* A failed poll just waits for the next one. */
+  } finally { trackerRefreshBusy = false; }
+}
+function startTrackerRefresh() {
+  if (trackerRefreshTimer) return;
+  trackerRefreshTimer = setInterval(liveTrackerRefresh, TRACKER_REFRESH_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) liveTrackerRefresh(); });
 }
 
 function onTrackerLinkChange(sel) {
@@ -2377,10 +2494,7 @@ function pullTrackerValues(j, overwrite) {
     if (!overwrite && String(j[field]||'') !== '') return;
     if (String(j[field]||'') !== v) { j[field] = v; changed = true; }
   };
-  set('phase',  p.phase_note || '');
-  set('status', p.status || '');
-  set('pct',    p.pct_complete != null ? Math.round(p.pct_complete * 100) : '');
-  set('sched',  p.schedule_days != null ? p.schedule_days : '');
+  TRACKER_FIELDS.forEach(f => set(f.card, f.toCard(p[f.col])));
   return changed;
 }
 
@@ -2429,6 +2543,8 @@ async function pushCardsToTracker() {
     if (phase  !== '') patch.phase_note   = phase;
     if (status !== '') patch.status       = status;
     if (pct    !== null) patch.pct_complete = pct;
+    const pm = String(j.pm||'').trim();
+    if (pm     !== '') patch.project_manager = pm;
     const cached = trackerProjects.find(tp => tp.id === j.projectId);
     const currentSched = (cached && cached.schedule_days != null) ? Number(cached.schedule_days) : null;
     if (sched !== currentSched) {
@@ -2453,7 +2569,9 @@ async function pushCardsToTracker() {
       const { error: uErr } = await trackerSB.from('project_updates').upsert(updateRow, { onConflict:'project_id,meeting_date' });
       if (uErr) throw uErr;
       if (cached) {
-        cached.phase_note = patch.phase_note; cached.status = patch.status; cached.pct_complete = patch.pct_complete;
+        /* Only what was actually written: a blank card field is skipped by the
+           push above, so the cache must keep the tracker's value for it too. */
+        ['phase_note','status','pct_complete','project_manager'].forEach(k => { if (k in patch) cached[k] = patch[k]; });
         if ('schedule_days' in patch) { cached.schedule_days = patch.schedule_days; cached.schedule_updated_at = patch.schedule_updated_at; }
       }
       pushed++;
@@ -2501,13 +2619,7 @@ async function detectNewStarts() {
 }
 
 function cacheProject(p) {
-  if (!trackerProjects.find(tp => tp.id === p.id)) {
-    trackerProjects.push({
-      id:p.id, job_number:p.job_number||'', address:p.address||'', buyer_realtor:p.buyer_realtor||'',
-      stage:p.stage||'', status:p.status||'', phase_note:p.phase_note||'',
-      pct_complete:p.pct_complete, schedule_days:p.schedule_days, label:vbhProjectLabel(p)
-    });
-  }
+  if (!trackerProjects.find(tp => tp.id === p.id)) trackerProjects.push(trackerRow(p));
 }
 
 function addStartToAgenda(projectId) {
@@ -2596,7 +2708,7 @@ function renderTrackerPicker(keepFocus) {
       return `<div class="tp-row${on ? ' on-agenda' : ''}">
         <div class="tp-info">
           <b>${escHtml(p.job_number || '—')}</b>${p.address ? ` <span>${escHtml(p.address)}</span>` : ''}${p.buyer_realtor ? ` · ${escHtml(p.buyer_realtor)}` : ''}
-          ${stage ? `<span class="tp-stage${stage === 'closed' ? ' closed' : ''}">${escHtml(stage)}</span>` : ''}
+          ${stage ? `<span class="tp-stage${stage === 'closed' ? ' closed' : ''}">${escHtml(STAGE_LABELS[stage] || stage)}</span>` : ''}
         </div>
         <button class="tp-add${on ? ' remove' : ''}" onclick="${on ? `removeTrackerCardFromAgenda('${p.id}')` : `addTrackerCardToAgenda('${p.id}')`}">${on ? '✓ On agenda' : '+ Add'}</button>
       </div>`;
@@ -3289,7 +3401,7 @@ function renderBtCadence() {
    rendered. Drop them from here and an old row could be silently lost. */
 const LIST_KEYS   = ['action','warranty','events','wins','misc','startManual','pipelineManual'];
 const SCALAR_KEYS = ['meetingDate','nextMeeting','dateKey'];
-const JOB_FIELDS  = ['projectId','name','date','blockers','next','notes','phase','pct','status','sched','collapsed'];
+const JOB_FIELDS  = ['projectId','name','date','blockers','next','notes','phase','pct','status','sched','pm','collapsed'];
 const GOAL_FIELDS = ['text','done'];
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -4679,6 +4791,8 @@ window.addEventListener('load', async () => {
 
   /* v10: keep every open copy of the agenda converged while the meeting runs. */
   if (!readOnly && trackerSB) startLivePull();
+  /* v13: and keep the cards converged with the Projects tracker. */
+  if (!readOnly && trackerSB) startTrackerRefresh();
 
   if (from === 'rolled') {
     toast(`⟳ Staged ${String(S.meetingDate||'').split('|')[0].trim()} from ${rolledFrom}` +

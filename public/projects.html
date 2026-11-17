@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v3 -->
+<!-- build:shell-v3 · projects-v4 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -19,10 +19,14 @@
 <style>
 *, *::before, *::after { margin: 0; padding: 0; }
 
+/* v4: Pre-Construction gets its own colour, distinct from the four the shell
+   already gives solds / escrow / spec / dev maint. */
+:root { --precon: #2f7f8f; --precon-dk: #1f5d69; }
+
 
 /* ============ KPI STRIP ============ */
 .kpi-strip {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px;
   padding: 18px 28px 4px;
 }
 .kpi {
@@ -39,6 +43,7 @@
 .kpi.k-escrow::before   { background: var(--gold); }
 .kpi.k-model::before    { background: var(--purple); }
 .kpi.k-maint::before    { background: var(--steel); }
+.kpi.k-precon::before   { background: var(--precon); }
 .kpi .lbl {
   font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase;
   color: var(--muted); font-weight: 700;
@@ -138,6 +143,7 @@
 .chip[data-stage="model"] .dot      { background: var(--purple); }
 .chip[data-stage="dev_maint"] .dot  { background: var(--steel); }
 .chip[data-stage="closed"] .dot      { background: var(--muted); }
+.chip[data-stage="precon"] .dot     { background: var(--precon); }
 .chip-count { opacity: .75; margin-left: 2px; font-weight: 400; }
 .chip.active .chip-count { opacity: .9; }
 
@@ -169,6 +175,7 @@
 .board-col[data-stage="model"]::before     { background: linear-gradient(90deg, var(--purple) 0%, var(--purple-dk) 100%); }
 .board-col[data-stage="dev_maint"]::before { background: linear-gradient(90deg, var(--steel) 0%, var(--navy) 100%); }
 .board-col[data-stage="closed"]::before    { background: linear-gradient(90deg, var(--muted) 0%, #374151 100%); }
+.board-col[data-stage="precon"]::before    { background: linear-gradient(90deg, var(--precon) 0%, var(--precon-dk) 100%); }
 
 .board-col h2 {
   display: flex; align-items: center; justify-content: space-between;
@@ -189,6 +196,7 @@
 .board-col[data-stage="model"]     .col-icon { background: var(--purple); }
 .board-col[data-stage="dev_maint"] .col-icon { background: var(--steel); }
 .board-col[data-stage="closed"] .col-icon { background: var(--muted); }
+.board-col[data-stage="precon"] .col-icon { background: var(--precon); }
 .board-col h2 .count {
   background: var(--navy); color: #fff;
   font-family: 'Lato', sans-serif;
@@ -217,6 +225,7 @@
 .card[data-stage="model"]     { border-left-color: var(--purple); }
 .card[data-stage="dev_maint"] { border-left-color: var(--steel); }
 .card[data-stage="closed"]    { border-left-color: var(--muted); }
+.card[data-stage="precon"]    { border-left-color: var(--precon); }
 
 .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
 .card-job {
@@ -413,6 +422,30 @@ table.proj .stage-row.escrow td    { border-top-color: var(--gold); }
 table.proj .stage-row.model td     { border-top-color: var(--purple); }
 table.proj .stage-row.dev_maint td { border-top-color: var(--steel); }
 table.proj .stage-row.closed td    { border-top-color: var(--muted); }
+table.proj .stage-row.precon td    { border-top-color: var(--precon); }
+table.proj .stage-row .stage-n {
+  font-family: Lato, sans-serif; font-size: 12px; color: var(--muted);
+  font-weight: 400; letter-spacing: .05em;
+}
+
+/* v4: what a pre-construction job will become — sold, spec, or still in design */
+.pc-tag {
+  display: inline-block; margin-left: 6px; vertical-align: 1px;
+  padding: 1px 7px; border-radius: 10px;
+  font-size: 9.5px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.pc-tag.sold   { background: #d8f0e1; color: var(--green-dk); border-color: #b6e0c6; }
+.pc-tag.spec   { background: #ece6fb; color: var(--purple-dk); border-color: #d7ccf5; }
+.pc-tag.design { background: #fdf3d8; color: #8a6a12; border-color: #f0dd9e; }
+.pc-tag.unset  { background: #f0f1f3; color: #8a94a6; border-color: #e1e4ea; }
+
+/* v4: project manager */
+.active-tbl .pm-cell { min-width: 150px; }
+.inline-in.pm-sel { cursor: pointer; padding-right: 2px; }
+.inline-in.pm-sel.unset { color: #9aa3b4; }
+.card-pm { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.card-pm b { color: var(--navy); font-weight: 700; }
 
 table.proj .editable { cursor: text; }
 table.proj .editable:hover { background: #fffceb; }
@@ -571,7 +604,7 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
 
 </style>
 </head>
-<body data-vbh-page="projects" data-vbh-build="projects-v3">
+<body data-vbh-page="projects" data-vbh-build="projects-v4">
 
 <div data-vbh-header></div>
 
@@ -588,9 +621,14 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
     <div class="sub" id="kpi-escrow-sub">Closing soon</div>
   </div>
   <div class="kpi k-model">
-    <div class="lbl">Models</div>
+    <div class="lbl">Spec Homes</div>
     <div class="val" id="kpi-model">0</div>
-    <div class="sub" id="kpi-model-sub">Show homes</div>
+    <div class="sub" id="kpi-model-sub">Models &amp; specs building</div>
+  </div>
+  <div class="kpi k-precon">
+    <div class="lbl">Pre-Construction</div>
+    <div class="val" id="kpi-precon">0</div>
+    <div class="sub" id="kpi-precon-sub">Not started yet</div>
   </div>
   <div class="kpi k-maint">
     <div class="lbl">Avg. Completion</div>
@@ -618,7 +656,8 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
   <span class="chip active" data-stage="all">All <span class="chip-count" id="cnt-all">0</span></span>
   <span class="chip" data-stage="solds"><span class="dot"></span>Solds <span class="chip-count" id="cnt-solds">0</span></span>
   <span class="chip" data-stage="escrow"><span class="dot"></span>Escrow <span class="chip-count" id="cnt-escrow">0</span></span>
-  <span class="chip" data-stage="model"><span class="dot"></span>Models <span class="chip-count" id="cnt-model">0</span></span>
+  <span class="chip" data-stage="model"><span class="dot"></span>Spec Homes <span class="chip-count" id="cnt-model">0</span></span>
+  <span class="chip" data-stage="precon"><span class="dot"></span>Pre-Construction <span class="chip-count" id="cnt-precon">0</span></span>
   <span class="chip" data-stage="dev_maint"><span class="dot"></span>Dev Maint <span class="chip-count" id="cnt-dev_maint">0</span></span>
   <span class="chip" data-stage="closed"><span class="dot"></span>Closed Homes <span class="chip-count" id="cnt-closed">0</span></span>
 </div>
@@ -631,6 +670,7 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
         <th data-asort="job_number">Job #</th>
         <th data-asort="address">Address</th>
         <th data-asort="buyer_realtor">Client</th>
+        <th data-asort="project_manager">PM</th>
         <th data-asort="phase_note">Phase</th>
         <th data-asort="start_date">Start</th>
         <th data-asort="closing_date">Closing</th>
@@ -659,6 +699,7 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
         <th data-sort="job_number">Job #</th>
         <th data-sort="address">Address</th>
         <th data-sort="buyer_realtor">Buyer / Realtor</th>
+        <th data-sort="project_manager">PM</th>
         <th data-sort="phase_note">Phase</th>
         <th data-sort="pct_complete" class="num">%</th>
         <th data-sort="status">Status</th>
@@ -694,13 +735,23 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
         <div class="field">
           <label>Stage</label>
           <select id="f_stage">
+            <option value="precon">Pre-Construction</option>
             <option value="solds">Solds</option>
             <option value="escrow">Escrow</option>
-            <option value="model">Models</option>
+            <option value="model">Spec Homes</option>
             <option value="dev_maint">Dev Maint</option>
             <option value="closed">Closed Homes</option>
           </select>
         </div>
+      </div>
+      <div class="field" id="grp_precon">
+        <label>Pre-Construction type <span class="hint">— what it becomes when it starts</span></label>
+        <select id="f_precon_type">
+          <option value="">— not set —</option>
+          <option value="sold">Sold — under contract</option>
+          <option value="spec">Spec — building to sell</option>
+          <option value="design">Design — no contract yet</option>
+        </select>
       </div>
       <div class="field">
         <label>Address</label>
@@ -709,6 +760,10 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
       <div class="field">
         <label id="lbl_buyer">Buyer / Realtor</label>
         <input id="f_buyer_realtor"/>
+      </div>
+      <div class="field">
+        <label>Project Manager</label>
+        <select id="f_project_manager"></select>
       </div>
     </div>
 
@@ -862,17 +917,44 @@ table.proj .editable[contenteditable="true"] { background: #fffceb; outline: 1px
 const SUPABASE_URL  = VBH.SUPABASE_URL;
 const SUPABASE_ANON = VBH.SUPABASE_KEY;
 
+// Order is display order: the All view groups rows under these headers, so
+// jobs under construction (sold, then spec) come first and jobs that have not
+// broken ground follow. The `model` key is unchanged in the data; it reads
+// "Spec Homes" on screen.
 const STAGES = [
-  { key: 'solds',     label: 'Solds',           icon: 'S' },
-  { key: 'escrow',    label: 'Escrow',          icon: 'E' },
-  { key: 'model',     label: 'Models',          icon: 'M' },
-  { key: 'dev_maint', label: 'Dev Maint Jobs',  icon: 'D' },
-  { key: 'closed',    label: 'Closed Homes',    icon: 'C' }
+  { key: 'solds',     label: 'Solds',             icon: 'S' },
+  { key: 'escrow',    label: 'Escrow',            icon: 'E' },
+  { key: 'model',     label: 'Spec Homes',        icon: 'M' },
+  { key: 'precon',    label: 'Pre-Construction',  icon: 'P' },
+  { key: 'dev_maint', label: 'Dev Maint Jobs',    icon: 'D' },
+  { key: 'closed',    label: 'Closed Homes',      icon: 'C' }
 ];
 
 // Active stages are the ones shown on the default board and counted in KPIs.
 // Closed is a terminal, archived stage — reachable only via its own filter.
-const ACTIVE_STAGES = ['solds', 'escrow', 'model', 'dev_maint'];
+const ACTIVE_STAGES = ['solds', 'escrow', 'model', 'precon', 'dev_maint'];
+
+// What a pre-construction job will become (projects.precon_type, migration 028).
+const PRECON_TYPES = { sold: 'Sold', spec: 'Spec', design: 'Design' };
+
+function preconTag(p) {
+  if (p.stage !== 'precon') return '';
+  const t = PRECON_TYPES[p.precon_type];
+  return t ? `<span class="pc-tag ${p.precon_type}">${t}</span>`
+           : '<span class="pc-tag unset" title="Set sold / spec / design in the edit panel">Type?</span>';
+}
+
+// The PM dropdown lists VBH.PROJECT_MANAGERS (vbh-config.js). A name that is no
+// longer on the roster still shows on the jobs it was assigned to, so taking
+// someone off the list never silently blanks their jobs.
+function pmOptions(current) {
+  const roster = (typeof VBH !== 'undefined' && VBH.PROJECT_MANAGERS) || [];   // VBH is a top-level const, not a window property
+  const cur = current || '';
+  const list = roster.slice();
+  if (cur && !list.includes(cur)) list.push(cur);
+  return '<option value="">— PM —</option>' +
+    list.map(n => `<option value="${esc(n)}"${n === cur ? ' selected' : ''}>${esc(n)}${roster.includes(n) ? '' : ' (former)'}</option>`).join('');
+}
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
@@ -893,6 +975,34 @@ async function init() {
   const q = new URLSearchParams(location.search).get('q');
   if (q) { state.search = q.toLowerCase(); document.getElementById('search').value = q; }
   render();
+  startLiveRefresh();
+}
+
+/* v4: the production meeting writes phase, % complete, status and PM straight
+   into `projects` as they change. Re-read every 30s, and on coming back to the
+   tab, so this page shows the meeting's edits without a reload. Skipped while
+   the edit panel is open or a field here has focus, so a refresh never throws
+   away something being typed. */
+const LIVE_REFRESH_MS = 30000;
+let liveRefreshBusy = false;
+function busyEditingHere() {
+  if (state.editing !== null || document.getElementById('panel').classList.contains('open')) return true;
+  const el = document.activeElement;
+  if (!el || el === document.body) return false;
+  return el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && el.id !== 'search';
+}
+async function liveRefresh() {
+  if (document.hidden || liveRefreshBusy || busyEditingHere()) return;
+  liveRefreshBusy = true;
+  try {
+    const before = JSON.stringify(state.projects);
+    await loadProjects();
+    if (JSON.stringify(state.projects) !== before && !busyEditingHere()) render();
+  } finally { liveRefreshBusy = false; }
+}
+function startLiveRefresh() {
+  setInterval(liveRefresh, LIVE_REFRESH_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) liveRefresh(); });
 }
 
 async function loadProjects() {
@@ -972,6 +1082,7 @@ function visibleProjects() {
       (p.job_number || '').toLowerCase().includes(q) ||
       (p.address || '').toLowerCase().includes(q) ||
       (p.buyer_realtor || '').toLowerCase().includes(q) ||
+      (p.project_manager || '').toLowerCase().includes(q) ||
       (p.phase_note || '').toLowerCase().includes(q) ||
       (p.notes || '').toLowerCase().includes(q) ||
       (p.last_note || '').toLowerCase().includes(q) ||
@@ -986,6 +1097,9 @@ function updateKPIs() {
   const solds  = p.filter(x => x.stage === 'solds');
   const escrow = p.filter(x => x.stage === 'escrow');
   const model  = p.filter(x => x.stage === 'model');
+  const precon = p.filter(x => x.stage === 'precon');
+  // Average completion is across jobs under construction only. Pre-con jobs
+  // sit at 0% by definition and would just drag the number down.
   const active = [...solds, ...escrow, ...model];
   const pcts   = active.map(x => x.pct_complete).filter(v => v != null);
   const avg    = pcts.length ? Math.round(pcts.reduce((a,b)=>a+b,0) / pcts.length * 100) : 0;
@@ -993,10 +1107,12 @@ function updateKPIs() {
   document.getElementById('kpi-solds').textContent  = solds.length;
   document.getElementById('kpi-escrow').textContent = escrow.length;
   document.getElementById('kpi-model').textContent  = model.length;
+  document.getElementById('kpi-precon').textContent = precon.length;
   document.getElementById('kpi-avgpct').textContent = avg + '%';
 
   // chip counts
-  document.getElementById('cnt-all').textContent       = active.length;
+  document.getElementById('cnt-all').textContent       = active.length + precon.length;
+  document.getElementById('cnt-precon').textContent    = precon.length;
   document.getElementById('cnt-solds').textContent     = solds.length;
   document.getElementById('cnt-escrow').textContent    = escrow.length;
   document.getElementById('cnt-model').textContent     = model.length;
@@ -1067,12 +1183,14 @@ function renderActive() {
   const list = activeSorted();
 
   if (!list.length) {
-    body.innerHTML = '<tr><td colspan="10" style="padding:34px;text-align:center;color:#9aa3b4;">'
+    body.innerHTML = '<tr><td colspan="11" style="padding:34px;text-align:center;color:#9aa3b4;">'
                    + 'No projects match this filter.</td></tr>';
     return;
   }
 
-  body.innerHTML = list.map(p => {
+  // v4: grouped under a header per stage (Solds, Spec Homes, Pre-Construction…),
+  // the way the Table view already was. Sorting still applies within each group.
+  const rowHtml = p => {
     const pct   = p.pct_complete == null ? null : Math.round(p.pct_complete * 100);
     const sched = schedInfo(p.schedule_days);
     const stale = isStale(p.schedule_updated_at) && p.schedule_days != null;
@@ -1093,9 +1211,13 @@ function renderActive() {
 
     return `
       <tr data-id="${esc(p.id)}">
-        <td class="job-cell">${esc(p.job_number)}</td>
+        <td class="job-cell">${esc(p.job_number)}${preconTag(p)}</td>
         <td class="addr-cell">${esc(p.address) || '<span class="note-empty">No address</span>'}</td>
         <td class="client-cell">${esc(p.buyer_realtor) || '—'}</td>
+        <td class="pm-cell">
+          <select class="inline-in pm-sel${p.project_manager ? '' : ' unset'}" data-field="project_manager"
+                  title="Project manager — saves as soon as you pick">${pmOptions(p.project_manager)}</select>
+        </td>
         <td class="phase-cell">
           <input class="inline-in" data-field="phase_note" value="${esc(p.phase_note)}" placeholder="Phase…"/>
         </td>
@@ -1118,11 +1240,27 @@ function renderActive() {
         <td class="note-cell">${noteHtml}</td>
         <td><button class="btn btn-sm" data-open="${esc(p.id)}">Open</button></td>
       </tr>`;
+  };
+
+  body.innerHTML = STAGES.map(s => {
+    const rows = list.filter(p => p.stage === s.key);
+    if (!rows.length) return '';
+    return `<tr class="stage-row ${s.key}"><td colspan="11">${s.label} <span class="stage-n">— ${rows.length}</span></td></tr>`
+         + rows.map(rowHtml).join('');
   }).join('');
 
-  // Inline save on blur. Enter commits, Escape reverts.
+  // Inline save on blur. Enter commits, Escape reverts. The PM dropdown saves
+  // on change — there is nothing to type, so waiting for blur would only make
+  // a pick look unsaved.
   body.querySelectorAll('.inline-in').forEach(inp => {
     inp.dataset.orig = inp.value;
+    if (inp.tagName === 'SELECT') {
+      inp.onchange = () => {
+        inp.classList.toggle('unset', !inp.value);
+        commitInline(inp);
+      };
+      return;
+    }
     inp.onkeydown = e => {
       if (e.key === 'Enter')  { e.preventDefault(); inp.blur(); }
       if (e.key === 'Escape') { inp.value = inp.dataset.orig; inp.blur(); }
@@ -1255,9 +1393,10 @@ function cardEl(p) {
   el.innerHTML = `
     <div class="card-head">
       <div style="min-width:0;flex:1;">
-        <div class="card-job">${esc(p.job_number || '—')}</div>
+        <div class="card-job">${esc(p.job_number || '—')}${preconTag(p)}</div>
         <div class="card-addr">${esc(p.address || '(no address)')}</div>
         <div class="card-buyer">${esc(p.buyer_realtor || '—')}</div>
+        ${isMaint ? '' : `<div class="card-pm">PM: <b>${esc(p.project_manager || '—')}</b></div>`}
       </div>
       <div class="card-actions">
         <button class="icon-btn" data-action="edit">Edit</button>
@@ -1344,7 +1483,7 @@ function renderTable() {
     if (!rows.length) return;
     const hdr = document.createElement('tr');
     hdr.className = 'stage-row ' + s.key;
-    hdr.innerHTML = `<td colspan="11">${s.label} <span style="font-family:Lato;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:.05em;">— ${rows.length}</span></td>`;
+    hdr.innerHTML = `<td colspan="12">${s.label} <span class="stage-n">— ${rows.length}</span></td>`;
     tbody.appendChild(hdr);
     rows.forEach(p => tbody.appendChild(tableRow(p)));
   });
@@ -1355,9 +1494,10 @@ function tableRow(p) {
   const isMaint = p.stage === 'dev_maint';
   const pct = p.pct_complete != null ? Math.round(p.pct_complete * 100) + '%' : '';
   tr.innerHTML = `
-    <td class="job-cell">${esc(p.job_number || '')}</td>
+    <td class="job-cell">${esc(p.job_number || '')}${preconTag(p)}</td>
     <td>${esc(p.address || '')}</td>
     <td>${esc(p.buyer_realtor || '')}</td>
+    <td>${esc(p.project_manager || '')}</td>
     <td class="editable" data-field="phase_note">${esc(p.phase_note || '')}</td>
     <td class="num pct-cell">${pct}</td>
     <td>${p.status ? `<span class="status-pill">${esc(p.status)}</span>` : ''}</td>
@@ -1390,9 +1530,12 @@ function openPanel(p) {
   document.getElementById('deleteBtn').style.display = p ? 'inline-block' : 'none';
   setVal('f_id',            p ? p.id : '');
   setVal('f_job_number',    p ? p.job_number : '');
-  setVal('f_stage',         p ? p.stage : 'solds');
+  // A new project hasn't broken ground yet, so it starts in Pre-Construction.
+  setVal('f_stage',         p ? p.stage : 'precon');
+  setVal('f_precon_type',   p ? p.precon_type : '');
   setVal('f_address',       p ? p.address : '');
   setVal('f_buyer_realtor', p ? p.buyer_realtor : '');
+  document.getElementById('f_project_manager').innerHTML = pmOptions(p ? p.project_manager : '');
   setVal('f_phase_note',    p ? p.phase_note : '');
   setVal('f_pct_complete',  p && p.pct_complete != null ? Math.round(p.pct_complete * 100) : '');
   setVal('f_status',        p ? p.status : '');
@@ -1425,6 +1568,7 @@ function openPanel(p) {
 
 function updatePanelForStage(stage) {
   const isMaint = stage === 'dev_maint';
+  document.getElementById('grp_precon').style.display = stage === 'precon' ? '' : 'none';
   document.getElementById('lbl_buyer').textContent = isMaint ? 'Subcontractor / Vendor' : 'Buyer / Realtor';
   document.getElementById('div_build').textContent  = isMaint ? 'Job Details' : 'Build Details';
   document.getElementById('grp_sqft').style.display       = isMaint ? 'none' : '';
@@ -1448,8 +1592,11 @@ async function savePanel() {
   const payload = {
     job_number:    val('f_job_number') || null,
     stage:         val('f_stage'),
+    // Kept when a job leaves pre-con, as the record of what it was going to be.
+    precon_type:   val('f_precon_type') || null,
     address:       val('f_address') || null,
     buyer_realtor: val('f_buyer_realtor') || null,
+    project_manager: val('f_project_manager') || null,
     phase_note:    val('f_phase_note') || null,
     pct_complete:  pctRaw === '' ? null : Math.max(0, Math.min(100, parseFloat(pctRaw))) / 100,
     status:        val('f_status') || null,
@@ -1522,7 +1669,16 @@ async function patchProject(id, patch, silent) {
 
 function esc(s) { return s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function num(n) { return n == null ? '' : Number(n).toLocaleString('en-US'); }
-function fmtDate(d) { if (!d) return ''; const dt = new Date(d); if (isNaN(dt)) return d; return dt.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }); }
+// A bare YYYY-MM-DD (a Postgres `date`) is a calendar day, not an instant.
+// new Date('2027-03-01') is UTC midnight, which is the evening of 2/28 in
+// Central time — every start/complete/closing date showed a day early.
+function fmtDate(d) {
+  if (!d) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d));
+  const dt = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+}
 function setVal(id, v) { document.getElementById(id).value = v == null ? '' : v; }
 function val(id) { return document.getElementById(id).value.trim(); }
 function intOrNull(id) { const v = val(id); return v === '' ? null : parseInt(v, 10); }

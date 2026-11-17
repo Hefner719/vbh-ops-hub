@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:digest-v2 -->
+<!-- build:digest-v3 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -115,7 +115,7 @@ h2, h3 { font-family: var(--font-head); color: var(--navy); margin: 0; }
 }
 </style>
 </head>
-<body data-vbh-page="digest" data-vbh-build="digest-v2">
+<body data-vbh-page="digest" data-vbh-build="digest-v3">
 
 <div data-vbh-header>
   <div class="range" id="range" role="group" aria-label="Window">
@@ -172,6 +172,9 @@ h2, h3 { font-family: var(--font-head); color: var(--navy); margin: 0; }
      projects             active jobs (order + phase)
    ═══════════════════════════════════════════════════════════════════════ */
 const AGENDA_STAGES = ['solds', 'escrow', 'model'];
+// Pre-construction jobs are deliberately not "active" here: no client update
+// is expected before a job breaks ground, so they never count as stale.
+const STAGE_LABELS = { model:'spec', precon:'pre-con', dev_maint:'dev maint' };
 const STALE_DAYS = 14;
 const sb = VBH.sb();
 const $ = (s, r) => (r || document).querySelector(s);
@@ -350,7 +353,7 @@ function jobBlock(num, title, p, evs, upd) {
   if (!upd) chips.push('<span class="chip none">no client update</span>');
   else if (age > STALE_DAYS) chips.push(`<span class="chip stale">${Math.floor(age / 7)} wk since update</span>`);
   if (!p) chips.push('<span class="chip none">not in tracker</span>');
-  else if (!AGENDA_STAGES.includes((p.stage || '').toLowerCase())) chips.push(`<span class="chip">${esc(p.stage)}</span>`);
+  else if (!AGENDA_STAGES.includes((p.stage || '').toLowerCase())) chips.push(`<span class="chip">${esc(STAGE_LABELS[(p.stage || '').toLowerCase()] || p.stage)}</span>`);
 
   const parts = title.split(' - ');
   const updHTML = upd ? `
