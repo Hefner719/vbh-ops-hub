@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 · meeting-v13 -->
+<!-- build:shell-v1 · meeting-v14 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -645,6 +645,10 @@ select.tracker-link:focus { outline:none; border-color:var(--steel); }
 .modal-title { font-family:'Cormorant Garamond',serif; font-size:1.3rem; font-weight:700; }
 .modal-close { background:none; border:none; color:#AEC0D6; font-size:1.2rem; cursor:pointer; }
 .modal-close:hover { color:#fff; }
+.archive-export-btn { background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.3);
+  border-radius:6px; padding:5px 11px; font:600 .74rem Lato,sans-serif; cursor:pointer; }
+.archive-export-btn:hover { background:rgba(255,255,255,.22); }
+.archive-export-btn:disabled, #export-btn:disabled { opacity:.6; cursor:progress; }
 .modal-body { flex:1; overflow-y:auto; padding:18px 20px; }
 .modal-foot { display:flex; justify-content:flex-end; gap:9px; padding:13px 20px; border-top:1px solid var(--line); background:var(--surface-2); flex-shrink:0; }
 
@@ -846,7 +850,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
 }
 </style>
 </head>
-<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v13">
+<body data-vbh-page="meeting" data-vbh-ask-name data-vbh-build="meeting-v14">
 
 
 <!-- ══════════ APP ══════════ -->
@@ -868,6 +872,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
       <button class="btn" onclick="openSendPanel()" title="Review and send each person their action items">📤 Send</button>
       <button class="btn" onclick="openArchivePanel()" title="Browse saved meetings">📁 Archives</button>
       <button class="btn" onclick="window.print()" title="Print / save as PDF">🖨 Print</button>
+      <button class="btn" onclick="exportMinutes()" id="export-btn" title="Download this meeting as PDF minutes">📄 Export PDF</button>
       <button class="btn btn-gold" onclick="saveMeeting()" id="save-btn">💾 Save</button>
       <button class="btn btn-green" onclick="openRollPreview()" id="rollover-btn" title="Preview and stage next week's agenda">⟳ Next Week</button>
     </div>
@@ -945,7 +950,7 @@ body.read-only [contenteditable] { background:var(--surface-2); }
         <div class="section-note">Everything assigned this week lives here. Every item needs an owner and a due date — that is what makes the send-out worth reading. Tick it off when it&rsquo;s done; completed items drop at rollover and stay in the archive.</div>
 
         <div class="quick-add">
-          <input class="qa-text" id="qaText" type="text" placeholder="Add an action item…  e.g.  @justin Obtain updated CO for 171 Village fri"/>
+          <input class="qa-text" id="qaText" type="text" placeholder="Add an action item…  e.g.  @sydney Order the front door for 1501 fri"/>
           <select class="qa-sel" id="qaOwner"></select>
           <input class="qa-date" id="qaDue" type="date" title="Due date (optional)"/>
           <button class="qa-go" onclick="quickAddAction()">+ Add</button>
@@ -1099,7 +1104,10 @@ body.read-only [contenteditable] { background:var(--surface-2); }
   <div class="modal-box">
     <div class="modal-top">
       <div class="modal-title" id="archive-modal-title">Meeting Archive</div>
-      <button class="modal-close" onclick="closeArchiveModal()">✕</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="archive-export-btn" onclick="exportMinutes(archiveViewing)" title="Download this meeting as PDF minutes">📄 Export PDF</button>
+        <button class="modal-close" onclick="closeArchiveModal()">✕</button>
+      </div>
     </div>
     <div class="modal-body" id="archive-modal-body"></div>
   </div>
@@ -1188,8 +1196,8 @@ const JOB_STATUSES = (window.VBH_CONFIG && window.VBH_CONFIG.jobStatuses) || [
 const TEAM = (window.VBH_CONFIG && window.VBH_CONFIG.team) || [
   { name:'Dallas',  email:'Dallas.westover@vanbuskirkco.com',   aliases:['dallas', 'westover', 'dw', 'dallas westover', 'dallas.westover'], wins:true  },
   { name:'Jordan',  email:'Jordan.hefner@vanbuskirkco.com',     aliases:['jordan', 'hefner', 'jh', 'jordan hefner', 'jordan.hefner'], wins:true  },
-  { name:'Justin',  email:'Justin.vostad@vanbuskirkco.com',     aliases:['justin', 'vostad', 'jv', 'justin vostad', 'justin.vostad'], wins:true  },
   { name:'Kara',    email:'Kara.lilly@vanbuskirkco.com',        aliases:['kara', 'lilly', 'kl', 'kara lilly', 'kara.lilly'], wins:true  },
+  { name:'Kjerstin', email:'Kjerstin.faris@vanbuskirkco.com',  aliases:['kjerstin', 'faris', 'kf', 'kjerstin faris', 'kjerstin.faris'], wins:true  },
   { name:'Quentin', email:'Quentin.robertson@vanbuskirkco.com', aliases:['quentin', 'robertson', 'qr', 'quentin robertson', 'quentin.robertson'], wins:true  },
   { name:'Sydney',  email:'Sydney.vanwell@vanbuskirkco.com',    aliases:['sydney', 'vanwell', 'sv', 'sydney vanwell', 'sydney.vanwell'], wins:true  },
   { name:'Josh',    email:'Josh.isaacson@vanbuskirkco.com',     aliases:['josh', 'isaacson', 'ji', 'josh isaacson', 'josh.isaacson'], wins:false },
@@ -1271,7 +1279,7 @@ const DRAFT_KEY   = 'vbh_meeting_draft';
 const EDITOR_KEY  = 'vbh_editor_name';
 const UPLOAD_FLAG = 'vbh_meetings_uploaded_v1';
 const STATE_VERSION = 3;
-const BUILD = 'meeting-v13';
+const BUILD = 'meeting-v14';
 
 /* ─────────────────────────────────────────────────────────────────────
    ③ SMALL UTILITIES
@@ -1373,7 +1381,11 @@ function fmtShort(iso) {
 }
 function fmtStartDate(d) {
   if (!d) return 'TBD';
-  const dt = new Date(d);
+  /* v14: projects.start_date is a Postgres `date`. new Date('2027-03-01') is
+     UTC midnight — 2/28 in Central — so every card made from the tracker was
+     stamped a day early. Build a bare YYYY-MM-DD as a local calendar day. */
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d));
+  const dt = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(d);
   if (isNaN(dt.getTime())) return String(d);
   return (dt.getMonth()+1) + '/' + dt.getDate() + '/' + String(dt.getFullYear()).slice(-2);
 }
@@ -2216,7 +2228,7 @@ function deleteJob(e, id) {
   renderJobs(); renderNav(); markDirty();
 }
 
-/* ── quick add: "@justin Get the CO for 171 Village fri" ── */
+/* ── quick add: "@sydney Order the front door for 1501 fri" ── */
 function parseQuickAdd(raw) {
   let text = String(raw||'').trim();
   let owner = '', due = '';
@@ -3947,7 +3959,7 @@ function saveMeeting() {
 }
 
 /* v7: mirror action items into the `action_items` table so they can be read
-   between meetings — "what does Justin owe" without opening an agenda, and a
+   between meetings — "what does Sydney owe" without opening an agenda, and a
    true age for anything that has been riding the rollover.
 
    The agenda stays the source of truth; this is a projection keyed by the id
@@ -4466,6 +4478,7 @@ async function viewArchive(idx) {
     try { snap = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]')[entry.localIdx]; } catch (err) {}
   }
   if (!snap) return;
+  archiveViewing = snap;                                   // v14: what the modal's Export button exports
   $('#archive-modal-title').textContent = snap.meetingDate || title;
   $('#archive-modal-body').innerHTML = buildArchiveView(snap);
   $('#archive-modal').classList.add('open');
@@ -4539,6 +4552,275 @@ function buildArchiveView(raw) {
         {h:'✓',f:'_check'},{h:'Item',f:'text'},{h:'Owner',f:'owner'}]) : ''));
   }
   return html || '<p style="color:var(--ink-faint);padding:20px">No content recorded.</p>';
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ⑫ EXPORT — meeting minutes as a downloadable PDF (v14)
+   One builder for any saved meeting: the toolbar button exports the agenda
+   on screen, the Archives viewer exports the meeting it is showing. The
+   minutes are the record of the meeting itself — the job cards (with the
+   phase / % / status / PM they carried that day), goals done and carried,
+   action items by owner, warranty, events and ops notes. Buildertrend
+   activity is not copied in: it lives in Buildertrend and the digest.
+
+   pdfmake is loaded from cdnjs only when someone exports, so the agenda
+   itself loads no slower. Fonts are pdfmake's bundled Roboto; brand colours
+   carry the look. Everything here reads the snapshot passed in and nothing
+   else, so it cannot change the meeting.
+   ───────────────────────────────────────────────────────────────────── */
+let archiveViewing = null;
+const PDFMAKE_SRC = [
+  'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js'
+];
+let pdfMakeLoading = null;
+function ensurePdfMake() {
+  if (window.pdfMake && window.pdfMake.vfs) return Promise.resolve(window.pdfMake);
+  if (pdfMakeLoading) return pdfMakeLoading;
+  const load = src => new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load ' + src));
+    document.head.appendChild(s);
+  });
+  pdfMakeLoading = load(PDFMAKE_SRC[0]).then(() => load(PDFMAKE_SRC[1])).then(() => window.pdfMake)
+    .catch(e => { pdfMakeLoading = null; throw e; });
+  return pdfMakeLoading;
+}
+
+const MIN_C = { navy:'#1B3564', steel:'#6B8EB5', light:'#EBF0F7', gold:'#C9A84C', ink:'#16233b',
+                faint:'#7a879c', line:'#d0dded', green:'#166534', greenBg:'#dcfce7', red:'#b91c1c', redBg:'#fdecec' };
+
+/* A bare YYYY-MM-DD is a calendar day: build it in local time, never UTC. */
+function minDate(iso, withYear) {
+  if (!iso) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
+  if (!m) return String(iso);
+  return (+m[2]) + '/' + (+m[3]) + (withYear ? '/' + m[1].slice(-2) : '');
+}
+const minTxt = v => String(v == null ? '' : v).trim();
+/* An event's free-text Date column is often just a time ("9-12 AM") while the
+   day lives in `on`. Lead with the day unless the text already names one. */
+function eventWhen(r) {
+  const txt = minTxt(r.date), day = minDate(r.on, true);
+  if (!day) return txt;
+  if (!txt) return day;
+  const namesADay = /\d{1,2}\/\d{1,2}|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/i.test(txt);
+  return namesADay ? txt : day + ' · ' + txt;
+}
+
+function buildMinutesDoc(raw) {
+  const snap = migrateState(raw) || {};
+  const meetingLabelTxt = minTxt(snap.meetingDate).split('|')[0].trim() || 'Production Meeting';
+  const dateISO = isoDayKey(snap.meetingDate) || snap.dateKey || '';
+  const jobs     = (snap.jobs || []).filter(j => minTxt(j.name) || (j.goals || []).some(g => minTxt(g.text)));
+  const actions  = (snap.action || []).filter(r => minTxt(r.text));
+  const warranty = (snap.warranty || []).filter(r => minTxt(r.address) || minTxt(r.items));
+  const misc     = (snap.misc || []).filter(r => minTxt(r.text));
+  const wins     = (snap.wins || []).filter(w => minTxt(w.text));
+  /* Events as the page lists them: anything not yet past on the meeting day. */
+  const events   = (snap.events || []).filter(r => minTxt(r.text) && (!r.on || !dateISO || r.on >= dateISO))
+                     .sort((a, b) => String(a.on || '9999').localeCompare(String(b.on || '9999')));
+  const goalsAll  = jobs.flatMap(j => (j.goals || []).filter(g => minTxt(g.text)));
+  const goalsDone = goalsAll.filter(g => g.done).length;
+  const actOpen   = actions.filter(r => !r.done).length;
+
+  const statusCell = done => done
+    ? { text:'DONE', bold:true, fontSize:7, color:MIN_C.green, fillColor:MIN_C.greenBg, alignment:'center', margin:[0,1,0,0] }
+    : { text:'OPEN', bold:true, fontSize:7, color:MIN_C.faint, alignment:'center', margin:[0,1,0,0] };
+  const cellTxt = (v, done, extra) => Object.assign(
+    { text: minTxt(v) || '—', color: done ? MIN_C.faint : MIN_C.ink, decoration: done ? 'lineThrough' : undefined }, extra || {});
+  const thRow = cols => cols.map(c => ({ text:c, style:'th' }));
+  const table = (widths, head, rows) => ({
+    table:{ headerRows:1, widths, dontBreakRows:true, body:[thRow(head)].concat(rows) },
+    layout:{
+      hLineWidth:() => .5, vLineWidth:() => .5,
+      hLineColor:() => MIN_C.line, vLineColor:() => MIN_C.line,
+      paddingLeft:() => 5, paddingRight:() => 5, paddingTop:() => 3, paddingBottom:() => 3
+    },
+    margin:[0,0,0,6]
+  });
+  const sectionHead = (num, title, sub) => ({
+    table:{ widths:['*'], body:[[{
+      columns:[ { text:num + '  ·  ' + title, style:'secTitle' }, sub ? { text:sub, style:'secSub', alignment:'right' } : { text:'' } ],
+      fillColor:MIN_C.navy, margin:[8,5,8,5] }]] },
+    layout:'noBorders', margin:[0,14,0,8], headlineLevel:1
+  });
+  const none = msg => ({ text:msg, italics:true, color:MIN_C.faint, fontSize:9, margin:[2,0,0,6] });
+
+  const content = [];
+
+  /* ── title block + summary ── */
+  content.push(
+    { text:'Production Meeting Minutes', style:'title' },
+    { text:meetingLabelTxt + '  ·  ' + MEETING_TIME, style:'subtitle' },
+    { canvas:[{ type:'line', x1:0, y1:4, x2:532, y2:4, lineWidth:2, lineColor:MIN_C.gold }], margin:[0,0,0,10] },
+    { columns:[
+        ['Jobs reviewed', String(jobs.length)],
+        ['Goals done', goalsDone + ' of ' + goalsAll.length],
+        ['Action items', actOpen + ' open · ' + (actions.length - actOpen) + ' done'],
+        ['Warranty items', String(warranty.filter(r => !r.done).length) + ' open']
+      ].map(([k, v]) => ({ stack:[ { text:k.toUpperCase(), style:'statLbl' }, { text:v, style:'statVal' } ],
+                           margin:[0,0,8,0] })),
+      columnGap:8, margin:[0,0,0,4] }
+  );
+
+  /* ── 1 · Active jobs ── */
+  content.push(sectionHead('1', 'Active Jobs', jobs.length + ' job' + (jobs.length === 1 ? '' : 's')));
+  if (!jobs.length) content.push(none('No job cards on this agenda.'));
+  jobs.forEach(j => {
+    const facts = [
+      minTxt(j.phase) && ('Phase: ' + minTxt(j.phase)),
+      minTxt(j.pct) !== '' && (minTxt(j.pct) + '% complete'),
+      minTxt(j.status) && ('Status: ' + minTxt(j.status)),
+      minTxt(j.pm) && ('PM: ' + minTxt(j.pm)),
+      minTxt(j.date) && ('Target: ' + minTxt(j.date))
+    ].filter(Boolean).join('   ·   ');
+    const goals = (j.goals || []).filter(g => minTxt(g.text));
+    const body = [];
+    if (facts) body.push({ text:facts, fontSize:8.5, color:MIN_C.steel, bold:true, margin:[0,0,0,5] });
+    body.push({ text:'GOALS', style:'lbl' });
+    body.push(goals.length
+      ? { table:{ widths:[30,'*'], body:goals.map(g => [statusCell(g.done), cellTxt(g.text, g.done, { fontSize:9 })]) },
+          layout:'noBorders', margin:[0,1,0,4] }
+      : none('No goals recorded.'));
+    if (minTxt(j.blockers)) body.push(
+      { text:'NOTES & BLOCKERS', style:'lbl', margin:[0,3,0,1] },
+      { table:{ widths:['*'], body:[[{ text:minTxt(j.blockers), fontSize:9, color:MIN_C.red, fillColor:MIN_C.redBg, margin:[4,2,4,2] }]] },
+        layout:'noBorders' });
+    if (minTxt(j.next))  body.push({ text:'NEXT', style:'lbl', margin:[0,4,0,1] }, { text:minTxt(j.next), fontSize:9 });
+    if (minTxt(j.notes)) body.push({ text:'MEETING NOTES', style:'lbl', margin:[0,4,0,1] }, { text:minTxt(j.notes), fontSize:9 });
+
+    content.push({
+      table:{ widths:['*'], body:[
+        [{ text:minTxt(j.name) || 'Untitled job', bold:true, fontSize:10.5, color:'#ffffff', fillColor:MIN_C.navy, margin:[6,4,6,4] }],
+        [{ stack:body, margin:[6,5,6,6] }]
+      ] },
+      layout:{ hLineWidth:() => .6, vLineWidth:() => .6, hLineColor:() => MIN_C.line, vLineColor:() => MIN_C.line,
+               paddingLeft:() => 0, paddingRight:() => 0, paddingTop:() => 0, paddingBottom:() => 0 },
+      /* Keep a card on one page; a card longer than a page is allowed to break. */
+      unbreakable: goals.length <= 14 && minTxt(j.blockers).length < 900,
+      margin:[0,0,0,8]
+    });
+  });
+
+  /* ── 2 · Action items, by owner, open first ── */
+  content.push(sectionHead('2', 'Action Items', actOpen + ' open · ' + (actions.length - actOpen) + ' done'));
+  if (!actions.length) content.push(none('No action items.'));
+  else {
+    const byOwner = new Map();
+    actions.forEach(r => {
+      const k = minTxt(r.owner) || 'Unassigned';
+      if (!byOwner.has(k)) byOwner.set(k, []);
+      byOwner.get(k).push(r);
+    });
+    const owners = Array.from(byOwner.keys()).sort((a, b) =>
+      a === 'Unassigned' ? 1 : b === 'Unassigned' ? -1 : a.localeCompare(b));
+    const rows = [];
+    owners.forEach(o => {
+      const list = byOwner.get(o).slice().sort((a, b) =>
+        (a.done - b.done) || String(a.due || '9999').localeCompare(String(b.due || '9999')));
+      rows.push([{ text:o + '  (' + list.filter(r => !r.done).length + ' open)', colSpan:4, bold:true, fontSize:8.5,
+                   color:MIN_C.navy, fillColor:MIN_C.light }, {}, {}, {}]);
+      list.forEach(r => rows.push([
+        statusCell(r.done), cellTxt(r.text, r.done, { fontSize:9 }),
+        cellTxt(minTxt(r.job).split(' - ')[0], r.done, { fontSize:8.5 }),
+        cellTxt(minDate(r.due, true), r.done, { fontSize:8.5 })
+      ]));
+    });
+    content.push(table([30, '*', 62, 44], ['', 'Action item', 'Job', 'Due'], rows));
+  }
+
+  /* ── 3 · Warranty & service ── */
+  content.push(sectionHead('3', 'Warranty & Service', warranty.filter(r => !r.done).length + ' open'));
+  content.push(warranty.length
+    ? table([30, 110, '*', 60, 44], ['', 'Address', 'Open items / next action', 'Owner', 'Due'],
+        warranty.map(r => [statusCell(r.done), cellTxt(r.address, r.done, { fontSize:9, bold:true }),
+          cellTxt(r.items, r.done, { fontSize:8.5 }), cellTxt(r.owner, r.done, { fontSize:8.5 }),
+          cellTxt(minDate(r.due, true), r.done, { fontSize:8.5 })]))
+    : none('No warranty items.'));
+
+  /* ── 4 · Calendar of events ── */
+  content.push(sectionHead('4', 'Calendar of Events', events.length + ' upcoming'));
+  content.push(events.length
+    ? table([92, '*', 130], ['Date', 'Event', 'Action needed'],
+        events.map(r => [cellTxt(eventWhen(r), r.done, { fontSize:8.5, bold:true }),
+          cellTxt(r.text, r.done, { fontSize:9 }), cellTxt(r.owner, r.done, { fontSize:8.5 })]))
+    : none('No upcoming events.'));
+
+  /* ── Ops notes, wins and the legacy start list / pipeline: only when used ── */
+  if (misc.length) {
+    content.push(sectionHead('·', 'Ops Notes', misc.filter(r => !r.done).length + ' open'));
+    content.push(table([30, '*', 80], ['', 'Item', 'Owner'],
+      misc.map(r => [statusCell(r.done), cellTxt(r.text, r.done, { fontSize:9 }), cellTxt(r.owner, r.done, { fontSize:8.5 })])));
+  }
+  if (wins.length) {
+    content.push(sectionHead('·', 'Wins', ''));
+    content.push(table([90, '*'], ['Who', 'Win'], wins.map(w => [cellTxt(w.name, false, { bold:true, fontSize:9 }), cellTxt(w.text, false, { fontSize:9 })])));
+  }
+  const starts = (snap.startManual || []).filter(r => minTxt(r.name));
+  const pipe   = (snap.pipelineManual || []).filter(r => minTxt(r.name));
+  if (starts.length) {
+    content.push(sectionHead('·', 'Start List', ''));
+    content.push(table(['*', 80, 80, 80], ['Project', 'Target start', 'Status', 'Owner'],
+      starts.map(r => [cellTxt(r.name), cellTxt(r.date), cellTxt(r.status), cellTxt(r.owner)])));
+  }
+  if (pipe.length) {
+    content.push(sectionHead('·', 'Pipeline', ''));
+    content.push(table(['*', 80, 70, 80], ['Prospect', 'Tentative start', 'Probability', 'Rep'],
+      pipe.map(r => [cellTxt(r.name), cellTxt(r.date), cellTxt(r.prob), cellTxt(r.owner)])));
+  }
+
+  /* ── 5 · Wrap-up ── */
+  if (minTxt(snap.nextMeeting)) content.push(
+    { text:'Next meeting:  ' + minTxt(snap.nextMeeting), bold:true, color:MIN_C.navy, fontSize:10, margin:[0,14,0,0] });
+
+  const exportedAt = new Date().toLocaleString('en-US', { month:'numeric', day:'numeric', year:'2-digit', hour:'numeric', minute:'2-digit' });
+  return {
+    pageSize:'LETTER', pageMargins:[40, 52, 40, 46],
+    info:{ title:'Production Meeting Minutes — ' + meetingLabelTxt, author:'Van Buskirk Homes', subject:'Weekly production meeting' },
+    header: page => page === 1 ? null : {
+      columns:[ { text:'Van Buskirk Homes · Production Meeting Minutes', color:MIN_C.steel },
+                { text:meetingLabelTxt, alignment:'right', color:MIN_C.steel } ],
+      fontSize:7.5, margin:[40, 22, 40, 0] },
+    footer: (page, pages) => ({
+      columns:[ { text:'Van Buskirk Homes · Exported ' + exportedAt, color:MIN_C.faint },
+                { text:'Page ' + page + ' of ' + pages, alignment:'right', color:MIN_C.faint } ],
+      fontSize:7.5, margin:[40, 16, 40, 0] }),
+    /* Never leave a section heading alone at the foot of a page. */
+    pageBreakBefore: (node, following) => node.headlineLevel === 1 && following.length === 0,
+    content,
+    defaultStyle:{ font:'Roboto', fontSize:9.5, color:MIN_C.ink, lineHeight:1.15 },
+    styles:{
+      title:{ fontSize:22, bold:true, color:MIN_C.navy },
+      subtitle:{ fontSize:11, color:MIN_C.steel, margin:[0,2,0,0] },
+      statLbl:{ fontSize:6.5, bold:true, color:MIN_C.faint, characterSpacing:.6 },
+      statVal:{ fontSize:12, bold:true, color:MIN_C.navy, margin:[0,1,0,0] },
+      secTitle:{ fontSize:11.5, bold:true, color:'#ffffff' },
+      secSub:{ fontSize:8.5, color:MIN_C.light, margin:[0,2,0,0] },
+      th:{ fontSize:7.5, bold:true, color:MIN_C.navy, fillColor:MIN_C.light },
+      lbl:{ fontSize:7, bold:true, color:MIN_C.steel, characterSpacing:.6 }
+    },
+    _fileName: 'VBH Production Meeting Minutes ' + (dateISO || 'undated') + '.pdf'
+  };
+}
+
+/* snap omitted = the agenda on screen right now, unsaved edits included. */
+async function exportMinutes(snap) {
+  const source = snap || snapshot();
+  const btns = [$('#export-btn'), document.querySelector('.archive-export-btn')].filter(Boolean);
+  btns.forEach(b => { b.disabled = true; });
+  try {
+    const pdfMake = await ensurePdfMake();
+    const doc = buildMinutesDoc(source);
+    const name = doc._fileName; delete doc._fileName;
+    pdfMake.createPdf(doc).download(name);
+    toast('📄 Minutes downloaded — ' + name, 3500);
+  } catch (e) {
+    console.warn('[export] failed:', e);
+    toast('⚠ Could not build the PDF — ' + (e.message || e) + '. Print → Save as PDF still works.', 6000);
+  } finally {
+    btns.forEach(b => { b.disabled = false; });
+  }
 }
 /* ─────────────────────────────────────────────────────────────────────
    ⑬ TIMER

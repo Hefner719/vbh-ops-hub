@@ -122,7 +122,7 @@ const VBH = {
   ],
   STATUSES: ['New Inquiry','Active Lead','Proposal Sent','Contract Signed','Build Started','Closed - Won','Closed - Lost','On Hold'],
   LEAD_SOURCES: ['Website','Referral','Parade of Homes','Repeat Customer','Internal','Brandt','Social Media','Sign','Other'],
-  SALES_REPS: ['Brandt Williams','Jordan Hefner','Justin Vostad','Outside Realtor','Quentin Robertson','Sydney Van Well'],
+  SALES_REPS: ['Brandt Williams','Jordan Hefner','Outside Realtor','Quentin Robertson','Sydney Van Well'],
   FINANCING: ['VB Homes Financed','Client Financed Build','Cash Build'],
   PROJECT_TYPES: ['Custom Home','Spec Home','Townhome','Addition/Remodel'],
   TEMPS: ['🔥 Hot','☀️ Warm','❄️ Cold'],
@@ -154,11 +154,11 @@ const VBH = {
     team: [
       { name:'Dallas',  email:'Dallas.westover@vanbuskirkco.com',   aliases:['dallas', 'westover', 'dw', 'dallas westover', 'dallas.westover'], wins:true  },
       { name:'Jordan',  email:'Jordan.hefner@vanbuskirkco.com',     aliases:['jordan', 'hefner', 'jh', 'jordan hefner', 'jordan.hefner'], wins:true  },
-      { name:'Justin',  email:'Justin.vostad@vanbuskirkco.com',     aliases:['justin', 'vostad', 'jv', 'justin vostad', 'justin.vostad'], wins:true  },
-      { name:'Kara',    email:'Kara.lilly@vanbuskirkco.com',        aliases:['kara', 'lilly', 'kl', 'kara lilly', 'kara.lilly'], wins:true  },
+      { name:'Kara',   email:'Kara.lilly@vanbuskirkco.com',        aliases:['kara', 'lilly', 'kl', 'kara lilly', 'kara.lilly'], wins:true  },
       { name:'Quentin', email:'Quentin.robertson@vanbuskirkco.com', aliases:['quentin', 'robertson', 'qr', 'quentin robertson', 'quentin.robertson'], wins:true  },
       { name:'Sydney',  email:'Sydney.vanwell@vanbuskirkco.com',    aliases:['sydney', 'vanwell', 'sv', 'sydney vanwell', 'sydney.vanwell', 'van well', 'sydney van well'], wins:true  },
-      { name:'Josh',    email:'Josh.Isaacson@vanbuskirkco.com',     aliases:['josh', 'isaacson', 'ji', 'josh isaacson', 'josh.isaacson'], wins:false },
+      { name:'Kjerstin', email:'Kjerstin.faris@vanbuskirkco.com',  aliases:['kjerstin', 'faris', 'kf', 'kjerstin faris', 'kjerstin.faris'], wins:true  },
+      { name:'Josh',   email:'Josh.Isaacson@vanbuskirkco.com',     aliases:['josh', 'isaacson', 'ji', 'josh isaacson', 'josh.isaacson'], wins:false },
       { name:'Bill',    email:'Bill.hoffman@vanbuskirkco.com',      aliases:['bill', 'hoffman', 'bh', 'bill hoffman', 'bill.hoffman'], wins:false }
     ]
   }
