@@ -30,7 +30,14 @@ Three shared files, loaded in this order in `<head>`: `/vbh-config.js` → `/ass
 
 ## Auth (current state — interim)
 
-One shared password, `VBH.PASSWORD`, checked by the shell gate and remembered in `localStorage` (`vbh_auth`, 12-hour TTL, cleared by the nav Lock button). One key for the whole hub — unlocking any page unlocks all. Legacy `sessionStorage` flags are migrated on first load. There is **no** Netlify Identity, no role matrix. Real login is on the roadmap. `intake.html` (client intake) is public on purpose (`protected:false` in the registry) — it is now the only unauthenticated page.
+Two ways through the shell gate (build `shell-v4`):
+
+- **Emailed sign-in code (Supabase Auth, Phase A of migration 006).** The gate sends a code (`signInWithOtp`) and takes it in a box on the page (`VBH.auth.verifyCode`, `verifyOtp` type `email`). On first sign-in, a trigger creates a `profiles` row, active only for `@vanbuskirkco.com` / `@vbclink.com`. A signed-in user without an active profile sees "No access".
+  - **It is a code, not a link, on purpose.** Microsoft's mail scanner opens every link in incoming mail. That spends a one-time link before the person clicks it, which is what happened to Kjerstin on 2026-11-17. The "Magic Link" and "Confirm signup" templates must show `{{ .Token }}` and carry no link; see `docs/auth-email-templates.md`.
+  - The built-in mailer allows 2 emails an hour for the whole project.
+- **Shared password**, `VBH.PASSWORD`, behind "Use the shared password instead". It is remembered in `localStorage` (`vbh_auth`, 12-hour TTL, cleared by the nav Sign out button). One key unlocks the whole hub.
+
+Anon policies are still in place, so Phase B (migration 007) has not been run. The gate is convenience; RLS is the real guard. `intake.html` (client intake) is public on purpose (`protected:false` in the registry) — it is now the only unauthenticated page.
 
 ## Pages (all in `public/`)
 
