@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   vbh-shell.js — shared site chrome for every hub page · build shell-v3
+   vbh-shell.js — shared site chrome for every hub page · build shell-v4
    ───────────────────────────────────────────────────────────────────────────
    Load order in <head>:  vbh-config.js → assets/vbh.css → assets/vbh-shell.js
 
@@ -166,6 +166,18 @@
       });
       if (error) throw error;
     },
+    /* Exchange the emailed code for a session. type 'email' covers both a
+       first-time sign-up and a returning sign-in. */
+    verifyCode: async (email, code) => {
+      if (!(await ensureSupabase())) throw new Error('Could not load the sign-in library.');
+      const { error } = await VBH.sb().auth.verifyOtp({
+        email: String(email || '').trim().toLowerCase(),
+        token: String(code || '').replace(/\D/g, ''),
+        type: 'email'
+      });
+      if (error) throw error;
+      await loadSession();
+    },
     lock,
     /* Run cb now if unlocked, otherwise as soon as the gate clears. */
     require: (cb) => { if (auth.ok() || !(VBH.page && VBH.page.protected)) cb(); else document.addEventListener('vbh:ready', cb, { once: true }); }
@@ -178,10 +190,19 @@
     const err  = el('div', { class: 'vbh-gate-err', id: 'vbhGateErr' });
     const note = el('div', { class: 'vbh-gate-note', id: 'vbhGateNote' });
 
-    /* — sign-in link — */
+    /* — sign-in code —
+       A code, not a link: Microsoft's mail scanner opens every link in an
+       incoming message, which spends a one-time link before the person can
+       click it. A code typed into the page can't be spent by a scanner.
+       The Supabase "Magic Link" and "Confirm signup" templates must show
+       {{ .Token }} and carry no link (the link and the code are one token). */
     const mailIn  = el('input', { id: 'vbhGateEmail', type: 'email', placeholder: 'you@vanbuskirkco.com',
                                   autocomplete: 'email', value: (localStorage.getItem(EMAIL_KEY) || '') });
-    const mailBtn = el('button', { type: 'button', text: 'Email me a sign-in link' });
+    const mailBtn = el('button', { type: 'button', text: 'Email me a sign-in code' });
+    const codeIn  = el('input', { id: 'vbhGateCode', class: 'vbh-gate-code', type: 'text', inputmode: 'numeric',
+                                  autocomplete: 'one-time-code', placeholder: 'Code from the email', maxlength: '10' });
+    const codeBtn = el('button', { type: 'button', text: 'Sign in' });
+    const codeBox = el('div', { class: 'vbh-gate-alt', hidden: 'hidden' }, [codeIn, codeBtn]);
 
     /* — shared password (transition) — */
     const nameIn = askName ? el('input', { id: 'vbhGateName', type: 'text', placeholder: 'Your name', autocomplete: 'name', value: auth.name() }) : null;
@@ -201,7 +222,7 @@
         el('h2', { text: 'Operations Hub' }),
         el('div', { class: 'vbh-gate-rule' }),
         el('div', { class: 'vbh-gate-sub', text: (page.id === 'hub' ? '' : (page.title || '') + ' · ') + 'Van Buskirk Homes staff' }),
-        mailIn, mailBtn, err, note, pwToggle, pwBox
+        mailIn, mailBtn, codeBox, err, note, pwToggle, pwBox
       ]),
       el('div', { class: 'vbh-gate-foot', html: esc(VBH.COMPANY.name) + ' · <a href="/intake">Client intake</a>' })
     ]);
@@ -214,12 +235,39 @@
       try {
         await auth.signIn(email);
         try { localStorage.setItem(EMAIL_KEY, email); } catch (e) {}
-        note.textContent = 'Check ' + email + ' — the link signs you in on this device. It expires in an hour.';
+        note.textContent = 'Check ' + email + ' for a sign-in code and type it here. It expires in an hour.';
         mailBtn.textContent = 'Sent · send again';
+        codeBox.hidden = false;
+        setTimeout(() => codeIn.focus(), 20);
       } catch (e) {
-        err.textContent = (e && e.message) || 'Could not send the link. Try the shared password below.';
-        mailBtn.textContent = 'Email me a sign-in link';
+        const limited = e && (e.status === 429 || /rate limit/i.test(e.message || ''));
+        err.textContent = limited
+          ? 'Too many codes sent in the last hour. Use the last code you were sent, or the shared password below.'
+          : ((e && e.message) || 'Could not send the code. Try the shared password below.');
+        if (limited) codeBox.hidden = false;
+        mailBtn.textContent = 'Email me a sign-in code';
       } finally { mailBtn.disabled = false; }
+    };
+
+    const checkCode = async () => {
+      const email = mailIn.value.trim().toLowerCase();
+      const code = codeIn.value.replace(/\D/g, '');
+      err.textContent = '';
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = 'Enter your work email address.'; mailIn.focus(); return; }
+      if (code.length < 6) { err.textContent = 'Enter the code from the email.'; codeIn.focus(); return; }
+      codeBtn.disabled = true; codeBtn.textContent = 'Checking…';
+      try {
+        await auth.verifyCode(email, code);
+        try { localStorage.setItem(EMAIL_KEY, email); } catch (e) {}
+        gate.remove();
+        if (!(sbProfile && sbProfile.active)) { renderNoAccess(email); return; }
+        onDone();
+      } catch (e) {
+        err.textContent = /expired|invalid/i.test((e && e.message) || '')
+          ? 'That code is wrong or has expired. Check the newest email, or send a new code.'
+          : ((e && e.message) || 'Could not sign in.');
+        codeIn.select();
+      } finally { codeBtn.disabled = false; codeBtn.textContent = 'Sign in'; }
     };
 
     const attemptPw = () => {
@@ -236,10 +284,12 @@
     };
 
     mailBtn.addEventListener('click', sendLink);
+    codeBtn.addEventListener('click', checkCode);
     pwBtn.addEventListener('click', attemptPw);
     gate.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       if (!pwBox.hidden && (e.target === pwIn || e.target === nameIn)) attemptPw();
+      else if (e.target === codeIn) checkCode();
       else if (e.target === mailIn) sendLink();
     });
     document.body.prepend(gate);

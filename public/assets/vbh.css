@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   VBH Ops Hub · shared stylesheet · build shell-v3
+   VBH Ops Hub · shared stylesheet · build shell-v4
    ───────────────────────────────────────────────────────────────────────────
    Loaded by every page BEFORE its own <style>. Owns:
      1. design tokens  (colors, type, radii, shadows)
@@ -251,3 +251,5 @@ body[data-vbh-pending] > :not(.vbh-gate) { visibility: hidden; }
 .vbh-alert-tag { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: .68rem; }
 .vbh-alert-link { margin-left: auto; color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap; }
 @media print { .vbh-alert { display: none !important; } }
+/* sign-in code entry (shell-v4) */
+.vbh-gate-box input.vbh-gate-code { letter-spacing: .3em; font-size: 1.15rem; text-align: center; }
