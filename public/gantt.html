@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 · timeline-v2 -->
+<!-- build:shell-v1 · timeline-v3 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -75,6 +75,21 @@
 .rows { position: relative; }
 .gridlines { position: absolute; inset: 0 0 0 var(--label-w); z-index: 0; pointer-events: none; }
 .gridlines .v { position: absolute; top: 0; bottom: 0; border-left: 1px solid #eef3fa; }
+/* Alternating month bands. On a plain white track it is genuinely hard to
+   tell which month a bar starts or ends in; the banding gives the eye a
+   column to read against. Kept very light so bars stay the loudest thing. */
+.gridlines .band { position: absolute; top: 0; bottom: 0; background: #f4f8fd; }
+
+/* The month strip repeats above every section — scrolled halfway down a long
+   chart, a single header at the very top is out of sight exactly when it is
+   needed. */
+.months-row {
+  display: flex; margin-left: var(--label-w);
+  background: var(--light); border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+}
+.months-row .month { padding: 4px 0 4px; font-size: 10.5px; color: var(--muted); }
+.months-row .month .yr { font-size: 8.5px; }
 
 .grp-head {
   display: flex; align-items: center; gap: 9px;
@@ -124,6 +139,9 @@
   background: inherit;
 }
 .row:nth-child(even) { background: #fbfcfe; }
+.row .label .closes {
+  font-size: 10.5px; font-weight: 800; color: #0369a1; letter-spacing: .02em; margin-top: 1px;
+}
 .row .job { font-size: 12.5px; font-weight: 900; color: var(--navy); line-height: 1.1; }
 .row .addr { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .name { font-size: 11px; color: var(--steel); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -153,6 +171,12 @@
    muted enough not to be mistaken for work in the ground. */
 .bar.precon { background: linear-gradient(90deg, #94a3b8 0%, #475569 100%); height: 16px; }
 .bar.precon .pct { color: #fff; }
+/* Built, not yet closed — shown as a hold over the bar, not as work. */
+.bar .hold {
+  position: absolute; top: 0; bottom: 0; border-radius: 0 5px 5px 0;
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,.72) 0 6px, rgba(255,255,255,.3) 6px 12px);
+  border-left: 2px solid rgba(255,255,255,.9);
+}
 /* estimated-end portion (no complete_date) shown lighter */
 .bar .est { position: absolute; right: 0; top: 0; bottom: 0; border-radius: 0 5px 5px 0;
   background: repeating-linear-gradient(135deg, rgba(255,255,255,.28) 0 5px, transparent 5px 10px); }
@@ -313,7 +337,17 @@ function deriveBar(start, complete, closing, pct) {
   let end = parseDate(complete);
   let estimated = false;
   if (!end) { end = addMonths(s, MONTHS_END_FROM_START); estimated = true; }
-  return { start: s, end, estimated, close: parseDate(closing), pct };
+  const close = parseDate(closing);
+  /* v3 — a finished house waiting on a closing still occupies the calendar.
+     3416 Bronze is built and sold but does not close until 2027-08-01; its
+     bar used to stop seven months after the start and read as stale, and the
+     closing diamond could land outside the chart entirely, because the date
+     range was computed from bar ends and never looked at closings.
+     The bar now runs to the closing, with everything after construction
+     drawn as a hold rather than as work. */
+  let holdFrom = null;
+  if (close && close > end) { holdFrom = end; end = close; estimated = false; }
+  return { start: s, end, estimated, close, pct, holdFrom };
 }
 
 async function load() {
@@ -408,7 +442,10 @@ async function load() {
     { key: 'lead', title: 'Prospective Starts', dot: 'dot-lead', cls: 'lead',
       items: leads.map(l => ({
         job: l[LEAD_JOB_FIELD], addr: l[LEAD_ADDR_FIELD], name: l[LEAD_NAME_FIELD], prob: l.probability,
-        bar: deriveBar(l[LEAD_START_FIELD], l.completion_date || null, l.completion_date || null, null)
+        /* A lead's completion_date is an estimated finish, not a closing date.
+           Passing it as both put a "Closes 31 Aug" on every prospect and drew
+           a closing diamond for a house nobody has sold yet. */
+        bar: deriveBar(l[LEAD_START_FIELD], l.completion_date || null, null, null)
       })) },
   ].map(g => ({ ...g, items: g.items.filter(i => i.bar).sort((a,b)=> a.bar.start - b.bar.start) }))
    .filter(g => g.items.length);
@@ -437,19 +474,27 @@ async function load() {
     mh += `<div class="month" style="width:${PX_PER_MONTH}px">${m.toLocaleDateString('en-US',{month:'short'})}<span class="yr">${m.getFullYear()}</span></div>`;
   }
 
-  // gridlines
+  // gridlines + alternating month bands
   let grid = '';
+  for (let i = 0; i < totalMonths; i++) {
+    if (i % 2 === 1) grid += `<div class="band" style="left:${i*PX_PER_MONTH}px;width:${PX_PER_MONTH}px"></div>`;
+  }
   for (let i = 0; i <= totalMonths; i++) grid += `<div class="v" style="left:${i*PX_PER_MONTH}px"></div>`;
 
   // rows
   let rowsHtml = '';
   for (const g of groups) {
-    rowsHtml += `<div class="grp-head"><span class="dot ${g.dot}"></span>${esc(g.title)} <span class="cnt">· ${g.items.length}</span></div>`;
+    rowsHtml += `<div class="grp-head"><span class="dot ${g.dot}"></span>${esc(g.title)} <span class="cnt">· ${g.items.length}</span></div>`
+              + `<div class="months-row">${mh}</div>`;
     for (const it of g.items) {
       const b = it.bar;
       const left = xOf(b.start);
       const width = Math.max(xOf(b.end) - left, 10);
       const estPart = b.estimated ? `<span class="est" style="width:${Math.min(0.5,(MONTHS_END_FROM_START-Math.max(0,monthsBetween(b.start, new Date())))/MONTHS_END_FROM_START)*100||34}%"></span>` : '';
+      /* The stretch between "built" and "closes" — held, not worked. */
+      const holdPart = b.holdFrom
+        ? `<span class="hold" style="left:${Math.max(xOf(b.holdFrom) - left, 0)}px;width:${Math.max(xOf(b.end) - xOf(b.holdFrom), 4)}px" title="Built — awaiting closing ${fmtDay(b.close)}"></span>`
+        : '';
       const pctTxt = b.pct != null
         ? `<span class="pct">${b.pct}%</span>`
         : g.cls === 'lead'   ? `<span class="pct">${it.prob ? it.prob+'%' : 'planned'}</span>`
@@ -457,7 +502,8 @@ async function load() {
         : '';
       const closeMark = b.close
         ? `<span class="close-mark" data-d="${fmtDay(b.close)}" style="left:${xOf(b.close)}px" title="Closing ${fmtDay(b.close)}"></span>` : '';
-      const tip = `${it.job||''} · ${fmtDay(b.start)} → ${fmtDay(b.end)}${b.estimated?' (est.)':''}`;
+      const tip = `${it.job||''} · ${fmtDay(b.start)} → ${fmtDay(b.holdFrom || b.end)}${b.estimated?' (est.)':''}`
+                + (b.close ? ` · closes ${fmtDay(b.close)}` : '');
       rowsHtml += `
         <div class="row">
           <div class="label">
@@ -465,9 +511,10 @@ async function load() {
             ${it.addr ? `<div class="addr">${esc(it.addr)}</div>` : ''}
             ${it.name ? `<div class="name">${esc(it.name)}</div>` : ''}
             ${(!it.addr && !it.name) ? `<div class="addr">(no address)</div>` : ''}
+            ${b.close ? `<div class="closes">Closes ${esc(fmtDay(b.close))}</div>` : ''}
           </div>
           <div class="track">
-            <div class="bar ${g.cls}" style="left:${left}px;width:${width}px" title="${esc(tip)}">${pctTxt}${estPart}</div>
+            <div class="bar ${g.cls}" style="left:${left}px;width:${width}px" title="${esc(tip)}">${pctTxt}${estPart}${holdPart}</div>
             ${closeMark}
           </div>
         </div>`;
@@ -542,7 +589,22 @@ document.getElementById('scaleToggle').addEventListener('click', e => {
   if (sb) load();
 });
 
-function boot() { if (initClient()) load(); }
+/* v3 — live, not a snapshot. The Timeline is read-only: it owns no data, it
+   just draws `projects` and `leads`. So it re-reads them on a timer and
+   whenever the tab is brought back, which is what makes a stage change or a
+   new start date on the Projects or Leads tab appear here without anyone
+   rebuilding anything. Paused while the tab is hidden so a screen left open
+   on a meeting room TV isn't polling all day. */
+const REFRESH_MS = 60000;
+let refreshTimer = null;
+
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => { if (!document.hidden && sb) load(); }, REFRESH_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && sb) load(); });
+}
+
+function boot() { if (initClient()) { load(); startAutoRefresh(); } }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
 </script>
