@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 -->
+<!-- build:shell-v1 · timeline-v2 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -36,6 +36,8 @@
 .sw-solds { background: linear-gradient(90deg, #4ade80 0%, var(--green-dk) 100%); }
 .sw-model { background: linear-gradient(90deg, #a78bfa 0%, var(--purple-dk) 100%); }
 .sw-lead  { background: repeating-linear-gradient(135deg, var(--gold) 0 7px, var(--gold-soft) 7px 14px); }
+.sw-escrow { background: linear-gradient(90deg, #38bdf8 0%, #0369a1 100%); }
+.sw-precon { background: linear-gradient(90deg, #94a3b8 0%, #475569 100%); }
 .spacer { flex: 1 1 auto; }
 .scale-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .scale-toggle button {
@@ -85,9 +87,33 @@
 }
 .grp-head .dot { width: 9px; height: 9px; border-radius: 50%; }
 .grp-head .cnt { color: var(--muted); font-weight: 700; }
-.dot-solds { background: var(--green); }
-.dot-model { background: var(--purple); }
-.dot-lead  { background: var(--gold); }
+.dot-solds  { background: var(--green); }
+.dot-model  { background: var(--purple); }
+.dot-lead   { background: var(--gold); }
+.dot-escrow { background: #0ea5e9; }
+.dot-precon { background: #64748b; }
+
+/* ── v2 · monthly starts band ───────────────────────────────────────────
+   The question this page is asked in a spec meeting is "how many do we
+   start, and when" — which a wall of bars does not answer. This counts
+   ground-breaks per month across every group, aligned to the same columns. */
+.starts-band {
+  display: flex; margin-left: var(--label-w);
+  border-bottom: 1px solid var(--border); background: #fbfdff;
+}
+.starts-cell {
+  flex: none; text-align: center; padding: 5px 0 6px; border-left: 1px solid var(--line);
+  font-size: 11px; font-weight: 800; color: var(--muted); line-height: 1.15;
+}
+.starts-cell:first-child { border-left: 0; }
+.starts-cell.has { color: var(--ink); background: #eef6ff; }
+.starts-cell .n { display: block; font-size: 15px; font-weight: 900; color: var(--navy); }
+.starts-cell.has.heavy .n { color: #b45309; }
+.starts-lbl {
+  display: flex; align-items: center; gap: 7px; padding: 6px 12px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--line); background: #fbfdff;
+}
 
 .row { display: flex; align-items: center; min-height: var(--row-h); position: relative; z-index: 1; }
 .row:hover { background: #f6f9fd; }
@@ -122,6 +148,11 @@
   text-shadow: 0 1px 1px rgba(0,0,0,.25); white-space: nowrap;
 }
 .bar.lead .pct { color: var(--amber-dk); text-shadow: none; }
+.bar.escrow { background: linear-gradient(90deg, #38bdf8 0%, #0369a1 100%); }
+/* Pre-construction is committed but not dug — solid enough to read as real,
+   muted enough not to be mistaken for work in the ground. */
+.bar.precon { background: linear-gradient(90deg, #94a3b8 0%, #475569 100%); height: 16px; }
+.bar.precon .pct { color: #fff; }
 /* estimated-end portion (no complete_date) shown lighter */
 .bar .est { position: absolute; right: 0; top: 0; bottom: 0; border-radius: 0 5px 5px 0;
   background: repeating-linear-gradient(135deg, rgba(255,255,255,.28) 0 5px, transparent 5px 10px); }
@@ -173,6 +204,8 @@
   <div class="legend">
     <span class="item"><span class="swatch sw-solds"></span>Solds</span>
     <span class="item"><span class="swatch sw-model"></span>Models</span>
+    <span class="item"><span class="swatch sw-escrow"></span>Escrow</span>
+    <span class="item"><span class="swatch sw-precon"></span>Pre-Construction</span>
     <span class="item"><span class="swatch sw-lead"></span>Prospective</span>
   </div>
   <span class="spacer"></span>
@@ -285,11 +318,13 @@ function deriveBar(start, complete, closing, pct) {
 
 async function load() {
   const content = document.getElementById('content');
-  let projects = [], leads = [], leadErr = null;
+  let projects = [], leads = [], leadErr = null, leadsDropped = 0;
 
   try {
+    /* v2: `precon` and `escrow` arrived with migration 028 and were never added
+       here, so every pre-construction job was invisible on the Timeline. */
     const r = await withTimeout(
-      sb.from('projects').select('*').in('stage', ['solds', 'model']),
+      sb.from('projects').select('*').in('stage', ['precon', 'solds', 'escrow', 'model']),
       15000, 'projects query');
     if (r.error) throw r.error;
     projects = r.data || [];
@@ -306,7 +341,41 @@ async function load() {
     if (r.error) throw r.error;
     const rows = r.data || [];
     if (rows.length) leadCols = Object.keys(rows[0]);
-    leads = rows.filter(l => l[LEAD_JOB_FIELD] && l[LEAD_START_FIELD]);
+
+    /* v2 — a prospective start has to be genuinely prospective.
+       The old filter was job number + start date and nothing else, so:
+         · leads marked Closed - Lost and archived still drew a bar. On
+           2026-11-24 that was 33 Riverview Heights and 6209 Mapleton, both
+           dead, both sitting in the plan.
+         · a lead that had become a real project drew a SECOND bar from its
+           old lead start date — 840 Sylvan appeared twice, once as a model
+           starting in November and once as a prospect starting in August.
+       Both make the start count wrong, which is the number this page exists
+       to show. */
+    const liveJobs = new Set(projects.map(p => String(p.job_number||'').toUpperCase()).filter(Boolean));
+    /* Address is the reliable key across the two tables. Estimate numbers do
+       NOT line up with job numbers — ER26027 is not R26027 — so stripping the
+       E would merge different houses. But 1008 Bluffside Drive is 1008
+       Bluffside Drive in both, and that lead (ER26013) was drawing a second
+       bar alongside its own project (R26013). */
+    const normAddr = s => String(s||'').toLowerCase()
+      .replace(/\b(drive|dr|lane|ln|avenue|ave|court|ct|circle|cir|street|st|road|rd|place|pl)\b\.?/g,'')
+      .replace(/[^a-z0-9]/g,'');
+    const liveAddrs = new Set(projects.map(p => normAddr(p.address)).filter(a => a.length > 3));
+    const isDead = l => l.archived === true || /^closed/i.test(String(l.status||''));
+    const alreadyBuilding = l => {
+      const jn = String(l[LEAD_JOB_FIELD]||'').toUpperCase();
+      if (jn && liveJobs.has(jn)) return true;
+      const a = normAddr(l[LEAD_ADDR_FIELD]);
+      return a.length > 3 && liveAddrs.has(a);
+    };
+    /* A prospective start needs a DATE, not a job number. Requiring the job
+       number hid every early prospect that hasn't been numbered yet — which
+       on 2026-11-24 meant the April 2027 start, the first dig of the year,
+       was missing from a chart built to show exactly that. */
+    leads = rows.filter(l => l[LEAD_START_FIELD] && !isDead(l) && !alreadyBuilding(l));
+    leadsDropped = rows.filter(l => l[LEAD_START_FIELD]
+                          && (isDead(l) || alreadyBuilding(l))).length;
   } catch (e) { leadErr = e.message || String(e); }
 
   const groups = [
@@ -321,6 +390,20 @@ async function load() {
         job: p.job_number, addr: p.address, name: lastName(p[PROJ_NAME_FIELD]),
         bar: deriveBar(p.start_date, p.complete_date, p.closing_date,
               p.pct_complete != null ? Math.round(p.pct_complete * 100) : null)
+      })) },
+    { key: 'escrow', title: 'Escrow', dot: 'dot-escrow', cls: 'escrow',
+      items: projects.filter(p => p.stage === 'escrow').map(p => ({
+        job: p.job_number, addr: p.address, name: lastName(p[PROJ_NAME_FIELD]),
+        bar: deriveBar(p.start_date, p.complete_date, p.closing_date,
+              p.pct_complete != null ? Math.round(p.pct_complete * 100) : null)
+      })) },
+    /* Pre-construction: contracted or planned, ground not broken. Shown
+       separately from prospects because these are committed. */
+    { key: 'precon', title: 'Pre-Construction — Not Yet Started', dot: 'dot-precon', cls: 'precon',
+      items: projects.filter(p => p.stage === 'precon').map(p => ({
+        job: p.job_number, addr: p.address, name: lastName(p[PROJ_NAME_FIELD]),
+        precon: p.precon_type,
+        bar: deriveBar(p.start_date, p.complete_date, p.closing_date, null)
       })) },
     { key: 'lead', title: 'Prospective Starts', dot: 'dot-lead', cls: 'lead',
       items: leads.map(l => ({
@@ -369,7 +452,9 @@ async function load() {
       const estPart = b.estimated ? `<span class="est" style="width:${Math.min(0.5,(MONTHS_END_FROM_START-Math.max(0,monthsBetween(b.start, new Date())))/MONTHS_END_FROM_START)*100||34}%"></span>` : '';
       const pctTxt = b.pct != null
         ? `<span class="pct">${b.pct}%</span>`
-        : (g.cls==='lead' ? `<span class="pct">${it.prob ? it.prob+'%' : 'planned'}</span>` : '');
+        : g.cls === 'lead'   ? `<span class="pct">${it.prob ? it.prob+'%' : 'planned'}</span>`
+        : g.cls === 'precon' ? `<span class="pct">${esc(it.precon === 'sold' ? 'sold' : it.precon === 'spec' ? 'spec' : it.precon === 'design' ? 'design' : 'pre-con')}</span>`
+        : '';
       const closeMark = b.close
         ? `<span class="close-mark" data-d="${fmtDay(b.close)}" style="left:${xOf(b.close)}px" title="Closing ${fmtDay(b.close)}"></span>` : '';
       const tip = `${it.job||''} · ${fmtDay(b.start)} → ${fmtDay(b.end)}${b.estimated?' (est.)':''}`;
@@ -392,9 +477,42 @@ async function load() {
   const trackW = totalMonths * PX_PER_MONTH;
   const todayLeft = xOf(today);
 
+  /* Ground-breaks per month, every group counted together — the number the
+     spec meeting actually asks for. Committed work (building, escrow,
+     pre-construction) is separated from prospects so the band shows what is
+     locked in versus what still has to be sold. */
+  const startsByMonth = new Array(totalMonths).fill(null).map(() => ({ firm: 0, prospect: 0 }));
+  for (const g of groups) {
+    for (const it of g.items) {
+      const i = monthsBetween(min, startOfMonth(it.bar.start));
+      if (i < 0 || i >= totalMonths) continue;
+      if (g.key === 'lead') startsByMonth[i].prospect++;
+      else                  startsByMonth[i].firm++;
+    }
+  }
+  const startsBand = startsByMonth.map(c => {
+    const total = c.firm + c.prospect;
+    const cls = total ? ' has' + (total >= 3 ? ' heavy' : '') : '';
+    /* The big number is the total; this line only says what it's made of, so
+       it must not repeat the count. */
+    const label = !total ? '—'
+      : (c.prospect && c.firm) ? `${c.firm} firm · ${c.prospect}p`
+      : c.prospect ? 'prospective' : 'firm';
+    return `<div class="starts-cell${cls}" style="width:${PX_PER_MONTH}px"
+      title="${c.firm} firm start${c.firm===1?'':'s'}, ${c.prospect} prospective"><span class="n">${total || ''}</span>${label}</div>`;
+  }).join('');
+
+  const totFirm = startsByMonth.reduce((n,c) => n + c.firm, 0);
+  const totProspect = startsByMonth.reduce((n,c) => n + c.prospect, 0);
+
   content.innerHTML = `
     <div class="gantt" style="--label-w:240px">
       <div class="months">${mh}</div>
+      <div class="starts-lbl">Starts per month
+        <span style="color:var(--navy);font-weight:900">${totFirm} firm</span>
+        <span style="color:var(--muted)">+ ${totProspect} prospective</span>
+      </div>
+      <div class="starts-band">${startsBand}</div>
       <div class="rows" style="min-width:${trackW}px">
         <div class="gridlines">${grid}</div>
         <div class="today" style="left:calc(var(--label-w) + ${todayLeft}px)"></div>
@@ -402,10 +520,10 @@ async function load() {
       </div>
     </div>`;
 
-  document.getElementById('foot').innerHTML = footNote(leadErr, leads.length, leadCols);
+  document.getElementById('foot').innerHTML = footNote(leadErr, leads.length, leadCols, leadsDropped);
 }
 
-function footNote(leadErr, leadCount, leadCols) {
+function footNote(leadErr, leadCount, leadCols, leadsDropped) {
   const base = `Bars run from <b>start date</b> to <b>complete date</b>. When no complete date is set, the end is estimated at <b>start + ${MONTHS_END_FROM_START} months</b> (hatched). Diamonds mark closings.`;
   if (leadErr) return base + `<br>Prospective starts not loaded: <b>${esc(leadErr)}</b>. Edit the leads config block at the top of gantt.html.`;
   if (leadCount === 0 && leadCols && leadCols.length) {
@@ -413,7 +531,8 @@ function footNote(leadErr, leadCount, leadCols) {
     return base + `<br>No prospective starts matched. Your leads table columns are: <b>${esc(leadCols.join(', '))}</b>. `
       + `Set <b>LEAD_JOB_FIELD</b> / <b>LEAD_START_FIELD</b> in the config block to the right names.`;
   }
-  return base + ` Showing <b>${leadCount}</b> prospective start${leadCount===1?'':'s'}.`;
+  return base + ` Showing <b>${leadCount}</b> prospective start${leadCount===1?'':'s'}.`
+    + (leadsDropped ? ` <b>${leadsDropped}</b> lead${leadsDropped===1?'':'s'} with a start date ${leadsDropped===1?'was':'were'} left off — already building, lost, or archived.` : '');
 }
 
 document.getElementById('scaleToggle').addEventListener('click', e => {
