@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 · timeline-v3 -->
+<!-- build:shell-v1 · timeline-v4 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -432,21 +432,27 @@ async function load() {
               p.pct_complete != null ? Math.round(p.pct_complete * 100) : null)
       })) },
     /* Pre-construction: contracted or planned, ground not broken. Shown
-       separately from prospects because these are committed. */
+       separately from prospects because these are committed — except a
+       `design` job, which by definition has no contract yet. That is what
+       "prospective" means, so a design-stage job belongs with the prospects
+       rather than among the committed starts, and is listed there below. */
     { key: 'precon', title: 'Pre-Construction — Not Yet Started', dot: 'dot-precon', cls: 'precon',
-      items: projects.filter(p => p.stage === 'precon').map(p => ({
+      items: projects.filter(p => p.stage === 'precon' && p.precon_type !== 'design').map(p => ({
         job: p.job_number, addr: p.address, name: lastName(p[PROJ_NAME_FIELD]),
         precon: p.precon_type,
         bar: deriveBar(p.start_date, p.complete_date, p.closing_date, null)
       })) },
     { key: 'lead', title: 'Prospective Starts', dot: 'dot-lead', cls: 'lead',
-      items: leads.map(l => ({
+      items: projects.filter(p => p.stage === 'precon' && p.precon_type === 'design').map(p => ({
+        job: p.job_number, addr: p.address, name: lastName(p[PROJ_NAME_FIELD]), prob: null,
+        bar: deriveBar(p.start_date, p.complete_date, null, null)
+      })).concat(leads.map(l => ({
         job: l[LEAD_JOB_FIELD], addr: l[LEAD_ADDR_FIELD], name: l[LEAD_NAME_FIELD], prob: l.probability,
         /* A lead's completion_date is an estimated finish, not a closing date.
            Passing it as both put a "Closes 31 Aug" on every prospect and drew
            a closing diamond for a house nobody has sold yet. */
         bar: deriveBar(l[LEAD_START_FIELD], l.completion_date || null, null, null)
-      })) },
+      }))) },
   ].map(g => ({ ...g, items: g.items.filter(i => i.bar).sort((a,b)=> a.bar.start - b.bar.start) }))
    .filter(g => g.items.length);
 
