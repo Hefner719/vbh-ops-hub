@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build:shell-v1 · timeline-v4 -->
+<!-- build:shell-v1 · timeline-v5 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -38,6 +38,7 @@
 .sw-lead  { background: repeating-linear-gradient(135deg, var(--gold) 0 7px, var(--gold-soft) 7px 14px); }
 .sw-escrow { background: linear-gradient(90deg, #38bdf8 0%, #0369a1 100%); }
 .sw-precon { background: linear-gradient(90deg, #94a3b8 0%, #475569 100%); }
+.sw-ph { background: repeating-linear-gradient(135deg, rgba(251,146,60,.35) 0 6px, rgba(251,146,60,.1) 6px 12px); border:1px dashed #fb923c; }
 .spacer { flex: 1 1 auto; }
 .scale-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .scale-toggle button {
@@ -107,6 +108,7 @@
 .dot-lead   { background: var(--gold); }
 .dot-escrow { background: #0ea5e9; }
 .dot-precon { background: #64748b; }
+.dot-ph     { background: #fb923c; }
 
 /* ── v2 · monthly starts band ───────────────────────────────────────────
    The question this page is asked in a spec meeting is "how many do we
@@ -171,6 +173,12 @@
    muted enough not to be mistaken for work in the ground. */
 .bar.precon { background: linear-gradient(90deg, #94a3b8 0%, #475569 100%); height: 16px; }
 .bar.precon .pct { color: #fff; }
+/* Placeholder: outlined rather than filled — intent, not a commitment. */
+.bar.placeholder {
+  background: repeating-linear-gradient(135deg, rgba(251,146,60,.22) 0 6px, rgba(251,146,60,.07) 6px 12px);
+  border: 1px dashed #fb923c; height: 16px;
+}
+.bar.placeholder .pct { color: #9a3412; text-shadow: none; }
 /* Built, not yet closed — shown as a hold over the bar, not as work. */
 .bar .hold {
   position: absolute; top: 0; bottom: 0; border-radius: 0 5px 5px 0;
@@ -231,6 +239,7 @@
     <span class="item"><span class="swatch sw-escrow"></span>Escrow</span>
     <span class="item"><span class="swatch sw-precon"></span>Pre-Construction</span>
     <span class="item"><span class="swatch sw-lead"></span>Prospective</span>
+    <span class="item"><span class="swatch sw-ph"></span>Placeholder</span>
   </div>
   <span class="spacer"></span>
   <div class="scale-toggle" id="scaleToggle">
@@ -262,6 +271,11 @@ const LEAD_NAME_FIELD  = 'owner1_last';     // homeowner last name on a lead row
 const PROJ_NAME_FIELD  = 'buyer_realtor';   // projects store the homeowner in buyer_realtor; we derive the last name from it
 
 const MONTHS_END_FROM_START = 7;            // bar end = start + 7 months when no complete_date
+
+/* A placeholder is a start we intend to make but have no buyer for. Marked by
+   the lead's status, which is a real value in VBH.STATUSES so the Leads tab
+   filters and colours it like any other. */
+function isPlaceholder(l) { return /^placeholder$/i.test(String(l && l.status || '')); }
 /* ============================================================ */
 
 const SUPABASE_URL  = VBH.SUPABASE_URL;
@@ -442,17 +456,27 @@ async function load() {
         precon: p.precon_type,
         bar: deriveBar(p.start_date, p.complete_date, p.closing_date, null)
       })) },
-    { key: 'lead', title: 'Prospective Starts', dot: 'dot-lead', cls: 'lead',
+    /* Two kinds of "not sold yet", and they mean different things to a sales
+       meeting: a prospect is a client in play, a placeholder is a slot we
+       intend to build and still need a buyer for. Kept apart so the quota
+       question — how many starts are real people versus empty slots — can be
+       read off the chart. */
+    { key: 'lead', title: 'Prospective Starts — Clients', dot: 'dot-lead', cls: 'lead',
       items: projects.filter(p => p.stage === 'precon' && p.precon_type === 'design').map(p => ({
         job: p.job_number, addr: p.address, name: lastName(p[PROJ_NAME_FIELD]), prob: null,
         bar: deriveBar(p.start_date, p.complete_date, null, null)
-      })).concat(leads.map(l => ({
+      })).concat(leads.filter(l => !isPlaceholder(l)).map(l => ({
         job: l[LEAD_JOB_FIELD], addr: l[LEAD_ADDR_FIELD], name: l[LEAD_NAME_FIELD], prob: l.probability,
         /* A lead's completion_date is an estimated finish, not a closing date.
            Passing it as both put a "Closes 31 Aug" on every prospect and drew
            a closing diamond for a house nobody has sold yet. */
         bar: deriveBar(l[LEAD_START_FIELD], l.completion_date || null, null, null)
       }))) },
+    { key: 'placeholder', title: 'Placeholders — Need a Buyer', dot: 'dot-ph', cls: 'placeholder',
+      items: leads.filter(isPlaceholder).map(l => ({
+        job: l[LEAD_JOB_FIELD], addr: l[LEAD_ADDR_FIELD], name: l[LEAD_NAME_FIELD], prob: l.probability,
+        bar: deriveBar(l[LEAD_START_FIELD], l.completion_date || null, null, null)
+      })) },
   ].map(g => ({ ...g, items: g.items.filter(i => i.bar).sort((a,b)=> a.bar.start - b.bar.start) }))
    .filter(g => g.items.length);
 
@@ -503,7 +527,8 @@ async function load() {
         : '';
       const pctTxt = b.pct != null
         ? `<span class="pct">${b.pct}%</span>`
-        : g.cls === 'lead'   ? `<span class="pct">${it.prob ? it.prob+'%' : 'planned'}</span>`
+        : g.cls === 'lead'        ? `<span class="pct">${it.prob ? it.prob+'%' : 'planned'}</span>`
+        : g.cls === 'placeholder' ? `<span class="pct">needs a buyer</span>`
         : g.cls === 'precon' ? `<span class="pct">${esc(it.precon === 'sold' ? 'sold' : it.precon === 'spec' ? 'spec' : it.precon === 'design' ? 'design' : 'pre-con')}</span>`
         : '';
       const closeMark = b.close
@@ -534,29 +559,38 @@ async function load() {
      spec meeting actually asks for. Committed work (building, escrow,
      pre-construction) is separated from prospects so the band shows what is
      locked in versus what still has to be sold. */
-  const startsByMonth = new Array(totalMonths).fill(null).map(() => ({ firm: 0, prospect: 0 }));
+  const startsByMonth = new Array(totalMonths).fill(null).map(() => ({ firm: 0, prospect: 0, ph: 0 }));
   for (const g of groups) {
     for (const it of g.items) {
       const i = monthsBetween(min, startOfMonth(it.bar.start));
       if (i < 0 || i >= totalMonths) continue;
-      if (g.key === 'lead') startsByMonth[i].prospect++;
-      else                  startsByMonth[i].firm++;
+      if      (g.key === 'placeholder') startsByMonth[i].ph++;
+      else if (g.key === 'lead')        startsByMonth[i].prospect++;
+      else                              startsByMonth[i].firm++;
     }
   }
   const startsBand = startsByMonth.map(c => {
-    const total = c.firm + c.prospect;
+    const total = c.firm + c.prospect + c.ph;
     const cls = total ? ' has' + (total >= 3 ? ' heavy' : '') : '';
-    /* The big number is the total; this line only says what it's made of, so
-       it must not repeat the count. */
+    /* The big number is the total; this line only says what it is made of, so
+       it must not repeat the count. Firm is the one worth naming outright —
+       the rest still has to be sold. */
+    const parts = [];
+    if (c.firm)     parts.push(`${c.firm} firm`);
+    if (c.prospect) parts.push(`${c.prospect}p`);
+    if (c.ph)       parts.push(`${c.ph}h`);
     const label = !total ? '—'
-      : (c.prospect && c.firm) ? `${c.firm} firm · ${c.prospect}p`
-      : c.prospect ? 'prospective' : 'firm';
+      : (parts.length === 1 && c.firm)     ? 'firm'
+      : (parts.length === 1 && c.prospect) ? 'prospective'
+      : (parts.length === 1 && c.ph)       ? 'placeholder'
+      : parts.join(' · ');
     return `<div class="starts-cell${cls}" style="width:${PX_PER_MONTH}px"
-      title="${c.firm} firm start${c.firm===1?'':'s'}, ${c.prospect} prospective"><span class="n">${total || ''}</span>${label}</div>`;
+      title="${c.firm} firm, ${c.prospect} prospective, ${c.ph} placeholder"><span class="n">${total || ''}</span>${label}</div>`;
   }).join('');
 
   const totFirm = startsByMonth.reduce((n,c) => n + c.firm, 0);
   const totProspect = startsByMonth.reduce((n,c) => n + c.prospect, 0);
+  const totPh = startsByMonth.reduce((n,c) => n + c.ph, 0);
 
   content.innerHTML = `
     <div class="gantt" style="--label-w:240px">
@@ -564,6 +598,7 @@ async function load() {
       <div class="starts-lbl">Starts per month
         <span style="color:var(--navy);font-weight:900">${totFirm} firm</span>
         <span style="color:var(--muted)">+ ${totProspect} prospective</span>
+        <span style="color:#9a3412">+ ${totPh} placeholder</span>
       </div>
       <div class="starts-band">${startsBand}</div>
       <div class="rows" style="min-width:${trackW}px">

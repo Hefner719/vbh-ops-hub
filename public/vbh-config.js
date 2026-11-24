@@ -120,7 +120,11 @@ const VBH = {
     'Willow Ridge',
     'Other / Out of VBC Development'
   ],
-  STATUSES: ['New Inquiry','Active Lead','Proposal Sent','Contract Signed','Build Started','Closed - Won','Closed - Lost','On Hold'],
+  /* 'Placeholder' (2026-11-24) is a slot we need to fill to hit a start quota —
+     a real build we intend to do, with no buyer behind it yet. Appended, not
+     inserted: leads.html colours a status by its INDEX here, so reordering
+     this list repaints every existing lead. */
+  STATUSES: ['New Inquiry','Active Lead','Proposal Sent','Contract Signed','Build Started','Closed - Won','Closed - Lost','On Hold','Placeholder'],
   LEAD_SOURCES: ['Website','Referral','Parade of Homes','Repeat Customer','Internal','Brandt','Social Media','Sign','Other'],
   SALES_REPS: ['Brandt Williams','Jordan Hefner','Outside Realtor','Quentin Robertson','Sydney Van Well'],
   FINANCING: ['VB Homes Financed','Client Financed Build','Cash Build'],
