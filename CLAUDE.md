@@ -50,7 +50,15 @@ Anon policies are still in place, so Phase B (migration 007) has not been run. T
 - `projects.html` — project tracker (`projects`, build `projects-v4`). The Active view groups rows under Solds / Escrow / Spec Homes / Pre-Construction. PM column with a dropdown from `VBH.PROJECT_MANAGERS` (saves on pick). Re-reads `projects` every 30s and on tab focus, unless something is being edited.
 - `leads.html` — pipeline with probability pills and archive (`leads`)
 - `weeklyupdate.html` — exec briefing for ownership (no hyphen in the filename); recipients/sender come from `VBH.EXEC_UPDATE`
-- `gantt.html`, `equipment.html` (`assets`), `raci.html`, `standards.html`
+- `gantt.html` — Build Timeline (build `timeline-v4`), the chart ownership and sales are shown. Read-only: it owns no data, it draws `projects` and `leads` live and re-reads both every 60s and on tab focus (paused while hidden). Four rules in it are not obvious and are easy to undo by accident:
+  - **A lead that has become a project is not a prospective start.** It is matched out on job number *or* normalised address. The address half matters: estimate numbers do not line up with job numbers, so `ER26013` never matches `R26013`, but `1008 Bluffside Drive` matches itself. Without it the same house draws two bars — one as a build, one as a prospect.
+  - **Dead leads are excluded** (`archived`, or a status starting "Closed"). The filter was once job number + start date alone, and lost deals sat in the plan for months.
+  - **A prospective start needs a date, not a job number.** Requiring the number hid every prospect not yet numbered.
+  - **A `precon` job with `precon_type = 'design'` lists under Prospective Starts**, not Pre-Construction — design means no contract, which is what prospective means. If a job genuinely isn't ours, though, prefer making it a lead over leaning on this: that is what 6004 N. Mapleton became on 2026-11-24, because the Projects tab still read it as pre-construction and the workaround showed.
+  - Bars run start → `complete_date`, or start + 7 months when that is blank (hatched tail). A `closing_date` later than completion extends the bar to the closing and draws the gap as a **hold** — built, waiting to close, which is how a Parade home or a delayed closing reads. The chart's date range is computed from bar ends, so a closing only stays on-screen because of that extension.
+  - A lead's `completion_date` is an estimated finish, **not** a closing: don't pass it as both or every prospect grows a closing diamond.
+  - A starts-per-month band across the top counts ground-breaks, firm (projects) separated from prospective (leads + design).
+- `equipment.html` (`assets`), `raci.html`, `standards.html`
 - `intake.html` — client intake form (writes to `leads`)
 - `archive/` (repo root, not deployed) — retired one-time migration tools, and `work-orders-retired-2026-10-05/` holding the 34 exported work-order records.
 
